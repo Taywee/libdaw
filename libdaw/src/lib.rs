@@ -11,12 +11,8 @@ pub trait Node: Debug {
     fn update(&mut self, sample_rate: u64, inputs: &[SmallVec<[f64; 2]>]);
 }
 
-pub trait Output: Node {
-    /// Add a node as upstream.  Client applications should use `connect` instead.
-    fn add_upstream(&mut self, upstream: Weak<RefCell<dyn Input>>);
-}
+pub trait Output: Node {}
 pub trait Input: Node {
-    fn add_downstream(&mut self, downstream: Weak<RefCell<dyn Output>>);
     fn sample(&self) -> SmallVec<[f64; 2]>;
 }
 
@@ -27,7 +23,7 @@ enum GraphSlot {
 }
 
 impl GraphSlot {
-    fn as_thin_pointer(&self) -> *const () {
+    fn as_ptr(&self) -> *const () {
         match self {
             GraphSlot::Input(node) => node.as_ptr() as *const (),
             GraphSlot::Output(node) => node.as_ptr() as *const (),
@@ -40,21 +36,46 @@ impl Hash for GraphSlot {
     where
         H: Hasher,
     {
-        self.as_thin_pointer().hash(state);
+        self.as_ptr().hash(state);
     }
 }
 
 impl PartialEq for GraphSlot {
     fn eq(&self, other: &Self) -> bool {
-        self.as_thin_pointer() == other.as_thin_pointer()
+        self.as_ptr() == other.as_ptr()
     }
 }
 
 impl Eq for GraphSlot {}
 
+#[derive(Debug)]
+struct Edge {
+    source: Weak<RefCell<dyn Input>>,
+    destination: Weak<RefCell<dyn Output>>,
+}
+
+impl Hash for Edge {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        (self.source.as_ptr(), self.destination.as_ptr()).hash(state);
+    }
+}
+
+impl PartialEq for Edge {
+    fn eq(&self, other: &Self) -> bool {
+        (self.source.as_ptr(), self.destination.as_ptr())
+            == (other.source.as_ptr(), other.destination.as_ptr())
+    }
+}
+
+impl Eq for Edge {}
+
 #[derive(Default, Debug)]
 pub struct Graph {
     nodes: HashSet<GraphSlot>,
+    edges: HashSet<Edge>,
 }
 
 impl Graph {
@@ -63,26 +84,19 @@ impl Graph {
         source: Rc<RefCell<dyn Input>>,
         destination: Rc<RefCell<dyn Output>>,
     ) {
-        source
-            .borrow_mut()
-            .add_downstream(Rc::downgrade(&destination));
-        destination
-            .borrow_mut()
-            .add_upstream(Rc::downgrade(&source));
+        self.edges.insert(Edge {
+            source: Rc::downgrade(&source),
+            destination: Rc::downgrade(&destination),
+        });
         self.nodes.insert(GraphSlot::Input(source));
         self.nodes.insert(GraphSlot::Output(destination));
+        todo!()
     }
 }
 
 #[derive(Default, Debug)]
-struct Sockets {
-    upstream: Vec<Weak<RefCell<dyn Input>>>,
-    downstream: Vec<Weak<RefCell<dyn Output>>>,
-}
-
-#[derive(Default, Debug)]
 pub struct SquareOscillator {
-    sockets: Sockets,
     frequency: f64,
-    sample: u64,
+    sample_number: u64,
+    sample: f64,
 }
