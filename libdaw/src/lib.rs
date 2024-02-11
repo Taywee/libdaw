@@ -11,8 +11,7 @@ use std::{
 pub trait Node: Debug {
     fn reset(&mut self);
     fn set_sample_rate(&mut self, sample_rate: f64);
-    fn update(&mut self, inputs: &[&[f64]]);
-    fn sample(&self) -> &[&[f64]];
+    fn update(&mut self, inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>);
 }
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
@@ -79,42 +78,66 @@ impl Ord for WeakNode {
     }
 }
 
+#[derive(Debug)]
+struct Input {
+    output: usize,
+    source: StrongNode,
+}
+
 #[derive(Default, Debug)]
 pub struct Graph {
-    nodes: HashSet<StrongNode>,
     // Connect a node to its inputs.
-    inputs: HashMap<StrongNode, Vec<StrongNode>>,
-    // Connect a node to its outputs
-    outputs: HashMap<StrongNode, Vec<StrongNode>>,
+    inputs: HashMap<StrongNode, Vec<Input>>,
 }
 
 impl Graph {
-    pub fn connect(&mut self, source: Rc<RefCell<dyn Node>>, destination: Rc<RefCell<dyn Node>>) {
-        self.edges.insert(Edge {
-            source: WeakNode(Rc::downgrade(&source)),
-            destination: WeakNode(Rc::downgrade(&destination)),
-        });
-        self.nodes.insert(StrongNode(source));
-        self.nodes.insert(StrongNode(destination));
+    pub fn connect(
+        &mut self,
+        source: Rc<RefCell<dyn Node>>,
+        output: usize,
+        destination: Rc<RefCell<dyn Node>>,
+    ) {
+        self.inputs
+            .entry(StrongNode(destination))
+            .or_default()
+            .push(Input {
+                source: StrongNode(source),
+                output,
+            });
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SquareOscillator {
     frequency: f64,
     samples_per_switch: f64,
     samples_since_switch: f64,
+    sample_rate: f64,
     sample: f64,
+}
+
+impl SquareOscillator {
+    fn calculate_samples_per_switch(&mut self) {
+        let switches_per_second = self.frequency * 2.0;
+        self.samples_per_switch = self.sample_rate / switches_per_second;
+    }
+    pub fn set_frequency(&mut self, frequency: f64) {
+        self.frequency = frequency;
+        self.calculate_samples_per_switch();
+    }
 }
 
 impl Default for SquareOscillator {
     fn default() -> Self {
-        SquareOscillator {
+        let mut node = SquareOscillator {
             frequency: 256.0,
             samples_since_switch: 0.0,
             sample: 1.0,
             samples_per_switch: 100000.0,
-        }
+            sample_rate: 44100.0,
+        };
+        node.calculate_samples_per_switch();
+        node
     }
 }
 
@@ -123,23 +146,75 @@ impl Node for SquareOscillator {
         self.frequency = 256.0;
         self.samples_since_switch = 0.0;
         self.sample = 1.0;
+        self.calculate_samples_per_switch();
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
-        let switches_per_second = self.frequency * 2.0;
-        let samples_per_second: f64 = sample_rate.into();
-        self.samples_per_switch = samples_per_second / switches_per_second;
+        self.sample_rate = sample_rate;
+        self.calculate_samples_per_switch();
     }
 
-    fn update(&mut self, _inputs: &[SmallVec<[f64; 2]>]) {
+    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>) {
+        let sample = self.sample;
         while self.samples_since_switch >= self.samples_per_switch {
             self.samples_since_switch -= self.samples_per_switch;
             self.sample *= -1.0;
         }
         self.samples_since_switch += 1.0;
+        outputs.push(smallvec![sample]);
+    }
+}
+
+#[derive(Debug)]
+pub struct SawtoothOscillator {
+    frequency: f64,
+    sample_rate: f64,
+    sample: f64,
+    delta: f64,
+}
+
+impl SawtoothOscillator {
+    fn calculate_delta(&mut self) {
+        self.delta = self.frequency * 2.0 / self.sample_rate;
+    }
+    pub fn set_frequency(&mut self, frequency: f64) {
+        self.frequency = frequency;
+        self.calculate_delta();
+    }
+}
+
+impl Default for SawtoothOscillator {
+    fn default() -> Self {
+        let mut node = SawtoothOscillator {
+            frequency: 256.0,
+            sample: -1.0,
+            sample_rate: 44100.0,
+            delta: 0.01,
+        };
+        node.calculate_delta();
+        node
+    }
+}
+
+impl Node for SawtoothOscillator {
+    fn reset(&mut self) {
+        self.frequency = 256.0;
+        self.sample = 1.0;
+        self.calculate_delta();
     }
 
-    fn sample(&self) -> SmallVec<[f64; 2]> {
-        smallvec![self.sample]
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.calculate_delta();
+    }
+
+    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>) {
+        let sample = self.sample;
+        self.sample += self.delta;
+        while self.sample > 1.0 {
+            self.sample -= 1.0;
+        }
+
+        outputs.push(smallvec![sample]);
     }
 }
