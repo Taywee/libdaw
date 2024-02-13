@@ -1,9 +1,9 @@
 use libdaw::{Node, SquareOscillator};
 use mlua::prelude::*;
-use rodio::source::{SineWave, Source};
-use rodio::{Decoder, OutputStream, Sink};
-use std::fs::File;
-use std::io::BufReader;
+use rodio::source::{Source};
+use rodio::{OutputStream, Sink};
+
+
 use std::time::Duration;
 
 #[derive(Debug, Default)]
@@ -31,14 +31,13 @@ impl Iterator for LibDawSquare {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut output = Vec::new();
-        self.0.update(&[&[]], &mut output);
-        Some(*output.first().unwrap().first().unwrap() as f32)
+        let output = self.0.process(Default::default());
+        Some(*output.0.first().unwrap().0.first().unwrap() as f32)
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let lua = Lua::new();
+    let _lua = Lua::new();
     let (_stream, stream_handle) = OutputStream::try_default()?;
     let sink = Sink::try_new(&stream_handle)?;
     sink.append(LibDawSquare::default());
