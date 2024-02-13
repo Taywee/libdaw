@@ -1,4 +1,3 @@
-use smallvec::{smallvec, SmallVec};
 use std::{
     cell::RefCell,
     cmp::Ordering,
@@ -11,7 +10,7 @@ use std::{
 pub trait Node: Debug {
     fn reset(&mut self);
     fn set_sample_rate(&mut self, sample_rate: f64);
-    fn update(&mut self, inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>);
+    fn update(&mut self, inputs: &[&[f64]], outputs: &mut Vec<Vec<f64>>);
 }
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
@@ -154,14 +153,14 @@ impl Node for SquareOscillator {
         self.calculate_samples_per_switch();
     }
 
-    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>) {
+    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut Vec<Vec<f64>>) {
         let sample = self.sample;
         while self.samples_since_switch >= self.samples_per_switch {
             self.samples_since_switch -= self.samples_per_switch;
             self.sample *= -1.0;
         }
         self.samples_since_switch += 1.0;
-        outputs.push(smallvec![sample]);
+        outputs.push(vec![sample]);
     }
 }
 
@@ -208,13 +207,13 @@ impl Node for SawtoothOscillator {
         self.calculate_delta();
     }
 
-    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut SmallVec<[SmallVec<[f64; 2]>; 4]>) {
+    fn update(&mut self, _inputs: &[&[f64]], outputs: &mut Vec<Vec<f64>>) {
         let sample = self.sample;
         self.sample += self.delta;
         while self.sample > 1.0 {
             self.sample -= 1.0;
         }
 
-        outputs.push(smallvec![sample]);
+        outputs.push(vec![sample]);
     }
 }

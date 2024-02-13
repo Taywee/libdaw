@@ -10,6 +10,14 @@ categories = [
   'multimedia::audio',
 ]
 
+[dependencies]
+rodio = "0.17.3"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[dependencies.mlua]
+version = "0.9.5"
+features = ["lua54", "vendored"]
+
+[dependencies.libdaw]
+path = '../libdaw'
