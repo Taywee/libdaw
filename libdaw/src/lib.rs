@@ -7,10 +7,21 @@ use std::{
     rc::{Rc, Weak},
 };
 
-pub trait Node: Debug {
-    fn reset(&mut self);
-    fn set_sample_rate(&mut self, sample_rate: f64);
-    fn update(&mut self, inputs: &[&[f64]], outputs: &mut Vec<Vec<f64>>);
+// TODO: Apply these changes to existing nodes
+
+/// An audio node trait, allowing a node to be set, updated from inputs, and to
+/// generate samples.
+pub trait Node: Debug + Iterator<Item = f64> {
+    fn set_sample_rate(&mut self, sample_rate: u32);
+    fn update(
+        &mut self,
+        input_channels: &mut dyn Iterator<Item = u16>,
+        inputs: &mut dyn Iterator<Item = f64>,
+    );
+
+    fn channels(&self) -> u16 {
+        1
+    }
 }
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
