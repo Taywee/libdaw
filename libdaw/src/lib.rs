@@ -1,41 +1,18 @@
-use smallvec::{smallvec, SmallVec};
+pub mod streams;
+
+use smallvec::smallvec;
 use std::{
     cell::RefCell,
     cmp::Ordering,
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::{Hash, Hasher},
-    ops::AddAssign,
+    ops::Mul,
     ptr::addr_eq,
-    rc::{Rc, Weak},
+    rc::Rc,
+    sync::{Arc, Mutex, Weak},
 };
-
-#[derive(Debug, Default, Clone)]
-pub struct Channels(pub SmallVec<[f64; 2]>);
-
-impl AddAssign<&Channels> for Channels {
-    fn add_assign(&mut self, rhs: &Channels) {
-        if self.0.len() < rhs.0.len() {
-            self.0.resize(rhs.0.len(), 0.0);
-        }
-        for (l, &r) in self.0.iter_mut().zip(&rhs.0) {
-            *l += r;
-        }
-    }
-}
-impl AddAssign for Channels {
-    fn add_assign(&mut self, rhs: Self) {
-        if self.0.len() < rhs.0.len() {
-            self.0.resize(rhs.0.len(), 0.0);
-        }
-        for (l, r) in self.0.iter_mut().zip(rhs.0) {
-            *l += r;
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Streams(pub SmallVec<[Channels; 1]>);
+use streams::{Channels, Streams};
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed.
@@ -46,26 +23,20 @@ pub trait Node: Debug {
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
 #[derive(Debug, Clone)]
-struct StrongNode(Rc<RefCell<dyn Node>>);
-
-impl StrongNode {
-    pub fn downgrade(this: &Self) -> WeakNode {
-        WeakNode(Rc::downgrade(&this.0))
-    }
-}
+struct StrongNode(Arc<Mutex<dyn Node + Send>>);
 
 impl Hash for StrongNode {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
     {
-        Rc::as_ptr(&self.0).hash(state);
+        Arc::as_ptr(&self.0).hash(state);
     }
 }
 
 impl PartialEq for StrongNode {
     fn eq(&self, other: &Self) -> bool {
-        addr_eq(Rc::as_ptr(&self.0), Rc::as_ptr(&other.0))
+        addr_eq(Arc::as_ptr(&self.0), Arc::as_ptr(&other.0))
     }
 }
 
@@ -73,24 +44,18 @@ impl Eq for StrongNode {}
 
 impl PartialOrd for StrongNode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        (Rc::as_ptr(&self.0) as *const ()).partial_cmp(&(Rc::as_ptr(&other.0) as *const ()))
+        (Arc::as_ptr(&self.0) as *const ()).partial_cmp(&(Arc::as_ptr(&other.0) as *const ()))
     }
 }
 
 impl Ord for StrongNode {
     fn cmp(&self, other: &Self) -> Ordering {
-        (Rc::as_ptr(&self.0) as *const ()).cmp(&(Rc::as_ptr(&other.0) as *const ()))
+        (Arc::as_ptr(&self.0) as *const ()).cmp(&(Arc::as_ptr(&other.0) as *const ()))
     }
 }
 
 #[derive(Debug, Clone)]
-struct WeakNode(Weak<RefCell<dyn Node>>);
-
-impl WeakNode {
-    pub fn upgrade(&self) -> Option<StrongNode> {
-        self.0.upgrade().map(StrongNode)
-    }
-}
+struct WeakNode(Weak<Mutex<dyn Node + Send>>);
 
 impl Hash for WeakNode {
     fn hash<H>(&self, state: &mut H)
@@ -142,9 +107,9 @@ pub struct Graph {
 impl Graph {
     pub fn connect(
         &mut self,
-        source: Rc<RefCell<dyn Node>>,
+        source: Arc<Mutex<dyn Node + Send>>,
         output: usize,
-        destination: Rc<RefCell<dyn Node>>,
+        destination: Arc<Mutex<dyn Node + Send>>,
     ) {
         self.input_values
             .entry(StrongNode(source.clone()))
@@ -157,7 +122,7 @@ impl Graph {
                 output,
             });
     }
-    pub fn sink(&mut self, source: Rc<RefCell<dyn Node>>, output: usize) {
+    pub fn sink(&mut self, source: Arc<Mutex<dyn Node + Send>>, output: usize) {
         self.input_values
             .entry(StrongNode(source.clone()))
             .or_default();
@@ -211,7 +176,10 @@ impl Graph {
 impl Node for Graph {
     fn set_sample_rate(&mut self, sample_rate: f64) {
         for node in self.iter_nodes() {
-            node.0.borrow_mut().set_sample_rate(sample_rate);
+            node.0
+                .lock()
+                .expect("Could not lock mutex")
+                .set_sample_rate(sample_rate);
         }
     }
 
@@ -232,10 +200,14 @@ impl Node for Graph {
                     .unwrap_or_default();
                 input_streams.0.push(channels);
             }
-            let output = node.0.borrow_mut().process(input_streams);
+            let output = node
+                .0
+                .lock()
+                .expect("Could not lock mutex")
+                .process(input_streams);
             self.input_values.insert(node, output);
         }
-        let mut output = Channels::default();
+        let mut output = streams::Channels::default();
         for sink in &self.sinks {
             let value_streams = self.input_values.get(&sink.source);
             let channels = value_streams
@@ -252,7 +224,13 @@ impl Node for Graph {
 pub struct ConstantValue(f64);
 
 impl ConstantValue {
-    fn set_value(&mut self, value: f64) {
+    pub fn new(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl ConstantValue {
+    pub fn set_value(&mut self, value: f64) {
         self.0 = value;
     }
 }
@@ -361,5 +339,20 @@ impl Node for SawtoothOscillator {
         }
 
         output
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Multiply;
+
+impl Node for Multiply {
+    fn set_sample_rate(&mut self, _: f64) {}
+
+    fn process(&mut self, input: Streams) -> Streams {
+        Streams(smallvec![input
+            .0
+            .into_iter()
+            .reduce(Channels::mul)
+            .unwrap_or_default()])
     }
 }
