@@ -1,20 +1,36 @@
 pub mod error;
 
 use error::Error;
-use libdaw::streams::Channels;
+
 //use mlua::prelude::*;
-use lua::{FromLua, Lua, UserData};
+use lua::{AnyUserDataExt as _, FromLua, Lua, UserData};
 use mlua as lua;
 use rodio::source::Source;
-use rodio::{OutputStream, Sink};
-use smallvec::SmallVec;
+
 use std::cell::Ref;
-use std::fmt;
-use std::rc::Rc;
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[derive(Debug)]
+fn get_node<'lua>(value: lua::Value<'lua>) -> lua::Result<Node> {
+    match value {
+        lua::Value::Table(table) => {
+            let node_func: lua::Function = table.get("node")?;
+            node_func.call(table)
+        }
+        lua::Value::UserData(ud) => {
+            let node_func: lua::Function = ud.get("node")?;
+            node_func.call(ud)
+        }
+        _ => Err(lua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Node",
+            message: Some("A node function must be receieved from a table or userdata".into()),
+        }),
+    }
+}
+
+#[derive(Debug, Clone)]
 struct Node(Arc<Mutex<dyn libdaw::Node + Send>>);
 
 impl<T> From<Arc<Mutex<T>>> for Node
@@ -39,10 +55,14 @@ impl UserData for Node {
             Ok(())
         });
     }
+    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+        // node:node() clones itself for convenience.
+        methods.add_method("node", |_, this, ()| Ok(this.clone()));
+    }
 }
 
 impl<'lua> FromLua<'lua> for Node {
-    fn from_lua(value: lua::Value<'lua>, lua: &'lua Lua) -> lua::Result<Self> {
+    fn from_lua(value: lua::Value<'lua>, _lua: &'lua Lua) -> lua::Result<Self> {
         let type_name = value.type_name();
         let lua::Value::UserData(ud) = value else {
             return Err(lua::Error::FromLuaConversionError {
@@ -63,7 +83,7 @@ impl<'lua> FromLua<'lua> for Node {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct SquareOscillator(Arc<Mutex<libdaw::SquareOscillator>>);
 
 impl UserData for SquareOscillator {
@@ -82,16 +102,16 @@ impl UserData for SquareOscillator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Track {
-    lua: Arc<Mutex<Lua>>,
+    _lua: Arc<Mutex<Lua>>,
     node: Node,
     sample: smallvec::IntoIter<[f64; 2]>,
 }
 
 impl Track {
     pub fn new() -> Result<Self, Error> {
-        let mut lua = Lua::new();
+        let lua = Lua::new();
         lua.globals().set(
             "SquareOscillator",
             lua.create_function(|_, ()| Ok(SquareOscillator::default()))?,
@@ -101,10 +121,10 @@ impl Track {
             r#"
             local oscillator = SquareOscillator()
             print(oscillator)
-            return oscillator:node()
+            return oscillator
         "#,
         );
-        let node: Node = chunk.call(())?;
+        let node: Node = get_node(chunk.call(())?)?;
         let sample = node
             .0
             .lock()
@@ -117,7 +137,7 @@ impl Track {
             .0
             .into_iter();
         Ok(Track {
-            lua: Arc::new(Mutex::new(lua)),
+            _lua: Arc::new(Mutex::new(lua)),
             sample,
             node,
         })

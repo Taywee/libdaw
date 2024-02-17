@@ -2,14 +2,12 @@ pub mod streams;
 
 use smallvec::smallvec;
 use std::{
-    cell::RefCell,
     cmp::Ordering,
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::{Hash, Hasher},
     ops::Mul,
     ptr::addr_eq,
-    rc::Rc,
     sync::{Arc, Mutex, Weak},
 };
 use streams::{Channels, Streams};
