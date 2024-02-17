@@ -18,7 +18,7 @@ smallvec = "1.13.1"
 
 [dependencies.mlua]
 version = "0.9.5"
-features = ["lua54", "vendored"]
+features = ["lua54", "vendored", "send"]
 
 [dependencies.libdaw]
 path = '../libdaw'

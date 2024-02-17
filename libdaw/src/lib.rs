@@ -17,7 +17,7 @@ use streams::{Channels, Streams};
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed.
 pub trait Node: Debug {
-    fn set_sample_rate(&mut self, sample_rate: f64);
+    fn set_sample_rate(&mut self, sample_rate: u32);
     fn process(&mut self, inputs: Streams) -> Streams;
 }
 
@@ -102,6 +102,8 @@ pub struct Graph {
     /// Sinks that go directly to the outgoing sound.
     /// All outputs are added together channel-wise.
     sinks: Vec<Input>,
+
+    sample_rate: u32,
 }
 
 impl Graph {
@@ -131,6 +133,10 @@ impl Graph {
             source: StrongNode(source),
             output,
         });
+    }
+
+    pub fn get_sample_rate(&self) -> u32 {
+        self.sample_rate
     }
 
     fn iter_nodes(&self) -> impl Iterator<Item = &StrongNode> {
@@ -174,7 +180,8 @@ impl Graph {
 }
 
 impl Node for Graph {
-    fn set_sample_rate(&mut self, sample_rate: f64) {
+    fn set_sample_rate(&mut self, sample_rate: u32) {
+        self.sample_rate = sample_rate;
         for node in self.iter_nodes() {
             node.0
                 .lock()
@@ -236,7 +243,7 @@ impl ConstantValue {
 }
 
 impl Node for ConstantValue {
-    fn set_sample_rate(&mut self, _: f64) {}
+    fn set_sample_rate(&mut self, _: u32) {}
 
     fn process(&mut self, _inputs: Streams) -> Streams {
         Streams(smallvec![Channels(smallvec![self.0])])
@@ -261,6 +268,9 @@ impl SquareOscillator {
         self.frequency = frequency;
         self.calculate_samples_per_switch();
     }
+    pub fn get_frequency(&self) -> f64 {
+        self.frequency
+    }
 }
 
 impl Default for SquareOscillator {
@@ -270,7 +280,7 @@ impl Default for SquareOscillator {
             samples_since_switch: 0.0,
             sample: 1.0,
             samples_per_switch: 100000.0,
-            sample_rate: 44100.0,
+            sample_rate: 48000.0,
         };
         node.calculate_samples_per_switch();
         node
@@ -278,8 +288,8 @@ impl Default for SquareOscillator {
 }
 
 impl Node for SquareOscillator {
-    fn set_sample_rate(&mut self, sample_rate: f64) {
-        self.sample_rate = sample_rate;
+    fn set_sample_rate(&mut self, sample_rate: u32) {
+        self.sample_rate = sample_rate.into();
         self.calculate_samples_per_switch();
     }
 
@@ -317,7 +327,7 @@ impl Default for SawtoothOscillator {
         let mut node = SawtoothOscillator {
             frequency: 256.0,
             sample: -1.0,
-            sample_rate: 44100.0,
+            sample_rate: 48000.0,
             delta: 0.01,
         };
         node.calculate_delta();
@@ -326,8 +336,8 @@ impl Default for SawtoothOscillator {
 }
 
 impl Node for SawtoothOscillator {
-    fn set_sample_rate(&mut self, sample_rate: f64) {
-        self.sample_rate = sample_rate;
+    fn set_sample_rate(&mut self, sample_rate: u32) {
+        self.sample_rate = sample_rate.into();
         self.calculate_delta();
     }
 
@@ -346,7 +356,7 @@ impl Node for SawtoothOscillator {
 pub struct Multiply;
 
 impl Node for Multiply {
-    fn set_sample_rate(&mut self, _: f64) {}
+    fn set_sample_rate(&mut self, _: u32) {}
 
     fn process(&mut self, input: Streams) -> Streams {
         Streams(smallvec![input
