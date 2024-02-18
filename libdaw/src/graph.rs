@@ -1,116 +1,114 @@
 use super::Node;
 use crate::streams::{Channels, Streams};
+use crate::Add;
 use smallvec::smallvec;
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::ptr::addr_eq;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
 #[derive(Debug, Clone)]
-struct StrongNode(Arc<Mutex<dyn Node + Send>>);
+struct Slot(Rc<RefCell<dyn Node>>);
 
-impl Hash for StrongNode {
+impl Hash for Slot {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
     {
-        Arc::as_ptr(&self.0).hash(state);
+        Rc::as_ptr(&self.0).hash(state);
     }
 }
 
-impl PartialEq for StrongNode {
+impl PartialEq for Slot {
     fn eq(&self, other: &Self) -> bool {
-        addr_eq(Arc::as_ptr(&self.0), Arc::as_ptr(&other.0))
+        addr_eq(Rc::as_ptr(&self.0), Rc::as_ptr(&other.0))
     }
 }
 
-impl Eq for StrongNode {}
+impl Eq for Slot {}
 
-impl PartialOrd for StrongNode {
+impl PartialOrd for Slot {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        (Arc::as_ptr(&self.0) as *const ()).partial_cmp(&(Arc::as_ptr(&other.0) as *const ()))
+        (Rc::as_ptr(&self.0) as *const ()).partial_cmp(&(Rc::as_ptr(&other.0) as *const ()))
     }
 }
 
-impl Ord for StrongNode {
+impl Ord for Slot {
     fn cmp(&self, other: &Self) -> Ordering {
-        (Arc::as_ptr(&self.0) as *const ()).cmp(&(Arc::as_ptr(&other.0) as *const ()))
+        (Rc::as_ptr(&self.0) as *const ()).cmp(&(Rc::as_ptr(&other.0) as *const ()))
     }
 }
 
 #[derive(Debug)]
 struct Input {
     output: usize,
-    source: StrongNode,
+    source: Slot,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Graph {
     /// Stored values output from an input node.
-    input_values: HashMap<StrongNode, Streams>,
+    input_values: HashMap<Slot, Streams>,
 
     /// Connects a node to a particular input.
-    inputs: HashMap<StrongNode, Vec<Input>>,
+    inputs: HashMap<Slot, Vec<Input>>,
 
-    /// Sinks that go directly to the outgoing sound.
-    /// All outputs are added together channel-wise.
-    sinks: Vec<Input>,
+    /// An Add node that represents the actual sink.
+    sink: Slot,
 
     sample_rate: u32,
+}
+
+impl Default for Graph {
+    fn default() -> Self {
+        Self {
+            input_values: Default::default(),
+            inputs: Default::default(),
+            sink: Slot(Rc::new(RefCell::new(Add::default()))),
+            sample_rate: Default::default(),
+        }
+    }
 }
 
 impl Graph {
     pub fn connect(
         &mut self,
-        source: Arc<Mutex<dyn Node + Send>>,
-        destination: Arc<Mutex<dyn Node + Send>>,
+        source: Rc<RefCell<dyn Node>>,
+        destination: Rc<RefCell<dyn Node>>,
         output: usize,
     ) {
-        self.input_values
-            .entry(StrongNode(source.clone()))
-            .or_default();
+        self.input_values.entry(Slot(source.clone())).or_default();
         self.inputs
-            .entry(StrongNode(destination))
+            .entry(Slot(destination))
             .or_default()
             .push(Input {
-                source: StrongNode(source),
+                source: Slot(source),
                 output,
             });
     }
-    pub fn sink(&mut self, source: Arc<Mutex<dyn Node + Send>>, output: usize) {
-        self.input_values
-            .entry(StrongNode(source.clone()))
-            .or_default();
-
-        self.sinks.push(Input {
-            source: StrongNode(source),
-            output,
-        });
+    pub fn sink(&mut self, source: Rc<RefCell<dyn Node>>, output: usize) {
+        self.connect(source, self.sink.0.clone(), output);
     }
 
     pub fn get_sample_rate(&self) -> u32 {
         self.sample_rate
     }
 
-    fn iter_nodes(&self) -> impl Iterator<Item = &StrongNode> {
+    fn iter_nodes(&self) -> impl Iterator<Item = &Slot> {
         let mut seen = HashSet::with_capacity(self.input_values.len());
         self.inputs
             .iter()
             .flat_map(|(node, inputs)| {
                 std::iter::once(node).chain(inputs.iter().map(|input| &input.source))
             })
-            .chain(self.sinks.iter().map(|input| &input.source))
+            .chain(std::iter::once(&self.sink))
             .filter(move |node| seen.insert(*node))
     }
 
-    fn walk_node(
-        &self,
-        node: &StrongNode,
-        output: &mut Vec<StrongNode>,
-        memo: &mut HashSet<StrongNode>,
-    ) {
+    fn walk_node(&self, node: &Slot, output: &mut Vec<Slot>, memo: &mut HashSet<Slot>) {
         if memo.insert(node.clone()) {
             let inputs = self.inputs.get(&node);
             output.push(node.clone());
@@ -120,13 +118,11 @@ impl Graph {
         }
     }
 
-    /// Get the processing list, in reverse order to be processed.
-    fn get_process_list(&self) -> Vec<StrongNode> {
+    /// Get the processing list, in order from sink to roots.
+    fn get_process_list(&self) -> Vec<Slot> {
         let mut output = Vec::with_capacity(self.input_values.len());
         let mut memo = HashSet::with_capacity(self.input_values.len());
-        for sink in &self.sinks {
-            self.walk_node(&sink.source, &mut output, &mut memo);
-        }
+        self.walk_node(&self.sink, &mut output, &mut memo);
         for input in self.input_values.keys() {
             self.walk_node(input, &mut output, &mut memo);
         }
@@ -138,16 +134,12 @@ impl Node for Graph {
     fn set_sample_rate(&mut self, sample_rate: u32) {
         self.sample_rate = sample_rate;
         for node in self.iter_nodes() {
-            node.0
-                .lock()
-                .expect("Could not lock mutex")
-                .set_sample_rate(sample_rate);
+            node.0.borrow_mut().set_sample_rate(sample_rate);
         }
     }
 
-    /// Process all inputs in reverse order, from roots down to sinks.
-    /// Nodes not connected to any sinks are processed in an unpredictable, but
-    /// consistent, order.
+    /// Process all inputs in reverse order, from roots down to the sink.
+    /// Nodes not connected to any sinks are processed in an undefined order.
     /// All sinks are added together to turn this into a single output.
     fn process(&mut self, _inputs: Streams) -> Streams {
         // First process all process-needing nodes in reverse order.
@@ -162,22 +154,13 @@ impl Node for Graph {
                     .unwrap_or_default();
                 input_streams.0.push(channels);
             }
-            let output = node
-                .0
-                .lock()
-                .expect("Could not lock mutex")
-                .process(input_streams);
+            let output = node.0.borrow_mut().process(input_streams);
             self.input_values.insert(node, output);
         }
-        let mut output = Channels::default();
-        for sink in &self.sinks {
-            let value_streams = self.input_values.get(&sink.source);
-            let channels = value_streams
-                .map(|streams| streams.0.get(sink.output).cloned())
-                .flatten()
-                .unwrap_or_default();
-            output += channels;
+        if let Some(streams) = self.input_values.get(&self.sink) {
+            streams.clone()
+        } else {
+            Streams(smallvec![])
         }
-        Streams(smallvec![output])
     }
 }

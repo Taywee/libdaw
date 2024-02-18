@@ -5,22 +5,19 @@ use libdaw::Node as _;
 
 use lua::UserData;
 use mlua as lua;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug, Default, Clone)]
-pub struct Graph(Arc<Mutex<libdaw::Graph>>);
+pub struct Graph(Rc<RefCell<libdaw::Graph>>);
 
 impl UserData for Graph {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("sample_rate", |_, this| {
-            Ok(this.0.lock().expect("poisoned").get_sample_rate())
+            Ok(this.0.borrow_mut().get_sample_rate())
         });
         fields.add_field_method_set("sample_rate", |_, this, sample_rate| {
-            this.0
-                .lock()
-                .expect("poisoned")
-                .set_sample_rate(sample_rate);
+            this.0.borrow_mut().set_sample_rate(sample_rate);
             Ok(())
         });
     }
@@ -34,19 +31,14 @@ impl UserData for Graph {
                 let destination = get_node(destination)?;
                 source
                     .0
-                    .lock()
-                    .expect("poisoned")
-                    .set_sample_rate(this.0.lock().expect("poisoned").get_sample_rate());
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
                 destination
                     .0
-                    .lock()
-                    .expect("poisoned")
-                    .set_sample_rate(this.0.lock().expect("poisoned").get_sample_rate());
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
                 let output = output.unwrap_or(0);
-                this.0
-                    .lock()
-                    .expect("poisoned")
-                    .connect(source.0, destination.0, output);
+                this.0.borrow_mut().connect(source.0, destination.0, output);
                 Ok(())
             },
         );
@@ -56,11 +48,10 @@ impl UserData for Graph {
                 let source = get_node(source)?;
                 source
                     .0
-                    .lock()
-                    .expect("poisoned")
-                    .set_sample_rate(this.0.lock().expect("poisoned").get_sample_rate());
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
                 let output = output.unwrap_or(0);
-                this.0.lock().expect("poisoned").sink(source.0, output);
+                this.0.borrow_mut().sink(source.0, output);
                 Ok(())
             },
         );
@@ -68,15 +59,15 @@ impl UserData for Graph {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct SquareOscillator(Arc<Mutex<libdaw::SquareOscillator>>);
+pub struct SquareOscillator(Rc<RefCell<libdaw::SquareOscillator>>);
 
 impl UserData for SquareOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.0.lock().expect("poisoned").get_frequency())
+            Ok(this.0.borrow_mut().get_frequency())
         });
         fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.0.lock().expect("poisoned").set_frequency(frequency);
+            this.0.borrow_mut().set_frequency(frequency);
             Ok(())
         });
     }
@@ -87,15 +78,15 @@ impl UserData for SquareOscillator {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct SawtoothOscillator(Arc<Mutex<libdaw::SawtoothOscillator>>);
+pub struct SawtoothOscillator(Rc<RefCell<libdaw::SawtoothOscillator>>);
 
 impl UserData for SawtoothOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.0.lock().expect("poisoned").get_frequency())
+            Ok(this.0.borrow_mut().get_frequency())
         });
         fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.0.lock().expect("poisoned").set_frequency(frequency);
+            this.0.borrow_mut().set_frequency(frequency);
             Ok(())
         });
     }
@@ -106,21 +97,19 @@ impl UserData for SawtoothOscillator {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct ConstantValue(Arc<Mutex<libdaw::ConstantValue>>);
+pub struct ConstantValue(Rc<RefCell<libdaw::ConstantValue>>);
 
 impl ConstantValue {
     pub fn new(value: f64) -> Self {
-        ConstantValue(Arc::new(Mutex::new(libdaw::ConstantValue::new(value))))
+        ConstantValue(Rc::new(RefCell::new(libdaw::ConstantValue::new(value))))
     }
 }
 
 impl UserData for ConstantValue {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("value", |_, this| {
-            Ok(this.0.lock().expect("poisoned").get_value())
-        });
+        fields.add_field_method_get("value", |_, this| Ok(this.0.borrow_mut().get_value()));
         fields.add_field_method_set("value", |_, this, value| {
-            this.0.lock().expect("poisoned").set_value(value);
+            this.0.borrow_mut().set_value(value);
             Ok(())
         });
     }
@@ -131,7 +120,7 @@ impl UserData for ConstantValue {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Multiply(Arc<Mutex<libdaw::Multiply>>);
+pub struct Multiply(Rc<RefCell<libdaw::Multiply>>);
 
 impl UserData for Multiply {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -140,7 +129,7 @@ impl UserData for Multiply {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Add(Arc<Mutex<libdaw::Add>>);
+pub struct Add(Rc<RefCell<libdaw::Add>>);
 
 impl UserData for Add {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {

@@ -11,6 +11,7 @@ categories = [
 ]
 
 [dependencies]
+clap = { version = "4.5.1", features = ["derive"] }
 rodio = "0.17.3"
 smallvec = "1.13.1"
 
@@ -18,7 +19,7 @@ smallvec = "1.13.1"
 
 [dependencies.mlua]
 version = "0.9.5"
-features = ["lua54", "vendored", "send"]
+features = ["lua54", "vendored"]
 
 [dependencies.libdaw]
 path = '../libdaw'
