@@ -1,33 +1,34 @@
 use crate::{error::Error, get_node, nodes, Node};
-use lua::Lua;
-use lua::Table;
+use lua::{IntoLua, Lua, Table};
 use mlua as lua;
 use rodio::source::Source;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::time::Duration;
 
 #[derive(Debug)]
-pub(crate) struct Message {
-    pub(crate) sample: smallvec::IntoIter<[f64; 2]>,
+struct Message {
+    sample: smallvec::IntoIter<[f64; 2]>,
 }
 
 #[derive(Debug)]
 pub struct Track {
-    pub(crate) _lua: Lua,
-    pub(crate) node: Node,
-    pub(crate) sender: SyncSender<Message>,
+    _lua: Lua,
+    node: Node,
+    sender: SyncSender<Message>,
 }
 
 #[derive(Debug)]
 pub struct TrackSource {
-    pub(crate) receiver: Receiver<Message>,
-    pub(crate) sample: smallvec::IntoIter<[f64; 2]>,
+    receiver: Receiver<Message>,
+    sample: smallvec::IntoIter<[f64; 2]>,
 }
 
 impl Track {
-    pub fn new<S>(source: S) -> Result<(Track, TrackSource), Error>
+    pub fn new<S, A1, A2>(source: S, args: A1) -> Result<(Track, TrackSource), Error>
     where
         S: AsRef<str>,
+        A1: IntoIterator<Item = A2>,
+        A2: AsRef<str>,
     {
         let source = source.as_ref();
         let lua = Lua::new();
@@ -67,7 +68,11 @@ impl Track {
             )?;
         }
         let chunk = lua.load(source);
-        let node: Node = get_node(chunk.call(())?)?;
+        let mut arg_vec: Vec<_> = Vec::new();
+        for arg in args {
+            arg_vec.push(arg.as_ref().into_lua(&lua)?);
+        }
+        let node: Node = get_node(chunk.call(lua::MultiValue::from_vec(arg_vec))?)?;
         let sample = node
             .0
             .borrow_mut()

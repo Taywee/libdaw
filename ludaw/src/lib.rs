@@ -4,17 +4,12 @@ mod track;
 
 pub use track::{Track, TrackSource};
 
-use error::Error;
 use lua::{AnyUserDataExt as _, FromLua, Lua, UserData};
 use mlua as lua;
-use rodio::source::Source;
+
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc::sync_channel;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::SyncSender;
-use std::time::Duration;
 
 fn get_node<'lua>(value: lua::Value<'lua>) -> lua::Result<Node> {
     match value {

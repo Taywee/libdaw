@@ -1,3 +1,6 @@
+for k, v in pairs({...}) do
+  print(k, v)
+end
 local daw = require 'daw'
 local graph = daw.Graph()
 graph.sample_rate = 48000

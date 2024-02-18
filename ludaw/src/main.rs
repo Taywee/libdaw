@@ -10,16 +10,20 @@ use rodio::{OutputStream, Sink};
 struct Cli {
     #[command(flatten)]
     input: Input,
+
+    /// The arguments to pass into the Lua script.
+    #[arg(last = true)]
+    lua_args: Vec<String>,
 }
 
 #[derive(Args, Debug)]
 #[group(required = true, multiple = false)]
 struct Input {
-    /// Input file
+    /// The DAW Lua file.
     #[arg(short, long, value_name = "file")]
     input: Option<PathBuf>,
 
-    /// Name of the person to greet
+    /// The DAW Lua script as a string literal.
     #[arg(short, long, value_name = "script")]
     execute: Option<String>,
 }
@@ -37,11 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (_stream, stream_handle) = OutputStream::try_default()?;
     let sink = Sink::try_new(&stream_handle)?;
-    let (mut track, source) = Track::new(script)?;
+    let (mut track, source) = Track::new(script, cli.lua_args)?;
     sink.append(source);
     loop {
         track.process()?;
     }
-
-    Ok(())
 }

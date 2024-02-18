@@ -1,5 +1,5 @@
 use super::Node;
-use crate::streams::{Channels, Streams};
+use crate::streams::Streams;
 use crate::Add;
 use smallvec::smallvec;
 use std::cell::RefCell;
