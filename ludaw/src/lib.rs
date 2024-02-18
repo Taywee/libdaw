@@ -1,14 +1,11 @@
 pub mod error;
+mod nodes;
 
 use error::Error;
-
-//use mlua::prelude::*;
-use lua::{AnyUserDataExt as _, FromLua, Lua, UserData};
+use lua::{AnyUserDataExt as _, FromLua, Lua, Table, UserData};
 use mlua as lua;
 use rodio::source::Source;
-
 use std::cell::Ref;
-
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -83,25 +80,6 @@ impl<'lua> FromLua<'lua> for Node {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-struct SquareOscillator(Arc<Mutex<libdaw::SquareOscillator>>);
-
-impl UserData for SquareOscillator {
-    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.0.lock().expect("poisoned").get_frequency())
-        });
-        fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.0.lock().expect("poisoned").set_frequency(frequency);
-            Ok(())
-        });
-    }
-
-    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Track {
     _lua: Arc<Mutex<Lua>>,
@@ -112,16 +90,73 @@ pub struct Track {
 impl Track {
     pub fn new() -> Result<Self, Error> {
         let lua = Lua::new();
-        lua.globals().set(
-            "SquareOscillator",
-            lua.create_function(|_, ()| Ok(SquareOscillator::default()))?,
-        )?;
-
+        {
+            let package: Table = lua.globals().get("package")?;
+            let preload: Table = package.get("preload")?;
+            preload.set(
+                "daw",
+                lua.create_function(|lua, ()| {
+                    let daw = lua.create_table()?;
+                    daw.set(
+                        "SquareOscillator",
+                        lua.create_function(|_, ()| Ok(nodes::SquareOscillator::default()))?,
+                    )?;
+                    daw.set(
+                        "SawtoothOscillator",
+                        lua.create_function(|_, ()| Ok(nodes::SawtoothOscillator::default()))?,
+                    )?;
+                    daw.set(
+                        "Graph",
+                        lua.create_function(|_, ()| Ok(nodes::Graph::default()))?,
+                    )?;
+                    daw.set(
+                        "ConstantValue",
+                        lua.create_function(|_, value| Ok(nodes::ConstantValue::new(value)))?,
+                    )?;
+                    daw.set(
+                        "Add",
+                        lua.create_function(|_, ()| Ok(nodes::Add::default()))?,
+                    )?;
+                    daw.set(
+                        "Multiply",
+                        lua.create_function(|_, ()| Ok(nodes::Multiply::default()))?,
+                    )?;
+                    Ok(daw)
+                })?,
+            )?;
+        }
         let chunk = lua.load(
             r#"
-            local oscillator = SquareOscillator()
-            print(oscillator)
-            return oscillator
+            local daw = require 'daw'
+            local graph = daw.Graph()
+            graph.sample_rate = 48000
+            local function sawtooth(frequency)
+                local constant = daw.ConstantValue(1 / 6)
+                local node = daw.SawtoothOscillator()
+                node.frequency = frequency
+                local mul = daw.Multiply()
+                graph:connect(node, mul)
+                graph:connect(constant, mul)
+                return mul
+            end
+            local function square(frequency)
+                local constant = daw.ConstantValue(1 / 16)
+                local node = daw.SquareOscillator()
+                node.frequency = frequency
+                local mul = daw.Multiply()
+                graph:connect(node, mul)
+                graph:connect(constant, mul)
+                return mul
+            end
+            local add = daw.Add()
+            graph:connect(sawtooth(256), add)
+            graph:connect(sawtooth(256 * 2 ^ (4 / 12)), add)
+            graph:connect(sawtooth(256 * 2 ^ (7 / 12)), add)
+            graph:connect(square(256), add)
+            graph:connect(square(256 * 2 ^ (4 / 12)), add)
+            graph:connect(square(256 * 2 ^ (7 / 12)), add)
+            graph:sink(add)
+            return graph
         "#,
         );
         let node: Node = get_node(chunk.call(())?)?;
@@ -146,7 +181,7 @@ impl Track {
 
 impl Source for Track {
     fn current_frame_len(&self) -> Option<usize> {
-        Some(1)
+        None
     }
 
     fn channels(&self) -> u16 {

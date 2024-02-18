@@ -1,6 +1,5 @@
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign};
-
 use smallvec::SmallVec;
+use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign};
 
 #[derive(Debug, Default, Clone)]
 pub struct Channels(pub SmallVec<[f64; 2]>);
