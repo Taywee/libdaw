@@ -1,26 +1,30 @@
+use crate::callable::Callable;
 use crate::{error::Error, get_node, nodes, Node};
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
 use rodio::source::Source;
+use smallvec::{smallvec, IntoIter, SmallVec};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::time::Duration;
 
 #[derive(Debug)]
 struct Message {
-    sample: smallvec::IntoIter<[f64; 2]>,
+    sample: SmallVec<[f64; 2]>,
 }
 
 #[derive(Debug)]
 pub struct Track {
-    _lua: Lua,
+    lua: Lua,
     node: Node,
     sender: SyncSender<Message>,
+    sample_number: u64,
 }
 
 #[derive(Debug)]
 pub struct TrackSource {
     receiver: Receiver<Message>,
-    sample: smallvec::IntoIter<[f64; 2]>,
+    channels: u16,
+    sample: IntoIter<[f64; 2]>,
 }
 
 impl Track {
@@ -32,38 +36,55 @@ impl Track {
     {
         let source = source.as_ref();
         let lua = Lua::new();
+        lua.set_named_registry_value("daw.before_sample", lua.create_table()?)?;
         {
             let package: Table = lua.globals().get("package")?;
             let preload: Table = package.get("preload")?;
             preload.set(
-                "daw",
+                "daw.nodes",
                 lua.create_function(|lua, ()| {
-                    let daw = lua.create_table()?;
-                    daw.set(
+                    let module = lua.create_table()?;
+                    module.set(
                         "SquareOscillator",
                         lua.create_function(|_, ()| Ok(nodes::SquareOscillator::default()))?,
                     )?;
-                    daw.set(
+                    module.set(
                         "SawtoothOscillator",
                         lua.create_function(|_, ()| Ok(nodes::SawtoothOscillator::default()))?,
                     )?;
-                    daw.set(
+                    module.set(
                         "Graph",
                         lua.create_function(|_, ()| Ok(nodes::Graph::default()))?,
                     )?;
-                    daw.set(
+                    module.set(
                         "ConstantValue",
                         lua.create_function(|_, value| Ok(nodes::ConstantValue::new(value)))?,
                     )?;
-                    daw.set(
+                    module.set(
                         "Add",
                         lua.create_function(|_, ()| Ok(nodes::Add::default()))?,
                     )?;
-                    daw.set(
+                    module.set(
                         "Multiply",
                         lua.create_function(|_, ()| Ok(nodes::Multiply::default()))?,
                     )?;
-                    Ok(daw)
+                    Ok(module)
+                })?,
+            )?;
+            preload.set(
+                "daw",
+                lua.create_function(|lua, ()| {
+                    let module = lua.create_table()?;
+                    module.set(
+                        "before_sample",
+                        lua.create_function(|lua, callable: Callable| {
+                            let table: lua::Table =
+                                lua.named_registry_value("daw.before_sample")?;
+                            table.set(table.len()? + 1, callable)?;
+                            Ok(())
+                        })?,
+                    )?;
+                    Ok(module)
                 })?,
             )?;
         }
@@ -73,28 +94,30 @@ impl Track {
             arg_vec.push(arg.as_ref().into_lua(&lua)?);
         }
         let node: Node = get_node(chunk.call(lua::MultiValue::from_vec(arg_vec))?)?;
-        let sample = node
-            .0
-            .borrow_mut()
-            .process(Default::default())
-            .0
-            .into_iter()
-            .next()
-            .unwrap()
-            .0
-            .into_iter();
         let (sender, receiver) = sync_channel(1024);
-        Ok((
-            Track {
-                _lua: lua,
-                sender,
-                node,
-            },
-            TrackSource { receiver, sample },
-        ))
+        let mut track = Track {
+            lua,
+            sender,
+            node,
+            sample_number: 0,
+        };
+        let mut track_source = TrackSource {
+            receiver,
+            channels: 0,
+            sample: smallvec![].into_iter(),
+        };
+        track.process()?;
+        track_source.refresh();
+        Ok((track, track_source))
     }
 
     pub fn process(&mut self) -> Result<(), Error> {
+        let before_sample_table: lua::Table = self.lua.named_registry_value("daw.before_sample")?;
+        let len = before_sample_table.len()?;
+        for i in 1..=len {
+            let callable: Callable = before_sample_table.get(i)?;
+            let () = callable.call(self.sample_number)?;
+        }
         let sample = self
             .node
             .0
@@ -104,10 +127,19 @@ impl Track {
             .into_iter()
             .next()
             .unwrap()
-            .0
-            .into_iter();
+            .0;
         self.sender.send(Message { sample })?;
+        self.sample_number += 1;
         Ok(())
+    }
+}
+
+impl TrackSource {
+    fn refresh(&mut self) {
+        if self.sample.len() == 0 {
+            self.sample = self.receiver.recv().unwrap().sample.into_iter();
+            self.channels = self.sample.len().try_into().expect("out of range");
+        }
     }
 }
 
@@ -117,7 +149,7 @@ impl Source for TrackSource {
     }
 
     fn channels(&self) -> u16 {
-        self.sample.len().try_into().expect("Too many channels")
+        self.channels
     }
 
     fn sample_rate(&self) -> u32 {
@@ -133,10 +165,7 @@ impl Iterator for TrackSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.sample.next().map(|sample| sample as f32);
-        if self.sample.len() == 0 {
-            self.sample = self.receiver.recv().unwrap().sample;
-        }
-        next
+        self.refresh();
+        self.sample.next().map(|sample| sample as f32)
     }
 }

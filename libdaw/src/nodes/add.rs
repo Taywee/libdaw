@@ -1,5 +1,5 @@
-use super::Node;
 use crate::streams::{Channels, Streams};
+use crate::Node;
 use smallvec::smallvec;
 use std::ops::Add as _;
 

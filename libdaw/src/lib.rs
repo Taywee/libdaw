@@ -1,21 +1,8 @@
-mod add;
-mod constant_value;
-mod graph;
-mod multiply;
-mod sawtooth_oscillator;
-mod square_oscillator;
+pub mod nodes;
 pub mod streams;
 
-pub use add::Add;
-pub use constant_value::ConstantValue;
-pub use graph::Graph;
-pub use multiply::Multiply;
-pub use sawtooth_oscillator::SawtoothOscillator;
-pub use square_oscillator::SquareOscillator;
-
-use crate::streams::Streams;
-
 use std::fmt::Debug;
+use streams::Streams;
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed.

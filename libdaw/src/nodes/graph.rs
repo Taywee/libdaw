@@ -1,6 +1,6 @@
-use super::Node;
+use crate::nodes::Add;
 use crate::streams::Streams;
-use crate::Add;
+use crate::Node;
 use smallvec::smallvec;
 use std::cell::RefCell;
 use std::cmp::Ordering;

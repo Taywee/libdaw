@@ -1,15 +1,13 @@
-use crate::get_node;
-
 use super::Node;
+use crate::get_node;
 use libdaw::Node as _;
-
 use lua::UserData;
 use mlua as lua;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug, Default, Clone)]
-pub struct Graph(Rc<RefCell<libdaw::Graph>>);
+pub struct Graph(Rc<RefCell<libdaw::nodes::Graph>>);
 
 impl UserData for Graph {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
@@ -59,7 +57,7 @@ impl UserData for Graph {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct SquareOscillator(Rc<RefCell<libdaw::SquareOscillator>>);
+pub struct SquareOscillator(Rc<RefCell<libdaw::nodes::SquareOscillator>>);
 
 impl UserData for SquareOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
@@ -78,7 +76,7 @@ impl UserData for SquareOscillator {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct SawtoothOscillator(Rc<RefCell<libdaw::SawtoothOscillator>>);
+pub struct SawtoothOscillator(Rc<RefCell<libdaw::nodes::SawtoothOscillator>>);
 
 impl UserData for SawtoothOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
@@ -97,11 +95,13 @@ impl UserData for SawtoothOscillator {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct ConstantValue(Rc<RefCell<libdaw::ConstantValue>>);
+pub struct ConstantValue(Rc<RefCell<libdaw::nodes::ConstantValue>>);
 
 impl ConstantValue {
     pub fn new(value: f64) -> Self {
-        ConstantValue(Rc::new(RefCell::new(libdaw::ConstantValue::new(value))))
+        ConstantValue(Rc::new(RefCell::new(libdaw::nodes::ConstantValue::new(
+            value,
+        ))))
     }
 }
 
@@ -120,7 +120,7 @@ impl UserData for ConstantValue {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Multiply(Rc<RefCell<libdaw::Multiply>>);
+pub struct Multiply(Rc<RefCell<libdaw::nodes::Multiply>>);
 
 impl UserData for Multiply {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -129,7 +129,7 @@ impl UserData for Multiply {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Add(Rc<RefCell<libdaw::Add>>);
+pub struct Add(Rc<RefCell<libdaw::nodes::Add>>);
 
 impl UserData for Add {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
