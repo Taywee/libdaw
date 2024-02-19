@@ -43,7 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sink = Sink::try_new(&stream_handle)?;
     let (mut track, source) = Track::new(script, cli.lua_args)?;
     sink.append(source);
-    loop {
-        track.process()?;
-    }
+    while track.process()? {}
+    Ok(())
 }
