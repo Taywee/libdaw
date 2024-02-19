@@ -7,7 +7,6 @@ pub use track::{Track, TrackSource};
 
 use lua::{AnyUserDataExt as _, FromLua, Lua, UserData};
 use mlua as lua;
-
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,15 +29,36 @@ fn get_node<'lua>(value: lua::Value<'lua>) -> lua::Result<Node> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Node(Rc<RefCell<dyn libdaw::Node>>);
+pub trait ConcreteNode {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>>;
+}
 
-impl<T> From<Rc<RefCell<T>>> for Node
-where
-    T: libdaw::Node + 'static,
-{
-    fn from(value: Rc<RefCell<T>>) -> Self {
-        Node(value.clone())
+#[derive(Debug, Clone)]
+struct Node {
+    node: Rc<RefCell<dyn libdaw::Node>>,
+}
+
+impl From<Rc<RefCell<dyn libdaw::Node>>> for Node {
+    fn from(node: Rc<RefCell<dyn libdaw::Node>>) -> Self {
+        Self { node }
+    }
+}
+
+impl ConcreteNode for Node {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl Node {
+    fn new(node: Rc<RefCell<dyn libdaw::Node>>) -> Self {
+        Self { node }
+    }
+
+    pub fn add_node_methods<'lua, T: UserData + ConcreteNode, M: lua::UserDataMethods<'lua, T>>(
+        methods: &mut M,
+    ) {
+        methods.add_method("node", |_, this, ()| Ok(Node::new(this.node())));
     }
 }
 
@@ -48,34 +68,25 @@ impl UserData for Node {
         F: lua::UserDataFields<'lua, Self>,
     {
         fields.add_field_method_set("sample_rate", |_, this, sample_rate| {
-            this.0.borrow_mut().set_sample_rate(sample_rate);
+            this.node.borrow_mut().set_sample_rate(sample_rate);
             Ok(())
         });
     }
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        // node:node() clones itself for convenience.
-        methods.add_method("node", |_, this, ()| Ok(this.clone()));
+        Node::add_node_methods(methods);
     }
 }
 
 impl<'lua> FromLua<'lua> for Node {
     fn from_lua(value: lua::Value<'lua>, _lua: &'lua Lua) -> lua::Result<Self> {
-        let type_name = value.type_name();
         let lua::Value::UserData(ud) = value else {
             return Err(lua::Error::FromLuaConversionError {
-                from: type_name,
+                from: value.type_name(),
                 to: "Node",
                 message: None,
             });
         };
-        if !ud.is::<Node>() {
-            return Err(lua::Error::FromLuaConversionError {
-                from: type_name,
-                to: "Node",
-                message: None,
-            });
-        }
-        let node: Ref<Node> = ud.borrow()?;
-        Ok(Node(node.0.clone()))
+        let node: Ref<Self> = ud.borrow()?;
+        Ok((*node).clone())
     }
 }

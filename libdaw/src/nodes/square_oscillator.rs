@@ -1,6 +1,5 @@
-use crate::streams::{Channels, Streams};
+use crate::stream::Stream;
 use crate::Node;
-use smallvec::smallvec;
 
 #[derive(Debug)]
 pub struct SquareOscillator {
@@ -9,6 +8,7 @@ pub struct SquareOscillator {
     samples_since_switch: f64,
     sample_rate: f64,
     sample: f64,
+    channels: u16,
 }
 
 impl SquareOscillator {
@@ -33,6 +33,7 @@ impl Default for SquareOscillator {
             sample: 1.0,
             samples_per_switch: 100000.0,
             sample_rate: 48000.0,
+            channels: Default::default(),
         };
         node.calculate_samples_per_switch();
         node
@@ -44,14 +45,27 @@ impl Node for SquareOscillator {
         self.sample_rate = sample_rate.into();
         self.calculate_samples_per_switch();
     }
+    fn get_sample_rate(&self) -> u32 {
+        self.sample_rate as u32
+    }
 
-    fn process(&mut self, _: Streams) -> Streams {
-        let output = Streams(smallvec![Channels(smallvec![self.sample])]);
+    fn process<'a, 'b>(&'a mut self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) {
+        let mut output = Stream::new(self.channels.into());
+        output.fill(self.sample);
+        outputs.push(output);
+
         while self.samples_since_switch >= self.samples_per_switch {
             self.samples_since_switch -= self.samples_per_switch;
             self.sample *= -1.0;
         }
         self.samples_since_switch += 1.0;
-        output
+    }
+
+    fn set_channels(&mut self, channels: u16) {
+        self.channels = channels;
+    }
+
+    fn get_channels(&self) -> u16 {
+        self.channels
     }
 }

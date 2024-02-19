@@ -1,6 +1,5 @@
-use crate::streams::{Channels, Streams};
+use crate::stream::Stream;
 use crate::Node;
-use smallvec::smallvec;
 
 #[derive(Debug)]
 pub struct SawtoothOscillator {
@@ -8,6 +7,7 @@ pub struct SawtoothOscillator {
     sample_rate: f64,
     sample: f64,
     delta: f64,
+    channels: u16,
 }
 
 impl SawtoothOscillator {
@@ -30,6 +30,7 @@ impl Default for SawtoothOscillator {
             sample: -1.0,
             sample_rate: 48000.0,
             delta: 0.01,
+            channels: Default::default(),
         };
         node.calculate_delta();
         node
@@ -42,13 +43,26 @@ impl Node for SawtoothOscillator {
         self.calculate_delta();
     }
 
-    fn process(&mut self, _: Streams) -> Streams {
-        let output = Streams(smallvec![Channels(smallvec![self.sample])]);
+    fn get_sample_rate(&self) -> u32 {
+        self.sample_rate as u32
+    }
+
+    fn process<'a, 'b>(&'a mut self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) {
+        let mut output = Stream::new(self.channels.into());
+        output.fill(self.sample);
+        outputs.push(output);
+
         self.sample += self.delta;
         while self.sample > 1.0 {
             self.sample -= 1.0;
         }
+    }
 
-        output
+    fn set_channels(&mut self, channels: u16) {
+        self.channels = channels;
+    }
+
+    fn get_channels(&self) -> u16 {
+        self.channels
     }
 }

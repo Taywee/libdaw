@@ -1,166 +1,281 @@
-use super::Node;
 use crate::get_node;
+use crate::ConcreteNode;
+use crate::Node;
+use libdaw::nodes::graph::Index;
 use libdaw::Node as _;
-use lua::UserData;
+use lua::{Lua, UserData};
 use mlua as lua;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
-#[derive(Debug, Default, Clone)]
-pub struct Graph(Rc<RefCell<libdaw::nodes::Graph>>);
+#[derive(Debug, Clone)]
+pub struct Graph {
+    pub node: Rc<RefCell<libdaw::nodes::Graph>>,
+}
+
+impl ConcreteNode for Graph {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl Graph {
+    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+        let mut graph = libdaw::nodes::Graph::default();
+        graph.set_channels(2);
+        graph.set_sample_rate(48000);
+        Ok(Self {
+            node: Rc::new(RefCell::new(graph)),
+        })
+    }
+}
 
 impl UserData for Graph {
-    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("sample_rate", |_, this| {
-            Ok(this.0.borrow_mut().get_sample_rate())
-        });
-        fields.add_field_method_set("sample_rate", |_, this, sample_rate| {
-            this.0.borrow_mut().set_sample_rate(sample_rate);
-            Ok(())
-        });
-    }
-
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
+        methods.add_method_mut("add", |_, this, node| {
+            let node = get_node(node)?.node();
+            let mut this = this.node.borrow_mut();
+            Ok(this.add(node).0)
+        });
+        methods.add_method_mut("remove", |_, this, index| {
+            let mut this = this.node.borrow_mut();
+            Ok(this.remove(Index(index)).map(Node::from))
+        });
         methods.add_method_mut(
             "connect",
-            |_, this, (source, destination, output): (lua::Value, lua::Value, Option<usize>)| {
-                let source = get_node(source)?;
-                let destination = get_node(destination)?;
-                source
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                destination
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                this.0.borrow_mut().connect(source.0, destination.0, output);
+            |_, this, (source, destination, stream): (usize, usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.connect(Index(source), Index(destination), stream);
                 Ok(())
             },
         );
         methods.add_method_mut(
             "disconnect",
-            |_, this, (source, destination, output): (lua::Value, lua::Value, Option<usize>)| {
-                let source = get_node(source)?;
-                let destination = get_node(destination)?;
-                source
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                destination
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                Ok(this
-                    .0
-                    .borrow_mut()
-                    .disconnect(source.0, destination.0, output))
-            },
-        );
-        methods.add_method_mut(
-            "sink",
-            |_, this, (source, output): (lua::Value, Option<usize>)| {
-                let source = get_node(source)?;
-                source
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                this.0.borrow_mut().sink(source.0, output);
+            |_, this, (source, destination, stream): (usize, usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.disconnect(Index(source), Index(destination), stream);
                 Ok(())
             },
         );
         methods.add_method_mut(
-            "unsink",
-            |_, this, (source, output): (lua::Value, Option<usize>)| {
-                let source = get_node(source)?;
-                source
-                    .0
-                    .borrow_mut()
-                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                Ok(this.0.borrow_mut().unsink(source.0, output))
+            "output",
+            |_, this, (source, stream): (usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.output(Index(source), stream);
+                Ok(())
+            },
+        );
+        methods.add_method_mut(
+            "remove_output",
+            |_, this, (source, stream): (usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.remove_output(Index(source), stream);
+                Ok(())
+            },
+        );
+        methods.add_method_mut(
+            "input",
+            |_, this, (destination, stream): (usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.input(Index(destination), stream);
+                Ok(())
+            },
+        );
+        methods.add_method_mut(
+            "remove_input",
+            |_, this, (destination, stream): (usize, Option<usize>)| {
+                let mut this = this.node.borrow_mut();
+                this.remove_input(Index(destination), stream);
+                Ok(())
             },
         );
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct SquareOscillator(Rc<RefCell<libdaw::nodes::SquareOscillator>>);
+#[derive(Debug, Clone)]
+pub struct SquareOscillator {
+    node: Rc<RefCell<libdaw::nodes::SquareOscillator>>,
+}
+
+impl ConcreteNode for SquareOscillator {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl SquareOscillator {
+    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node: Rc<RefCell<libdaw::nodes::SquareOscillator>> = Default::default();
+        Ok(Self { node })
+    }
+}
 
 impl UserData for SquareOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.0.borrow_mut().get_frequency())
+            Ok(this.node.borrow_mut().get_frequency())
         });
         fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.0.borrow_mut().set_frequency(frequency);
+            this.node.borrow_mut().set_frequency(frequency);
             Ok(())
         });
     }
 
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct SawtoothOscillator(Rc<RefCell<libdaw::nodes::SawtoothOscillator>>);
+#[derive(Debug, Clone)]
+pub struct SawtoothOscillator {
+    node: Rc<RefCell<libdaw::nodes::SawtoothOscillator>>,
+}
+
+impl ConcreteNode for SawtoothOscillator {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl SawtoothOscillator {
+    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node: Rc<RefCell<libdaw::nodes::SawtoothOscillator>> = Default::default();
+        Ok(Self { node })
+    }
+}
 
 impl UserData for SawtoothOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.0.borrow_mut().get_frequency())
+            Ok(this.node.borrow_mut().get_frequency())
         });
         fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.0.borrow_mut().set_frequency(frequency);
+            this.node.borrow_mut().set_frequency(frequency);
             Ok(())
         });
     }
 
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct ConstantValue(Rc<RefCell<libdaw::nodes::ConstantValue>>);
+#[derive(Debug, Clone)]
+pub struct ConstantValue {
+    node: Rc<RefCell<libdaw::nodes::ConstantValue>>,
+}
+
+impl ConcreteNode for ConstantValue {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
 
 impl ConstantValue {
-    pub fn new(value: f64) -> Self {
-        ConstantValue(Rc::new(RefCell::new(libdaw::nodes::ConstantValue::new(
-            value,
-        ))))
+    pub fn new(_lua: &Lua, value: f64) -> lua::Result<Self> {
+        let node = Rc::new(RefCell::new(libdaw::nodes::ConstantValue::new(value)));
+        Ok(Self { node })
     }
 }
 
 impl UserData for ConstantValue {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("value", |_, this| Ok(this.0.borrow_mut().get_value()));
+        fields.add_field_method_get("value", |_, this| Ok(this.node.borrow_mut().get_value()));
         fields.add_field_method_set("value", |_, this, value| {
-            this.0.borrow_mut().set_value(value);
+            this.node.borrow_mut().set_value(value);
             Ok(())
         });
     }
 
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Multiply(Rc<RefCell<libdaw::nodes::Multiply>>);
+#[derive(Debug, Clone)]
+pub struct Multiply {
+    node: Rc<RefCell<libdaw::nodes::Multiply>>,
+}
+
+impl ConcreteNode for Multiply {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl Multiply {
+    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node: Rc<RefCell<libdaw::nodes::Multiply>> = Default::default();
+        Ok(Self { node })
+    }
+}
 
 impl UserData for Multiply {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Add(Rc<RefCell<libdaw::nodes::Add>>);
+#[derive(Debug, Clone)]
+pub struct Add {
+    node: Rc<RefCell<libdaw::nodes::Add>>,
+}
+
+impl ConcreteNode for Add {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl Add {
+    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node: Rc<RefCell<libdaw::nodes::Add>> = Default::default();
+        Ok(Self { node })
+    }
+}
 
 impl UserData for Add {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+        Node::add_node_methods(methods);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Delay {
+    node: Rc<RefCell<libdaw::nodes::Delay>>,
+}
+
+impl ConcreteNode for Delay {
+    fn node(&self) -> Rc<RefCell<dyn libdaw::Node>> {
+        self.node.clone()
+    }
+}
+
+impl Delay {
+    pub fn new(_lua: &Lua, value: f64) -> lua::Result<Self> {
+        let node = Rc::new(RefCell::new(libdaw::nodes::Delay::new(
+            Duration::from_secs_f64(value),
+        )));
+        Ok(Self { node })
+    }
+}
+
+impl UserData for Delay {
+    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("delay", |_, this| {
+            Ok(this.node.borrow_mut().get_delay().as_secs_f64())
+        });
+        fields.add_field_method_set("delay", |_, this, delay| {
+            this.node
+                .borrow_mut()
+                .set_delay(Duration::from_secs_f64(delay));
+            Ok(())
+        });
+    }
+
+    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+        Node::add_node_methods(methods);
     }
 }
