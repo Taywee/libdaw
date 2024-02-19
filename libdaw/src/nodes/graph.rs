@@ -127,7 +127,7 @@ impl Graph {
                 .iter()
                 .enumerate()
                 .rev()
-                .find(|(i, input)| **input == source)
+                .find(|(_, input)| **input == source)
             {
                 inputs.remove(index);
                 let Entry::Occupied(mut input_entry) = self.input_values.entry(source.source)

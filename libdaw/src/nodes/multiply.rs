@@ -10,7 +10,7 @@ impl Node for Multiply {
     fn set_sample_rate(&mut self, _: u32) {}
 
     fn process(&mut self, input: Streams) -> Streams {
-        Streams(smallvec![input
+        Streams(smallvec![dbg!(input)
             .0
             .into_iter()
             .reduce(Channels::mul)

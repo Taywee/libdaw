@@ -68,6 +68,12 @@ impl Track {
                         "Multiply",
                         lua.create_function(|_, ()| Ok(nodes::Multiply::default()))?,
                     )?;
+                    module.set(
+                        "Delay",
+                        lua.create_function(|_, value| {
+                            Ok(nodes::Delay::new(Duration::from_secs_f64(value)))
+                        })?,
+                    )?;
                     Ok(module)
                 })?,
             )?;
