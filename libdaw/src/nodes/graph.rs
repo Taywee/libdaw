@@ -4,6 +4,7 @@ use crate::Node;
 use smallvec::smallvec;
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::ptr::addr_eq;
@@ -42,21 +43,30 @@ impl Ord for Slot {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 struct Input {
     output: Option<usize>,
     source: Slot,
 }
+
+#[derive(Debug, Default)]
+struct Outputs {
+    streams: Streams,
+    count: usize,
+}
+
+type InputValues = HashMap<Slot, Outputs>;
+type Inputs = HashMap<Slot, Vec<Input>>;
 
 #[derive(Debug)]
 pub struct Graph {
     /// Stored values output from an input node. Every input node has this from
     /// the beginning, even if they have not produced any streams yet.  In that
     /// case, they will all be empty streams.
-    input_values: HashMap<Slot, Streams>,
+    input_values: InputValues,
 
     /// Connects a node to a particular input.
-    inputs: HashMap<Slot, Vec<Input>>,
+    inputs: Inputs,
 
     /// An Add node that represents the actual sink.
     sink: Slot,
@@ -66,9 +76,9 @@ pub struct Graph {
 
 impl Default for Graph {
     fn default() -> Self {
-        let mut input_values: HashMap<Slot, Streams> = Default::default();
+        let mut input_values: InputValues = Default::default();
         let sink = Slot(Rc::new(RefCell::new(Add::default())));
-        input_values.entry(sink.clone()).or_default();
+        input_values.entry(sink.clone()).or_default().count += 1;
         Self {
             input_values,
             sink,
@@ -79,13 +89,19 @@ impl Default for Graph {
 }
 
 impl Graph {
+    /// Connect the given output of the source to the destination.  The same
+    /// output may be attached  multiple times. `None` will attach all outputs.
     pub fn connect(
         &mut self,
         source: Rc<RefCell<dyn Node>>,
         destination: Rc<RefCell<dyn Node>>,
         output: Option<usize>,
     ) {
-        self.input_values.entry(Slot(source.clone())).or_default();
+        self.input_values
+            .entry(Slot(source.clone()))
+            .or_default()
+            .count += 1;
+
         self.inputs
             .entry(Slot(destination))
             .or_default()
@@ -94,8 +110,51 @@ impl Graph {
                 output,
             });
     }
+    /// Disconnect the last-added matching connection, returning a boolean
+    /// indicating if anything was disconnected.
+    pub fn disconnect(
+        &mut self,
+        source: Rc<RefCell<dyn Node>>,
+        destination: Rc<RefCell<dyn Node>>,
+        output: Option<usize>,
+    ) -> bool {
+        if let Some(inputs) = self.inputs.get_mut(&Slot(destination)) {
+            let source = Input {
+                source: Slot(source),
+                output,
+            };
+            if let Some((index, _)) = inputs
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(i, input)| **input == source)
+            {
+                inputs.remove(index);
+                let Entry::Occupied(mut input_entry) = self.input_values.entry(source.source)
+                else {
+                    unreachable!()
+                };
+
+                input_entry.get_mut().count -= 1;
+                if input_entry.get_mut().count == 0 {
+                    input_entry.remove();
+                }
+            }
+        }
+        false
+    }
+
+    /// Connect the given output of the source to the final destinaton.  The
+    /// same output may be attached  multiple times. `None` will attach all
+    /// outputs.
     pub fn sink(&mut self, source: Rc<RefCell<dyn Node>>, output: Option<usize>) {
         self.connect(source, self.sink.0.clone(), output);
+    }
+
+    /// Disconnect the last-added matching connection from the destination,
+    /// returning a boolean indicating if anything was disconnected.
+    pub fn unsink(&mut self, source: Rc<RefCell<dyn Node>>, output: Option<usize>) -> bool {
+        self.disconnect(source, self.sink.0.clone(), output)
     }
 
     pub fn get_sample_rate(&self) -> u32 {
@@ -157,20 +216,18 @@ impl Node for Graph {
                     .get(&input.source)
                     .expect("process node not in input_values");
                 if let Some(output) = input.output {
-                    if let Some(channels) = value_streams.0.get(output).cloned() {
+                    if let Some(channels) = value_streams.streams.0.get(output).cloned() {
                         input_streams.0.push(channels);
                     }
                 } else {
-                    input_streams.0.extend(value_streams.0.iter().cloned());
+                    input_streams
+                        .0
+                        .extend(value_streams.streams.0.iter().cloned());
                 }
             }
             let output = node.0.borrow_mut().process(input_streams);
-            self.input_values.insert(node, output);
+            self.input_values.get_mut(&node).unwrap().streams = output;
         }
-        if let Some(streams) = self.input_values.get(&self.sink) {
-            streams.clone()
-        } else {
-            Streams(smallvec![])
-        }
+        self.input_values.get(&self.sink).unwrap().streams.clone()
     }
 }

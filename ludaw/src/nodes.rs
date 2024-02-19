@@ -40,6 +40,25 @@ impl UserData for Graph {
             },
         );
         methods.add_method_mut(
+            "disconnect",
+            |_, this, (source, destination, output): (lua::Value, lua::Value, Option<usize>)| {
+                let source = get_node(source)?;
+                let destination = get_node(destination)?;
+                source
+                    .0
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
+                destination
+                    .0
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
+                Ok(this
+                    .0
+                    .borrow_mut()
+                    .disconnect(source.0, destination.0, output))
+            },
+        );
+        methods.add_method_mut(
             "sink",
             |_, this, (source, output): (lua::Value, Option<usize>)| {
                 let source = get_node(source)?;
@@ -49,6 +68,17 @@ impl UserData for Graph {
                     .set_sample_rate(this.0.borrow_mut().get_sample_rate());
                 this.0.borrow_mut().sink(source.0, output);
                 Ok(())
+            },
+        );
+        methods.add_method_mut(
+            "unsink",
+            |_, this, (source, output): (lua::Value, Option<usize>)| {
+                let source = get_node(source)?;
+                source
+                    .0
+                    .borrow_mut()
+                    .set_sample_rate(this.0.borrow_mut().get_sample_rate());
+                Ok(this.0.borrow_mut().unsink(source.0, output))
             },
         );
     }

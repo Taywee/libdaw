@@ -11,7 +11,12 @@ local function sawtooth(frequency)
   graph:connect(node, mul)
   graph:connect(constant, mul)
   daw.before_sample(function(sample)
-    node.frequency = frequency * (sample / 48000 + 1)
+    if sample < 48000 / 4 then
+      node.frequency = frequency * (sample / (48000 / 8) + 1)
+    elseif sample == 48000 / 4 then
+      graph:disconnect(node, mul)
+      graph:disconnect(constant, mul)
+    end
   end)
   return mul
 end
@@ -23,7 +28,12 @@ local function square(frequency)
   graph:connect(node, mul)
   graph:connect(constant, mul)
   daw.before_sample(function(sample)
-    node.frequency = frequency / (sample / 48000 + 1)
+    if sample < 48000 / 4 then
+      node.frequency = frequency * (sample / (48000 / 8) + 1)
+    elseif sample == 48000 / 4 then
+      graph:disconnect(node, mul)
+      graph:disconnect(constant, mul)
+    end
   end)
   return mul
 end

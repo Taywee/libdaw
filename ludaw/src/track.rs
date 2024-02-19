@@ -111,34 +111,40 @@ impl Track {
         Ok((track, track_source))
     }
 
-    pub fn process(&mut self) -> Result<(), Error> {
+    pub fn process(&mut self) -> Result<bool, Error> {
         let before_sample_table: lua::Table = self.lua.named_registry_value("daw.before_sample")?;
         let len = before_sample_table.len()?;
         for i in 1..=len {
             let callable: Callable = before_sample_table.get(i)?;
             let () = callable.call(self.sample_number)?;
         }
-        let sample = self
+        let first_output = self
             .node
             .0
             .borrow_mut()
             .process(Default::default())
             .0
             .into_iter()
-            .next()
-            .unwrap()
-            .0;
-        self.sender.send(Message { sample })?;
-        self.sample_number += 1;
-        Ok(())
+            .next();
+        if let Some(channels) = first_output {
+            let sample = channels.0;
+            if sample.len() > 0 {
+                self.sender.send(Message { sample })?;
+                self.sample_number += 1;
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
 impl TrackSource {
     fn refresh(&mut self) {
         if self.sample.len() == 0 {
-            self.sample = self.receiver.recv().unwrap().sample.into_iter();
-            self.channels = self.sample.len().try_into().expect("out of range");
+            if let Ok(message) = self.receiver.recv() {
+                self.sample = message.sample.into_iter();
+                self.channels = self.sample.len().try_into().expect("out of range");
+            }
         }
     }
 }
