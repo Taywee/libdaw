@@ -5,6 +5,7 @@ use lua::UserData;
 use mlua as lua;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
 #[derive(Debug, Default, Clone)]
 pub struct Graph(Rc<RefCell<libdaw::nodes::Graph>>);
@@ -160,6 +161,33 @@ impl UserData for Multiply {
 pub struct Add(Rc<RefCell<libdaw::nodes::Add>>);
 
 impl UserData for Add {
+    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Delay(Rc<RefCell<libdaw::nodes::Delay>>);
+
+impl Delay {
+    pub fn new(delay: Duration) -> Self {
+        Delay(Rc::new(RefCell::new(libdaw::nodes::Delay::new(delay))))
+    }
+}
+
+impl UserData for Delay {
+    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("delay", |_, this| {
+            Ok(this.0.borrow_mut().get_delay().as_secs_f64())
+        });
+        fields.add_field_method_set("delay", |_, this, delay| {
+            this.0
+                .borrow_mut()
+                .set_delay(Duration::from_secs_f64(delay));
+            Ok(())
+        });
+    }
+
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_method("node", |_, this, ()| Ok(Node::from(this.0.clone())));
     }
