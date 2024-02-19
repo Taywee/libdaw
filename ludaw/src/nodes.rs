@@ -35,7 +35,6 @@ impl UserData for Graph {
                     .0
                     .borrow_mut()
                     .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                let output = output.unwrap_or(0);
                 this.0.borrow_mut().connect(source.0, destination.0, output);
                 Ok(())
             },
@@ -48,7 +47,6 @@ impl UserData for Graph {
                     .0
                     .borrow_mut()
                     .set_sample_rate(this.0.borrow_mut().get_sample_rate());
-                let output = output.unwrap_or(0);
                 this.0.borrow_mut().sink(source.0, output);
                 Ok(())
             },

@@ -44,13 +44,15 @@ impl Ord for Slot {
 
 #[derive(Debug)]
 struct Input {
-    output: usize,
+    output: Option<usize>,
     source: Slot,
 }
 
 #[derive(Debug)]
 pub struct Graph {
-    /// Stored values output from an input node.
+    /// Stored values output from an input node. Every input node has this from
+    /// the beginning, even if they have not produced any streams yet.  In that
+    /// case, they will all be empty streams.
     input_values: HashMap<Slot, Streams>,
 
     /// Connects a node to a particular input.
@@ -64,10 +66,13 @@ pub struct Graph {
 
 impl Default for Graph {
     fn default() -> Self {
+        let mut input_values: HashMap<Slot, Streams> = Default::default();
+        let sink = Slot(Rc::new(RefCell::new(Add::default())));
+        input_values.entry(sink.clone()).or_default();
         Self {
-            input_values: Default::default(),
+            input_values,
+            sink,
             inputs: Default::default(),
-            sink: Slot(Rc::new(RefCell::new(Add::default()))),
             sample_rate: Default::default(),
         }
     }
@@ -78,7 +83,7 @@ impl Graph {
         &mut self,
         source: Rc<RefCell<dyn Node>>,
         destination: Rc<RefCell<dyn Node>>,
-        output: usize,
+        output: Option<usize>,
     ) {
         self.input_values.entry(Slot(source.clone())).or_default();
         self.inputs
@@ -89,7 +94,7 @@ impl Graph {
                 output,
             });
     }
-    pub fn sink(&mut self, source: Rc<RefCell<dyn Node>>, output: usize) {
+    pub fn sink(&mut self, source: Rc<RefCell<dyn Node>>, output: Option<usize>) {
         self.connect(source, self.sink.0.clone(), output);
     }
 
@@ -147,12 +152,17 @@ impl Node for Graph {
             let inputs = self.inputs.get(&node);
             let mut input_streams = Streams::default();
             for input in inputs.into_iter().flatten() {
-                let value_streams = self.input_values.get(&input.source);
-                let channels = value_streams
-                    .map(|streams| streams.0.get(input.output).cloned())
-                    .flatten()
-                    .unwrap_or_default();
-                input_streams.0.push(channels);
+                let value_streams = self
+                    .input_values
+                    .get(&input.source)
+                    .expect("process node not in input_values");
+                if let Some(output) = input.output {
+                    if let Some(channels) = value_streams.0.get(output).cloned() {
+                        input_streams.0.push(channels);
+                    }
+                } else {
+                    input_streams.0.extend(value_streams.0.iter().cloned());
+                }
             }
             let output = node.0.borrow_mut().process(input_streams);
             self.input_values.insert(node, output);
