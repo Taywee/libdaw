@@ -75,7 +75,7 @@ impl<'lua> FromLua<'lua> for Callable<'lua> {
 }
 
 impl<'lua> IntoLua<'lua> for Callable<'lua> {
-    fn into_lua(self, lua: &'lua Lua) -> Result<Value<'lua>> {
+    fn into_lua(self, _lua: &'lua Lua) -> Result<Value<'lua>> {
         Ok(self.into())
     }
 }

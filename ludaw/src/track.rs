@@ -1,30 +1,37 @@
 use crate::callable::Callable;
-use crate::{error::Error, get_node, nodes, Node};
+use crate::{error::Error, nodes};
+use crate::{get_node, ConcreteNode as _};
+use libdaw::stream::{IntoIter, Stream};
+use libdaw::Node as _;
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
+use nohash_hasher::IntSet;
 use rodio::source::Source;
-use smallvec::{smallvec, IntoIter, SmallVec};
+use std::cell::RefCell;
+use std::ops::Add;
+use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::time::Duration;
 
 #[derive(Debug)]
 struct Message {
-    sample: SmallVec<[f64; 2]>,
+    sample: Stream,
 }
 
 #[derive(Debug)]
 pub struct Track {
     lua: Lua,
-    node: Node,
     sender: SyncSender<Message>,
     sample_number: u64,
+    node: Rc<RefCell<dyn libdaw::Node>>,
+    outputs: Vec<Stream>,
+    before_sample_indexes: Rc<RefCell<IntSet<i64>>>,
 }
 
 #[derive(Debug)]
 pub struct TrackSource {
     receiver: Receiver<Message>,
-    channels: u16,
-    sample: IntoIter<[f64; 2]>,
+    sample: IntoIter,
 }
 
 impl Track {
@@ -34,6 +41,7 @@ impl Track {
         A1: IntoIterator<Item = A2>,
         A2: AsRef<str>,
     {
+        let before_sample_indexes: Rc<RefCell<IntSet<i64>>> = Default::default();
         let source = source.as_ref();
         let lua = Lua::new();
         lua.set_named_registry_value("daw.before_sample", lua.create_table()?)?;
@@ -44,52 +52,56 @@ impl Track {
                 "daw.nodes",
                 lua.create_function(|lua, ()| {
                     let module = lua.create_table()?;
+                    module.set("Graph", lua.create_function(nodes::Graph::new)?)?;
                     module.set(
                         "SquareOscillator",
-                        lua.create_function(|_, ()| Ok(nodes::SquareOscillator::default()))?,
+                        lua.create_function(nodes::SquareOscillator::new)?,
                     )?;
                     module.set(
                         "SawtoothOscillator",
-                        lua.create_function(|_, ()| Ok(nodes::SawtoothOscillator::default()))?,
-                    )?;
-                    module.set(
-                        "Graph",
-                        lua.create_function(|_, ()| Ok(nodes::Graph::default()))?,
+                        lua.create_function(nodes::SawtoothOscillator::new)?,
                     )?;
                     module.set(
                         "ConstantValue",
-                        lua.create_function(|_, value| Ok(nodes::ConstantValue::new(value)))?,
+                        lua.create_function(nodes::ConstantValue::new)?,
                     )?;
-                    module.set(
-                        "Add",
-                        lua.create_function(|_, ()| Ok(nodes::Add::default()))?,
-                    )?;
-                    module.set(
-                        "Multiply",
-                        lua.create_function(|_, ()| Ok(nodes::Multiply::default()))?,
-                    )?;
-                    module.set(
-                        "Delay",
-                        lua.create_function(|_, value| {
-                            Ok(nodes::Delay::new(Duration::from_secs_f64(value)))
-                        })?,
-                    )?;
+                    module.set("Add", lua.create_function(nodes::Add::new)?)?;
+                    module.set("Multiply", lua.create_function(nodes::Multiply::new)?)?;
+                    module.set("Delay", lua.create_function(nodes::Delay::new)?)?;
                     Ok(module)
                 })?,
             )?;
+            let before_sample_indexes = before_sample_indexes.clone();
             preload.set(
                 "daw",
-                lua.create_function(|lua, ()| {
+                lua.create_function(move |lua, ()| {
                     let module = lua.create_table()?;
-                    module.set(
-                        "before_sample",
-                        lua.create_function(|lua, callable: Callable| {
-                            let table: lua::Table =
-                                lua.named_registry_value("daw.before_sample")?;
-                            table.set(table.len()? + 1, callable)?;
-                            Ok(())
-                        })?,
-                    )?;
+                    {
+                        let before_sample_indexes = before_sample_indexes.clone();
+                        module.set(
+                            "before_sample",
+                            lua.create_function(move |lua, callable: Callable| {
+                                let table: lua::Table =
+                                    lua.named_registry_value("daw.before_sample")?;
+                                let index = table.len()? + 1;
+                                table.set(index, callable)?;
+                                before_sample_indexes.borrow_mut().insert(index);
+                                Ok(index)
+                            })?,
+                        )?;
+                    }
+                    {
+                        let before_sample_indexes = before_sample_indexes.clone();
+                        module.set(
+                            "cancel_before_sample",
+                            lua.create_function(move |lua, handle: i64| {
+                                let table: lua::Table =
+                                    lua.named_registry_value("daw.before_sample")?;
+                                table.set(handle, lua::Value::Nil)?;
+                                Ok(())
+                            })?,
+                        )?;
+                    }
                     Ok(module)
                 })?,
             )?;
@@ -99,48 +111,58 @@ impl Track {
         for arg in args {
             arg_vec.push(arg.as_ref().into_lua(&lua)?);
         }
-        let node: Node = get_node(chunk.call(lua::MultiValue::from_vec(arg_vec))?)?;
+        let node = get_node(chunk.call(lua::MultiValue::from_vec(arg_vec))?)?.node();
+        {
+            let mut node = node.borrow_mut();
+            node.set_sample_rate(48000);
+            node.set_channels(2);
+        }
         let (sender, receiver) = sync_channel(1024);
-        let mut track = Track {
+        let track = Track {
             lua,
             sender,
-            node,
             sample_number: 0,
+            node,
+            outputs: Default::default(),
+            before_sample_indexes,
         };
-        let mut track_source = TrackSource {
+        // Make an empty sample
+        let track_source = TrackSource {
             receiver,
-            channels: 0,
-            sample: smallvec![].into_iter(),
+            sample: Stream::default().into_iter(),
         };
-        track.process()?;
-        track_source.refresh();
         Ok((track, track_source))
     }
 
     pub fn process(&mut self) -> Result<bool, Error> {
         let before_sample_table: lua::Table = self.lua.named_registry_value("daw.before_sample")?;
-        let len = before_sample_table.len()?;
-        for i in 1..=len {
-            let callable: Callable = before_sample_table.get(i)?;
-            let () = callable.call(self.sample_number)?;
-        }
-        let first_output = self
-            .node
-            .0
-            .borrow_mut()
-            .process(Default::default())
-            .0
-            .into_iter()
-            .next();
-        if let Some(channels) = first_output {
-            let sample = channels.0;
-            if sample.len() > 0 {
-                self.sender.send(Message { sample })?;
-                self.sample_number += 1;
-                return Ok(true);
+        let mut cancelled = IntSet::default();
+        for i in self.before_sample_indexes.borrow().iter().copied() {
+            let callable: Option<Callable> = before_sample_table.get(i)?;
+            if let Some(callable) = callable {
+                let () = callable.call(self.sample_number)?;
+            } else {
+                cancelled.insert(i);
             }
         }
-        Ok(false)
+
+        if !cancelled.is_empty() {
+            let mut before_sample_indexes = self.before_sample_indexes.borrow_mut();
+            for i in cancelled {
+                before_sample_indexes.remove(&i);
+            }
+        }
+        self.outputs.clear();
+        self.node.borrow_mut().process(&[], &mut self.outputs);
+        let sample = self
+            .outputs
+            .iter()
+            .copied()
+            .reduce(Add::add)
+            .expect("No empty outputs are allowed yet");
+        self.sender.send(Message { sample })?;
+        self.sample_number += 1;
+        Ok(true)
     }
 }
 
@@ -149,7 +171,6 @@ impl TrackSource {
         if self.sample.len() == 0 {
             if let Ok(message) = self.receiver.recv() {
                 self.sample = message.sample.into_iter();
-                self.channels = self.sample.len().try_into().expect("out of range");
             }
         }
     }
@@ -161,10 +182,12 @@ impl Source for TrackSource {
     }
 
     fn channels(&self) -> u16 {
-        self.channels
+        // TODO: make configurable
+        2
     }
 
     fn sample_rate(&self) -> u32 {
+        // TODO: make configurable
         48000
     }
 

@@ -57,3 +57,6 @@ luac.out
 *.hex
 
 
+perf.data
+perf.data.old
+flamegraph.svg

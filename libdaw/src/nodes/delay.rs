@@ -1,16 +1,16 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use crate::streams::{Channels, Streams};
+use crate::stream::Stream;
 use crate::Node;
-use smallvec::smallvec;
 
 #[derive(Debug)]
 pub struct Delay {
-    buffers: Vec<VecDeque<Channels>>,
+    buffers: Vec<VecDeque<Stream>>,
     buffer_size: usize,
     sample_rate: f64,
     delay: Duration,
+    channels: u16,
 }
 
 impl Delay {
@@ -20,6 +20,7 @@ impl Delay {
             buffer_size: Default::default(),
             delay,
             sample_rate: 48000.0,
+            channels: Default::default(),
         };
         node.update_buffer_size();
         node
@@ -35,7 +36,7 @@ impl Delay {
     }
 
     fn update_buffer_size(&mut self) {
-        self.buffer_size = ((self.delay.as_secs_f64() * self.sample_rate).round() as usize);
+        self.buffer_size = (self.delay.as_secs_f64() * self.sample_rate).round() as usize;
         for buffer in &mut self.buffers {
             let capacity = buffer.capacity();
             if capacity < self.buffer_size {
@@ -51,22 +52,23 @@ impl Node for Delay {
         self.update_buffer_size();
     }
 
-    fn process(&mut self, input: Streams) -> Streams {
+    fn process<'a, 'b>(&'a mut self, inputs: &'b [Stream], outputs: &'a mut Vec<Stream>) {
         if self.buffer_size == 0 {
-            return input;
+            outputs.extend_from_slice(inputs);
+            return;
         }
-        if input.0.len() > self.buffers.len() {
-            self.buffers.resize_with(input.0.len(), || {
+        if inputs.len() > self.buffers.len() {
+            self.buffers.resize_with(inputs.len(), || {
                 let mut new = VecDeque::default();
                 new.reserve_exact(self.buffer_size);
                 new
             });
         }
 
-        let mut output = Streams::default();
+        outputs.reserve_exact(self.buffers.len());
         for (i, buffer) in self.buffers.iter_mut().enumerate() {
             if buffer.len() >= self.buffer_size {
-                output.0.push(
+                outputs.push(
                     buffer
                         .pop_front()
                         .expect("buffer should never be left empty"),
@@ -74,10 +76,21 @@ impl Node for Delay {
             }
 
             if buffer.len() < self.buffer_size {
-                buffer.push_back(input.0[i].clone());
+                buffer.push_back(inputs[i]);
             }
         }
         self.buffers.retain(|e| !e.is_empty());
-        dbg!(output)
+    }
+
+    fn set_channels(&mut self, channels: u16) {
+        self.channels = channels;
+    }
+
+    fn get_sample_rate(&self) -> u32 {
+        self.sample_rate as u32
+    }
+
+    fn get_channels(&self) -> u16 {
+        self.channels
     }
 }
