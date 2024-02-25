@@ -2,7 +2,6 @@ use crate::callable::Callable;
 use crate::{error::Error, nodes};
 use crate::{get_node, ConcreteNode as _};
 use libdaw::stream::{IntoIter, Stream};
-use libdaw::Node as _;
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
 use nohash_hasher::IntSet;
@@ -76,32 +75,30 @@ impl Track {
                 "daw",
                 lua.create_function(move |lua, ()| {
                     let module = lua.create_table()?;
-                    {
-                        let before_sample_indexes = before_sample_indexes.clone();
-                        module.set(
-                            "before_sample",
-                            lua.create_function(move |lua, callable: Callable| {
-                                let table: lua::Table =
-                                    lua.named_registry_value("daw.before_sample")?;
-                                let index = table.len()? + 1;
-                                table.set(index, callable)?;
-                                before_sample_indexes.borrow_mut().insert(index);
-                                Ok(index)
-                            })?,
-                        )?;
-                    }
-                    {
-                        let before_sample_indexes = before_sample_indexes.clone();
-                        module.set(
-                            "cancel_before_sample",
-                            lua.create_function(move |lua, handle: i64| {
-                                let table: lua::Table =
-                                    lua.named_registry_value("daw.before_sample")?;
-                                table.set(handle, lua::Value::Nil)?;
-                                Ok(())
-                            })?,
-                        )?;
-                    }
+
+                    let before_sample_indexes = before_sample_indexes.clone();
+                    module.set(
+                        "before_sample",
+                        lua.create_function(move |lua, callable: Callable| {
+                            let table: lua::Table =
+                                lua.named_registry_value("daw.before_sample")?;
+                            let index = table.len()? + 1;
+                            table.set(index, callable)?;
+                            before_sample_indexes.borrow_mut().insert(index);
+                            Ok(index)
+                        })?,
+                    )?;
+
+                    module.set(
+                        "cancel_before_sample",
+                        lua.create_function(move |lua, handle: i64| {
+                            let table: lua::Table =
+                                lua.named_registry_value("daw.before_sample")?;
+                            table.set(handle, lua::Value::Nil)?;
+                            Ok(())
+                        })?,
+                    )?;
+
                     Ok(module)
                 })?,
             )?;

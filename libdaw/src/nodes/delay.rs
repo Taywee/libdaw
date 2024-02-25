@@ -26,6 +26,9 @@ impl Delay {
         node
     }
 
+    // We might want to remove this.  Setting a delay to a shorter time will
+    // either not work or have to truncate the existing buffer.
+    // Then again, the same will happen for set_sample rate.
     pub fn set_delay(&mut self, delay: Duration) {
         self.delay = delay;
         self.update_buffer_size();
@@ -67,18 +70,33 @@ impl Node for Delay {
 
         outputs.reserve_exact(self.buffers.len());
         for (i, buffer) in self.buffers.iter_mut().enumerate() {
-            if buffer.len() >= self.buffer_size {
+            // TODO: An input that is added and removed in quick succession can
+            // cause an earlier-than-desired delay result. We should fix that
+            // with a dedicated buffer type that does not drain until it has
+            // been filled, and fills itself with zeros when it has no inputs.
+            if i >= inputs.len() {
+                // The buffer is being drained.
                 outputs.push(
                     buffer
                         .pop_front()
                         .expect("buffer should never be left empty"),
-                )
+                );
             } else {
-                outputs.push(Stream::new(self.channels.into()));
-            }
+                if buffer.len() >= self.buffer_size {
+                    outputs.push(
+                        buffer
+                            .pop_front()
+                            .expect("buffer should never be left empty"),
+                    );
+                } else {
+                    // Return 0 while the buffer is filling.
+                    outputs.push(Stream::new(self.channels.into()));
+                }
 
-            if buffer.len() < self.buffer_size {
-                buffer.push_back(inputs[i]);
+                // This should always be the case unless the delay is changed during processing.
+                if buffer.len() < self.buffer_size {
+                    buffer.push_back(inputs[i]);
+                }
             }
         }
         self.buffers.retain(|e| !e.is_empty());
