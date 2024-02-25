@@ -126,9 +126,9 @@ impl Track {
             outputs: Default::default(),
             before_sample_indexes,
         };
-        // Make an empty sample
         let track_source = TrackSource {
             receiver,
+            // The initial sample is empty.
             sample: Stream::default().into_iter(),
         };
         Ok((track, track_source))

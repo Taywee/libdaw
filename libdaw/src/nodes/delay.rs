@@ -73,6 +73,8 @@ impl Node for Delay {
                         .pop_front()
                         .expect("buffer should never be left empty"),
                 )
+            } else {
+                outputs.push(Stream::new(self.channels.into()));
             }
 
             if buffer.len() < self.buffer_size {
