@@ -117,7 +117,7 @@ impl Track {
             node.set_sample_rate(48000);
             node.set_channels(2);
         }
-        let (sender, receiver) = sync_channel(1024);
+        let (sender, receiver) = sync_channel(48000);
         let track = Track {
             lua,
             sender,
