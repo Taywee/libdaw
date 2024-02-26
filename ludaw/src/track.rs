@@ -1,6 +1,7 @@
 use crate::callable::Callable;
+use crate::ContainsNode as _;
+use crate::Node;
 use crate::{error::Error, nodes};
-use crate::{get_node, ConcreteNode as _};
 use libdaw::stream::{IntoIter, Stream};
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
@@ -22,7 +23,7 @@ pub struct Track {
     lua: Lua,
     sender: SyncSender<Message>,
     sample_number: u64,
-    node: Rc<RefCell<dyn libdaw::Node>>,
+    node: Rc<dyn libdaw::Node>,
     outputs: Vec<Stream>,
     before_sample_indexes: Rc<RefCell<IntSet<i64>>>,
 }
@@ -108,12 +109,10 @@ impl Track {
         for arg in args {
             arg_vec.push(arg.as_ref().into_lua(&lua)?);
         }
-        let node = get_node(chunk.call(lua::MultiValue::from_vec(arg_vec))?)?.node();
-        {
-            let mut node = node.borrow_mut();
-            node.set_sample_rate(48000);
-            node.set_channels(2);
-        }
+        let node: Node = chunk.call(lua::MultiValue::from_vec(arg_vec))?;
+        let node = node.node();
+        node.set_sample_rate(48000);
+        node.set_channels(2);
         let (sender, receiver) = sync_channel(48000);
         let track = Track {
             lua,
@@ -150,7 +149,7 @@ impl Track {
             }
         }
         self.outputs.clear();
-        self.node.borrow_mut().process(&[], &mut self.outputs);
+        self.node.process(&[], &mut self.outputs);
         let sample = self
             .outputs
             .iter()

@@ -8,7 +8,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
-type Strong = Rc<RefCell<dyn Node>>;
+type Strong = Rc<dyn Node>;
 
 /// The node index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
@@ -21,9 +21,6 @@ impl Hash for Index {
 }
 
 impl IsEnabled for Index {}
-
-// TODO: maybe store a strong reference in inputs, and a weak reference as
-// nodes, so we can have GC clean up unused nodes without explicit removal.
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 struct Input {
@@ -49,7 +46,7 @@ struct ProcessList {
 }
 
 #[derive(Debug)]
-pub struct Graph {
+struct InnerGraph {
     nodes: Vec<Option<Slot>>,
     empty_nodes: IntSet<Index>,
     set_nodes: IntSet<Index>,
@@ -60,7 +57,7 @@ pub struct Graph {
     process_list: RefCell<ProcessList>,
 }
 
-impl Default for Graph {
+impl Default for InnerGraph {
     fn default() -> Self {
         let mut graph = Self {
             nodes: Default::default(),
@@ -71,21 +68,18 @@ impl Default for Graph {
             process_list: Default::default(),
         };
         // input
-        graph.add(Rc::new(RefCell::new(Passthrough::default())));
+        graph.add(Rc::new(Passthrough::default()));
         // output
-        graph.add(Rc::new(RefCell::new(Passthrough::default())));
+        graph.add(Rc::new(Passthrough::default()));
         graph
     }
 }
 
-impl Graph {
+impl InnerGraph {
     pub fn add(&mut self, node: Strong) -> Index {
         self.process_list.borrow_mut().reprocess = true;
-        {
-            let mut node = node.borrow_mut();
-            node.set_sample_rate(self.sample_rate);
-            node.set_channels(self.channels);
-        }
+        node.set_sample_rate(self.sample_rate);
+        node.set_channels(self.channels);
         let slot = Some(Slot {
             node,
             output: Default::default(),
@@ -243,9 +237,7 @@ impl Graph {
             process_list.reprocess = false;
         }
     }
-}
 
-impl Node for Graph {
     fn set_sample_rate(&mut self, sample_rate: u32) {
         self.sample_rate = sample_rate;
         for index in &self.set_nodes {
@@ -253,14 +245,13 @@ impl Node for Graph {
                 .as_ref()
                 .expect("note not set")
                 .node
-                .borrow_mut()
                 .set_sample_rate(sample_rate);
         }
     }
 
     /// Process all inputs from roots down to the sink.
     /// All sinks are added together to turn this into a single output.
-    fn process<'a, 'b>(&'a mut self, inputs: &'b [Stream], outputs: &'a mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(&'a mut self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
         self.build_process_list();
         // First process all process-needing nodes in reverse order.
         for node in self.process_list.borrow().list.iter().rev().copied() {
@@ -286,7 +277,7 @@ impl Node for Graph {
             }
             let mut output = slot.output.borrow_mut();
             output.clear();
-            slot.node.borrow_mut().process(&input_buffer, &mut output);
+            slot.node.process(&input_buffer, &mut output);
         }
         outputs.extend_from_slice(
             &self.nodes[1]
@@ -304,7 +295,6 @@ impl Node for Graph {
                 .as_ref()
                 .expect("note not set")
                 .node
-                .borrow_mut()
                 .set_channels(channels);
         }
     }
@@ -313,5 +303,86 @@ impl Node for Graph {
     }
     fn get_channels(&self) -> u16 {
         self.channels
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Graph {
+    inner: RefCell<InnerGraph>,
+}
+
+impl Graph {
+    pub fn add(&self, node: Strong) -> Index {
+        self.inner.borrow_mut().add(node)
+    }
+
+    pub fn remove(&self, index: Index) -> Option<Strong> {
+        self.inner.borrow_mut().remove(index)
+    }
+
+    /// Connect the given output of the source to the destination.  The same
+    /// output may be attached  multiple times. `None` will attach all outputs.
+    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) {
+        self.inner.borrow_mut().connect(source, destination, stream);
+    }
+
+    /// Disconnect the last-added matching connection, returning a boolean
+    /// indicating if anything was disconnected.
+    pub fn disconnect(&self, source: Index, destination: Index, stream: Option<usize>) {
+        self.inner
+            .borrow_mut()
+            .disconnect(source, destination, stream);
+    }
+
+    /// Connect the given output of the source to the final destinaton.  The
+    /// same output may be attached multiple times. `None` will attach all
+    /// outputs.
+    pub fn input(&self, source: Index, stream: Option<usize>) {
+        self.inner.borrow_mut().input(source, stream);
+    }
+
+    /// Disconnect the last-added matching connection from the destination,
+    /// returning a boolean indicating if anything was disconnected.
+    pub fn remove_input(&self, source: Index, stream: Option<usize>) {
+        self.inner.borrow_mut().remove_input(source, stream);
+    }
+
+    /// Connect the given output of the source to the final destinaton.  The
+    /// same output may be attached multiple times. `None` will attach all
+    /// outputs.
+    pub fn output(&self, source: Index, stream: Option<usize>) {
+        self.inner.borrow_mut().output(source, stream);
+    }
+
+    /// Disconnect the last-added matching connection from the destination,
+    /// returning a boolean indicating if anything was disconnected.
+    pub fn remove_output(&self, source: Index, stream: Option<usize>) {
+        self.inner.borrow_mut().remove_output(source, stream);
+    }
+}
+
+impl Node for Graph {
+    fn set_sample_rate(&self, sample_rate: u32) {
+        self.inner.borrow_mut().set_sample_rate(sample_rate)
+    }
+
+    fn set_channels(&self, channels: u16) {
+        self.inner.borrow_mut().set_channels(channels)
+    }
+
+    fn get_sample_rate(&self) -> u32 {
+        self.inner.borrow().get_sample_rate()
+    }
+
+    fn get_channels(&self) -> u16 {
+        self.inner.borrow().get_channels()
+    }
+
+    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+        self.inner.borrow_mut().process(inputs, outputs)
+    }
+
+    fn node(self: Rc<Self>) -> Rc<dyn Node> {
+        self
     }
 }

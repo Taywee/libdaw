@@ -1,35 +1,44 @@
 use crate::stream::Stream;
-use crate::Node;
+use crate::{FrequencyNode, Node};
+use std::cell::{Cell, RefCell};
 
 #[derive(Debug)]
 pub struct SawtoothOscillator {
-    frequency: f64,
-    sample_rate: f64,
-    sample: f64,
-    delta: f64,
-    channels: u16,
+    frequency: Cell<f64>,
+    sample_rate: Cell<f64>,
+    sample: Cell<f64>,
+    delta: Cell<f64>,
+    channels: Cell<u16>,
 }
 
 impl SawtoothOscillator {
-    fn calculate_delta(&mut self) {
-        self.delta = self.frequency * 2.0 / self.sample_rate;
+    fn calculate_delta(&self) {
+        self.delta
+            .set(self.frequency.get() * 2.0 / self.sample_rate.get());
     }
-    pub fn set_frequency(&mut self, frequency: f64) {
-        self.frequency = frequency;
+}
+
+impl FrequencyNode for SawtoothOscillator {
+    fn set_frequency(&self, frequency: f64) {
+        self.frequency.set(frequency);
         self.calculate_delta();
     }
-    pub fn get_frequency(&self) -> f64 {
-        self.frequency
+    fn get_frequency(&self) -> f64 {
+        self.frequency.get()
+    }
+
+    fn frequency_node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn FrequencyNode> {
+        self
     }
 }
 
 impl Default for SawtoothOscillator {
     fn default() -> Self {
         let mut node = SawtoothOscillator {
-            frequency: 256.0,
-            sample: -1.0,
-            sample_rate: 48000.0,
-            delta: 0.01,
+            frequency: Cell::new(256.0),
+            sample: Default::default(),
+            sample_rate: Cell::new(48000.0),
+            delta: Cell::new(0.01),
             channels: Default::default(),
         };
         node.calculate_delta();
@@ -38,31 +47,36 @@ impl Default for SawtoothOscillator {
 }
 
 impl Node for SawtoothOscillator {
-    fn set_sample_rate(&mut self, sample_rate: u32) {
-        self.sample_rate = sample_rate.into();
+    fn set_sample_rate(&self, sample_rate: u32) {
+        self.sample_rate.set(sample_rate.into());
         self.calculate_delta();
     }
-
     fn get_sample_rate(&self) -> u32 {
-        self.sample_rate as u32
+        self.sample_rate.get() as u32
     }
 
-    fn process<'a, 'b>(&'a mut self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) {
-        let mut output = Stream::new(self.channels.into());
-        output.fill(self.sample);
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+        let mut output = Stream::new(self.channels.get().into());
+        output.fill(self.sample.get());
         outputs.push(output);
 
-        self.sample += self.delta;
-        while self.sample > 1.0 {
-            self.sample -= 1.0;
+        let mut sample = self.sample.get() + self.delta.get();
+        if sample > 1.0 {
+            // Range is [-1.0, 1.0]
+            sample -= 2.0;
         }
+        self.sample.set(sample);
     }
 
-    fn set_channels(&mut self, channels: u16) {
-        self.channels = channels;
+    fn set_channels(&self, channels: u16) {
+        self.channels.set(channels);
     }
 
     fn get_channels(&self) -> u16 {
-        self.channels
+        self.channels.get()
+    }
+
+    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
+        self
     }
 }
