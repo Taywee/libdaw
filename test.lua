@@ -55,21 +55,21 @@ local function note(args)
 end
 
 for i=0, 10 do 
-  note{ node = nodes.SquareOscillator(), note = 0, delay = i * 4, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 4, delay = i * 4, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 7, delay = i * 4, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 0, delay = i * 4, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 4, delay = i * 4, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 7, delay = i * 4, length = 0.1 }
 
-  note{ node = nodes.SquareOscillator(), octave = 3, note = 11, delay = i * 4 + 1, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 2, delay = i * 4 + 1, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 7, delay = i * 4 + 1, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), octave = 3, note = 11, delay = i * 4 + 1, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 2, delay = i * 4 + 1, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 7, delay = i * 4 + 1, length = 0.1 }
 
-  note{ node = nodes.SquareOscillator(), note = 0, delay = i * 4 + 2, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 4, delay = i * 4 + 2, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 9, delay = i * 4 + 2, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 0, delay = i * 4 + 2, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 4, delay = i * 4 + 2, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 9, delay = i * 4 + 2, length = 0.1 }
 
-  note{ node = nodes.SquareOscillator(), note = 0, delay = i * 4 + 3, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 5, delay = i * 4 + 3, length = 0.1 }
-  note{ node = nodes.SquareOscillator(), note = 9, delay = i * 4 + 3, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 0, delay = i * 4 + 3, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 5, delay = i * 4 + 3, length = 0.1 }
+  note{ node = nodes.SawtoothOscillator(), note = 9, delay = i * 4 + 3, length = 0.1 }
 end
 
 return graph
