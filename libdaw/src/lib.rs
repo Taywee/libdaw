@@ -25,3 +25,12 @@ pub trait FrequencyNode: Node {
     fn set_frequency(&self, frequency: f64);
     fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
 }
+
+/// A frequency node with a length, for things like envelope application. This
+/// will be mostly internal to instrument nodes, which will maintain its own
+/// note graph.
+pub trait NoteNode: FrequencyNode {
+    fn get_length(&self) -> Duration;
+    fn set_length(&self, length: Duration);
+    fn note_node(self: Rc<Self>) -> Rc<dyn NoteNode>;
+}
