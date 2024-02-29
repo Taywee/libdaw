@@ -1,6 +1,7 @@
 pub mod add;
 pub mod constant_value;
 pub mod delay;
+pub mod enveloped_frequency_node;
 pub mod graph;
 pub mod multiply;
 pub mod passthrough;
@@ -10,6 +11,7 @@ pub mod square_oscillator;
 pub use add::Add;
 pub use constant_value::ConstantValue;
 pub use delay::Delay;
+pub use enveloped_frequency_node::EnvelopedFrequencyNode;
 pub use graph::Graph;
 pub use multiply::Multiply;
 pub use passthrough::Passthrough;

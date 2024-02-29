@@ -1,6 +1,6 @@
 use crate::stream::Stream;
 use crate::{FrequencyNode, Node};
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 
 #[derive(Debug)]
 pub struct SquareOscillator {

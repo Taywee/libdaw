@@ -1,7 +1,7 @@
 pub mod nodes;
 pub mod stream;
 
-use std::{cell::RefCell, fmt::Debug, rc::Rc, time::Duration};
+use std::{fmt::Debug, rc::Rc, time::Duration};
 use stream::Stream;
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
@@ -26,11 +26,16 @@ pub trait FrequencyNode: Node {
     fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
 }
 
-/// A frequency node with a length, for things like envelope application. This
-/// will be mostly internal to instrument nodes, which will maintain its own
-/// note graph.
-pub trait NoteNode: FrequencyNode {
-    fn get_length(&self) -> Duration;
-    fn set_length(&self, length: Duration);
-    fn note_node(self: Rc<Self>) -> Rc<dyn NoteNode>;
+/// A single note definition.  Defined by frequency, not note name, to not tie
+/// it to any particular tuning or scale.
+/// Detuning and pitch bend should be done to the underlying frequency node.
+#[derive(Debug)]
+pub struct Note {
+    pub start: Duration,
+    pub length: Duration,
+    pub frequency: f64,
+}
+
+pub trait Instrument: Node {
+    fn add_note(&self, note: Note);
 }
