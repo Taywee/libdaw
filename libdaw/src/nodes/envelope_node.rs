@@ -66,18 +66,15 @@ impl Ord for CalculatedEnvelopePoint {
 
 /// A frequency node wrapper that applies a volume envelope to the node.
 #[derive(Debug)]
-pub struct EnvelopedFrequencyNode {
-    node: Rc<dyn FrequencyNode>,
+pub struct EnvelopeNode {
     envelope: RefCell<Vec<CalculatedEnvelopePoint>>,
     sample: Cell<u64>,
+    sample_rate: Cell<u32>,
+    channels: Cell<u16>,
 }
 
-impl EnvelopedFrequencyNode {
-    pub fn new(
-        node: Rc<dyn FrequencyNode>,
-        length: Duration,
-        envelope: impl IntoIterator<Item = EnvelopePoint>,
-    ) -> Self {
+impl EnvelopeNode {
+    pub fn new(length: Duration, envelope: impl IntoIterator<Item = EnvelopePoint>) -> Self {
         let mut envelope: Vec<CalculatedEnvelopePoint> = envelope
             .into_iter()
             .flat_map(move |point| {
@@ -107,16 +104,17 @@ impl EnvelopedFrequencyNode {
             .collect();
         envelope.sort();
         let node = Self {
-            node,
             envelope: RefCell::new(envelope),
             sample: 0.into(),
+            sample_rate: Default::default(),
+            channels: Default::default(),
         };
         node.calculate_samples();
         node
     }
 
     fn calculate_samples(&self) {
-        let sample_rate = self.node.get_sample_rate() as f64;
+        let sample_rate = self.sample_rate.get() as f64;
         let mut envelope = self.envelope.borrow_mut();
         for point in envelope.iter_mut() {
             let seconds = point.time.as_secs_f64();
@@ -125,26 +123,25 @@ impl EnvelopedFrequencyNode {
     }
 }
 
-impl Node for EnvelopedFrequencyNode {
+impl Node for EnvelopeNode {
     fn set_sample_rate(&self, sample_rate: u32) {
-        self.node.set_sample_rate(sample_rate);
-        self.calculate_samples();
+        self.sample_rate.set(sample_rate);
     }
 
     fn set_channels(&self, channels: u16) {
-        self.node.set_channels(channels);
+        self.channels.set(channels);
     }
 
     fn get_sample_rate(&self) -> u32 {
-        self.node.get_sample_rate()
+        self.sample_rate.get()
     }
 
     fn get_channels(&self) -> u16 {
-        self.node.get_channels()
+        self.channels.get()
     }
 
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
-        self.node.process(inputs, outputs);
+        outputs.extend_from_slice(inputs);
 
         let envelope = self.envelope.borrow_mut();
         let sample = self.sample.replace(self.sample.get() + 1) as f64;
@@ -182,20 +179,6 @@ impl Node for EnvelopedFrequencyNode {
     }
 
     fn node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
-    }
-}
-
-impl FrequencyNode for EnvelopedFrequencyNode {
-    fn get_frequency(&self) -> f64 {
-        self.node.get_frequency()
-    }
-
-    fn set_frequency(&self, frequency: f64) {
-        self.node.set_frequency(frequency);
-    }
-
-    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode> {
         self
     }
 }
