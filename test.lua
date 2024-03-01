@@ -1,7 +1,6 @@
 local nodes = require 'daw.nodes'
-local daw = require 'daw'
+local callbacks = require 'daw.callbacks'
 
-local sample_rate = 48000
 local graph = nodes.Graph()
 
 local function make_echo(args)
@@ -27,9 +26,9 @@ local function note(args)
   local note = args.note or 0
   local node = args.node or nodes.SawtoothOscillator()
   node.frequency = 16 * 2 ^ ((octave * 12 + note) / 12)
-  local delay = (args.delay or 0) * sample_rate
-  local length = args.length and args.length * sample_rate
-  local last = length and delay + length
+  local delay = args.delay or 0
+  local length = args.length and args.length
+  local end_time = length and delay + length
 
   local note_graph = nodes.Graph()
   local node_index = note_graph:add(node)
@@ -39,16 +38,21 @@ local function note(args)
 
   local note_graph_index
 
-  local handle
-  handle = daw.before_sample(function (sample)
-    if sample == delay then
+  callbacks.register{
+    oneshot = true,
+    start_time = delay,
+    callback = function()
       note_graph_index = graph:add(note_graph)
       graph:connect(note_graph_index, echo_graph_index)
-    elseif sample == last then
+    end,
+  }
+  callbacks.register{
+    oneshot = true,
+    start_time = end_time,
+    callback = function()
       graph:remove(note_graph_index)
-      daw.cancel_before_sample(handle)
-    end
-  end)
+    end,
+  }
 end
 
 for i=0, 10 do 
