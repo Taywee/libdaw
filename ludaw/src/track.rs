@@ -48,29 +48,7 @@ impl Track {
         {
             let package: Table = lua.globals().get("package")?;
             let preload: Table = package.get("preload")?;
-            preload.set(
-                "daw.nodes",
-                lua.create_function(|lua, ()| {
-                    let module = lua.create_table()?;
-                    module.set("Graph", lua.create_function(nodes::Graph::new)?)?;
-                    module.set(
-                        "SquareOscillator",
-                        lua.create_function(nodes::SquareOscillator::new)?,
-                    )?;
-                    module.set(
-                        "SawtoothOscillator",
-                        lua.create_function(nodes::SawtoothOscillator::new)?,
-                    )?;
-                    module.set(
-                        "ConstantValue",
-                        lua.create_function(nodes::ConstantValue::new)?,
-                    )?;
-                    module.set("Add", lua.create_function(nodes::Add::new)?)?;
-                    module.set("Multiply", lua.create_function(nodes::Multiply::new)?)?;
-                    module.set("Delay", lua.create_function(nodes::Delay::new)?)?;
-                    Ok(module)
-                })?,
-            )?;
+            preload.set("daw.nodes", lua.create_function(nodes::setup_module)?)?;
             let before_sample_indexes = before_sample_indexes.clone();
             preload.set(
                 "daw",

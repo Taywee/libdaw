@@ -23,8 +23,8 @@ impl Gain {
         self.gain.set(gain);
     }
 
-    pub fn get_gain(&self) {
-        self.gain.get();
+    pub fn get_gain(&self) -> f64 {
+        self.gain.get()
     }
 }
 
