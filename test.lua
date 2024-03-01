@@ -10,9 +10,8 @@ local function make_echo(args)
   local graph = nodes.Graph()
   local input = graph:add(nodes.Add())
   local delay = graph:add(nodes.Delay(delay_seconds))
-  local gain = graph:add(nodes.Multiply())
+  local gain = graph:add(nodes.Gain(gain_ratio))
   graph:input(input)
-  graph:connect(graph:add(nodes.ConstantValue(gain_ratio)), gain)
   graph:connect(input, delay)
   graph:connect(delay, gain)
   graph:connect(gain, input)
@@ -20,7 +19,7 @@ local function make_echo(args)
   return graph
 end
 
-local echo_graph_index = graph:add(make_echo{ delay = 0.2, gain = 0.5 })
+local echo_graph_index = graph:add(make_echo{ delay = 0.15, gain = 0.5 })
 graph:output(echo_graph_index)
 
 local function note(args)
@@ -34,11 +33,9 @@ local function note(args)
 
   local note_graph = nodes.Graph()
   local node_index = note_graph:add(node)
-  local multiply_index = note_graph:add(nodes.Multiply())
-  local constant_index = note_graph:add(nodes.ConstantValue(0.1))
-  note_graph:connect(node_index, multiply_index)
-  note_graph:connect(constant_index, multiply_index)
-  note_graph:output(multiply_index)
+  local gain_index = note_graph:add(nodes.Gain(0.1))
+  note_graph:connect(node_index, gain_index)
+  note_graph:output(gain_index)
 
   local note_graph_index
 

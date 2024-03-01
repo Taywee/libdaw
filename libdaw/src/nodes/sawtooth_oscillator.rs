@@ -1,6 +1,6 @@
 use crate::stream::Stream;
 use crate::{FrequencyNode, Node};
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 
 #[derive(Debug)]
 pub struct SawtoothOscillator {
@@ -34,7 +34,7 @@ impl FrequencyNode for SawtoothOscillator {
 
 impl Default for SawtoothOscillator {
     fn default() -> Self {
-        let mut node = SawtoothOscillator {
+        let node = SawtoothOscillator {
             frequency: Cell::new(256.0),
             sample: Default::default(),
             sample_rate: Cell::new(48000.0),

@@ -165,3 +165,47 @@ impl Mul for Stream {
         self
     }
 }
+
+impl MulAssign<f64> for Stream {
+    fn mul_assign(&mut self, rhs: f64) {
+        let rhs = rhs;
+        for l in self.samples.iter_mut() {
+            *l *= rhs;
+        }
+    }
+}
+
+impl Mul<f64> for &Stream {
+    type Output = Stream;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        let mut output = self.clone();
+        output *= rhs;
+        output
+    }
+}
+
+impl Mul<f64> for Stream {
+    type Output = Stream;
+
+    fn mul(mut self, rhs: f64) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+
+impl Mul<Stream> for f64 {
+    type Output = Stream;
+
+    fn mul(self, rhs: Stream) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Mul<&Stream> for f64 {
+    type Output = Stream;
+
+    fn mul(self, rhs: &Stream) -> Self::Output {
+        rhs * self
+    }
+}

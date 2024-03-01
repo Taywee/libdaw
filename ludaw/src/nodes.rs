@@ -3,10 +3,30 @@ use crate::Node;
 use libdaw::nodes::graph::Index;
 use libdaw::FrequencyNode as _;
 use libdaw::Node as _;
+use lua::Table;
 use lua::{Lua, UserData};
 use mlua as lua;
 use std::rc::Rc;
 use std::time::Duration;
+
+pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> lua::Result<Table<'a>> {
+    let module = lua.create_table()?;
+    module.set("Graph", lua.create_function(Graph::new)?)?;
+    module.set(
+        "SquareOscillator",
+        lua.create_function(SquareOscillator::new)?,
+    )?;
+    module.set(
+        "SawtoothOscillator",
+        lua.create_function(SawtoothOscillator::new)?,
+    )?;
+    module.set("ConstantValue", lua.create_function(ConstantValue::new)?)?;
+    module.set("Add", lua.create_function(Add::new)?)?;
+    module.set("Multiply", lua.create_function(Multiply::new)?)?;
+    module.set("Delay", lua.create_function(Delay::new)?)?;
+    module.set("Gain", lua.create_function(Gain::new)?)?;
+    Ok(module)
+}
 
 #[derive(Debug, Clone)]
 pub struct Graph {
@@ -250,6 +270,37 @@ impl UserData for Delay {
         fields.add_field_method_get("delay", |_, this| Ok(this.node.get_delay().as_secs_f64()));
         fields.add_field_method_set("delay", |_, this, delay| {
             this.node.set_delay(Duration::from_secs_f64(delay));
+            Ok(())
+        });
+    }
+
+    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+        Node::add_node_methods(methods);
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Gain {
+    node: Rc<libdaw::nodes::Gain>,
+}
+
+impl ContainsNode for Gain {
+    fn node(&self) -> Rc<dyn libdaw::Node> {
+        self.node.clone()
+    }
+}
+
+impl Gain {
+    pub fn new(_lua: &Lua, gain: f64) -> lua::Result<Self> {
+        let node = Rc::new(libdaw::nodes::Gain::new(gain));
+        Ok(Self { node })
+    }
+}
+
+impl UserData for Gain {
+    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("gain", |_, this| Ok(this.node.get_gain()));
+        fields.add_field_method_set("gain", |_, this, gain| {
+            this.node.set_gain(gain);
             Ok(())
         });
     }
