@@ -1,4 +1,4 @@
-use crate::{stream::Stream, FrequencyNode, Node};
+use crate::{stream::Stream, Node};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,

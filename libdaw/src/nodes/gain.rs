@@ -1,7 +1,7 @@
 use crate::stream::Stream;
 use crate::Node;
 use std::cell::Cell;
-use std::ops::Mul as _;
+
 
 #[derive(Debug)]
 pub struct Gain {

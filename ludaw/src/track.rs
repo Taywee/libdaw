@@ -1,4 +1,5 @@
 use crate::callable::Callable;
+use crate::indexable::Indexable;
 use crate::ContainsNode as _;
 use crate::Node;
 use crate::{error::Error, nodes};
@@ -6,8 +7,10 @@ use libdaw::stream::{IntoIter, Stream};
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
 use nohash_hasher::IntSet;
+use ordered_float::OrderedFloat;
 use rodio::source::Source;
 use std::cell::RefCell;
+
 use std::ops::Add;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
@@ -18,6 +21,14 @@ struct Message {
     sample: Stream,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct Callback {
+    start_time: OrderedFloat<f64>,
+    end_time: OrderedFloat<f64>,
+    oneshot: bool,
+    handle: i64,
+}
+
 #[derive(Debug)]
 pub struct Track {
     lua: Lua,
@@ -25,7 +36,12 @@ pub struct Track {
     sample_number: u64,
     node: Rc<dyn libdaw::Node>,
     outputs: Vec<Stream>,
-    before_sample_indexes: Rc<RefCell<IntSet<i64>>>,
+    sample_rate: u32,
+
+    /// A sorted set of sample callbacks.  We use a vec instead of something
+    /// like BTreeSet because iteration speed is much more important than
+    /// insertion and deletion speed.
+    callbacks: Rc<RefCell<Vec<Callback>>>,
 }
 
 #[derive(Debug)]
@@ -41,42 +57,69 @@ impl Track {
         A1: IntoIterator<Item = A2>,
         A2: AsRef<str>,
     {
-        let before_sample_indexes: Rc<RefCell<IntSet<i64>>> = Default::default();
+        let callbacks: Rc<RefCell<Vec<Callback>>> = Default::default();
         let source = source.as_ref();
         let lua = Lua::new();
-        lua.set_named_registry_value("daw.before_sample", lua.create_table()?)?;
+        lua.set_named_registry_value("daw.callbacks", lua.create_table()?)?;
         {
             let package: Table = lua.globals().get("package")?;
             let preload: Table = package.get("preload")?;
             preload.set("daw.nodes", lua.create_function(nodes::setup_module)?)?;
-            let before_sample_indexes = before_sample_indexes.clone();
+            let callbacks = callbacks.clone();
             preload.set(
-                "daw",
+                "daw.callbacks",
                 lua.create_function(move |lua, ()| {
                     let module = lua.create_table()?;
 
-                    let before_sample_indexes = before_sample_indexes.clone();
-                    module.set(
-                        "before_sample",
-                        lua.create_function(move |lua, callable: Callable| {
-                            let table: lua::Table =
-                                lua.named_registry_value("daw.before_sample")?;
-                            let index = table.len()? + 1;
-                            table.set(index, callable)?;
-                            before_sample_indexes.borrow_mut().insert(index);
-                            Ok(index)
-                        })?,
-                    )?;
+                    {
+                        let callbacks = callbacks.clone();
+                        module.set(
+                            "register",
+                            lua.create_function(move |lua, registration: Indexable| {
+                                let table: lua::Table =
+                                    lua.named_registry_value("daw.callbacks")?;
+                                let handle = table.len()? + 1;
+                                let mut callbacks = callbacks.borrow_mut();
+                                debug_assert_eq!(
+                                    callbacks.iter().find(|callback| callback.handle == handle),
+                                    None,
+                                    "Should not find a matching handle"
+                                );
+                                let callback: Callable = registration.get("callback")?;
+                                let start_time: Option<f64> = registration.get("start_time")?;
+                                let end_time: Option<f64> = registration.get("end_time")?;
+                                let oneshot: Option<bool> = registration.get("oneshot")?;
 
-                    module.set(
-                        "cancel_before_sample",
-                        lua.create_function(move |lua, handle: i64| {
-                            let table: lua::Table =
-                                lua.named_registry_value("daw.before_sample")?;
-                            table.set(handle, lua::Value::Nil)?;
-                            Ok(())
-                        })?,
-                    )?;
+                                table.set(handle, callback)?;
+                                let callback = Callback {
+                                    start_time: start_time.unwrap_or(f64::NEG_INFINITY).into(),
+                                    end_time: end_time.unwrap_or(f64::INFINITY).into(),
+                                    handle,
+                                    oneshot: oneshot.unwrap_or(false),
+                                };
+                                let index = callbacks.binary_search(&callback).expect_err(
+                                    "Should never find an index that still exists in callbacks",
+                                );
+                                callbacks.insert(index, callback);
+                                Ok(handle)
+                            })?,
+                        )?;
+                    }
+
+                    {
+                        let callbacks = callbacks.clone();
+                        module.set(
+                            "cancel",
+                            lua.create_function(move |lua, handle: i64| {
+                                let table: lua::Table =
+                                    lua.named_registry_value("daw.callbacks")?;
+                                table.set(handle, lua::Value::Nil)?;
+                                let mut callbacks = callbacks.borrow_mut();
+                                callbacks.retain(|e| e.handle != handle);
+                                Ok(())
+                            })?,
+                        )?;
+                    }
 
                     Ok(module)
                 })?,
@@ -91,14 +134,15 @@ impl Track {
         let node = node.node();
         node.set_sample_rate(48000);
         node.set_channels(2);
-        let (sender, receiver) = sync_channel(48000);
+        let (sender, receiver) = sync_channel(480000);
         let track = Track {
             lua,
             sender,
             sample_number: 0,
             node,
+            sample_rate: 48000,
             outputs: Default::default(),
-            before_sample_indexes,
+            callbacks,
         };
         let track_source = TrackSource {
             receiver,
@@ -109,23 +153,33 @@ impl Track {
     }
 
     pub fn process(&mut self) -> Result<bool, Error> {
-        let before_sample_table: lua::Table = self.lua.named_registry_value("daw.before_sample")?;
-        let mut cancelled = IntSet::default();
-        for i in self.before_sample_indexes.borrow().iter().copied() {
-            let callable: Option<Callable> = before_sample_table.get(i)?;
-            if let Some(callable) = callable {
-                let () = callable.call(self.sample_number)?;
-            } else {
-                cancelled.insert(i);
+        let sample_time = OrderedFloat(self.sample_number as f64 / self.sample_rate as f64);
+
+        let sample_callback_table: lua::Table = self.lua.named_registry_value("daw.callbacks")?;
+        let mut ended = IntSet::default();
+        for callback in self.callbacks.borrow().iter() {
+            if sample_time < callback.start_time {
+                break;
+            }
+            if sample_time >= callback.end_time {
+                ended.insert(callback.handle);
+                continue;
+            }
+
+            let callable: Callable = sample_callback_table.get(callback.handle)?;
+            let () = callable.call(sample_time.0)?;
+
+            if callback.oneshot {
+                ended.insert(callback.handle);
             }
         }
 
-        if !cancelled.is_empty() {
-            let mut before_sample_indexes = self.before_sample_indexes.borrow_mut();
-            for i in cancelled {
-                before_sample_indexes.remove(&i);
-            }
+        if !ended.is_empty() {
+            let mut callbacks = self.callbacks.borrow_mut();
+            dbg!(&ended);
+            callbacks.retain(|callback| !ended.contains(&callback.handle));
         }
+
         self.outputs.clear();
         self.node.process(&[], &mut self.outputs);
         let sample = self
