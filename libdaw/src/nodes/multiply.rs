@@ -5,8 +5,15 @@ use std::ops::Mul as _;
 
 #[derive(Debug, Default)]
 pub struct Multiply {
-    sample_rate: Cell<u32>,
-    channels: Cell<u16>,
+    channels: usize,
+}
+
+impl Multiply {
+    pub fn new(channels: u16) -> Self {
+        Multiply {
+            channels: channels.into(),
+        }
+    }
 }
 
 impl Node for Multiply {
@@ -16,24 +23,8 @@ impl Node for Multiply {
                 .into_iter()
                 .copied()
                 .reduce(Stream::mul)
-                .unwrap_or_else(|| Stream::new(self.channels.get().into())),
+                .unwrap_or_else(|| Stream::new(self.channels)),
         );
-    }
-
-    fn set_sample_rate(&self, sample_rate: u32) {
-        self.sample_rate.set(sample_rate);
-    }
-
-    fn set_channels(&self, channels: u16) {
-        self.channels.set(channels);
-    }
-
-    fn get_sample_rate(&self) -> u32 {
-        self.sample_rate.get()
-    }
-
-    fn get_channels(&self) -> u16 {
-        self.channels.get()
     }
 
     fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
