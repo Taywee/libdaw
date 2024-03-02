@@ -9,7 +9,7 @@ pub struct ConstantValue {
 }
 
 impl ConstantValue {
-    pub fn new(value: f64, channels: u16) -> Self {
+    pub fn new(channels: u16, value: f64) -> Self {
         Self {
             value: value.into(),
             channels: channels.into(),

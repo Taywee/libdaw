@@ -2,7 +2,7 @@ use crate::stream::Stream;
 use crate::Node;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::ops::DerefMut;
+
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub struct Delay {
 }
 
 impl Delay {
-    pub fn new(delay: Duration, sample_rate: u32) -> Self {
+    pub fn new(sample_rate: u32, delay: Duration) -> Self {
         let delay = (delay.as_secs_f64() * sample_rate as f64) as u64;
         Self {
             buffers: Default::default(),

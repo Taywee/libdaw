@@ -33,7 +33,31 @@ impl ContainsNode for Node {
     }
 }
 
+// Get the sample rate if it exists, or set it to the default of 48000
+pub fn get_sample_rate(lua: &Lua) -> lua::Result<u32> {
+    if let Some(sample_rate) = lua.named_registry_value("daw.sample_rate")? {
+        Ok(sample_rate)
+    } else {
+        lua.set_named_registry_value("daw.sample_rate", 48000u32)?;
+        Ok(48000)
+    }
+}
+
+// Get the channel count if it exists, or set it to the default of 2
+pub fn get_channels(lua: &Lua) -> lua::Result<u16> {
+    if let Some(channels) = lua.named_registry_value("daw.channels")? {
+        Ok(channels)
+    } else {
+        lua.set_named_registry_value("daw.channels", 2u16)?;
+        Ok(2)
+    }
+}
+
 impl Node {
+    pub fn add_node_fields<'lua, T: UserData + ContainsNode, F: lua::UserDataFields<'lua, T>>(
+        _fields: &mut F,
+    ) {
+    }
     pub fn add_node_methods<'lua, T: UserData + ContainsNode, M: lua::UserDataMethods<'lua, T>>(
         methods: &mut M,
     ) {
@@ -46,16 +70,7 @@ impl UserData for Node {
     where
         F: lua::UserDataFields<'lua, Self>,
     {
-        fields.add_field_method_set("sample_rate", |_, this, sample_rate| {
-            this.node.set_sample_rate(sample_rate);
-            Ok(())
-        });
-        fields.add_field_method_get("sample_rate", |_, this| Ok(this.node.get_sample_rate()));
-        fields.add_field_method_set("channels", |_, this, channels| {
-            this.node.set_channels(channels);
-            Ok(())
-        });
-        fields.add_field_method_get("channels", |_, this| Ok(this.node.get_channels()));
+        Node::add_node_fields(fields);
     }
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);

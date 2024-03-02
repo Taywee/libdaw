@@ -50,7 +50,6 @@ struct InnerGraph {
     nodes: Vec<Option<Slot>>,
     empty_nodes: IntSet<Index>,
     set_nodes: IntSet<Index>,
-
     process_list: RefCell<ProcessList>,
 }
 

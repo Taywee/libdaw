@@ -1,7 +1,6 @@
 use crate::{stream::Stream, Node};
 use std::{
-    cell::{Cell, RefCell},
-    ops::Deref,
+    cell::{Cell},
     rc::Rc,
     time::Duration,
 };
