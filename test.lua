@@ -1,5 +1,9 @@
+local daw = require 'daw'
 local nodes = require 'daw.nodes'
 local callbacks = require 'daw.callbacks'
+
+daw.set_channels(2)
+daw.set_sample_rate(48000)
 
 local graph = nodes.Graph()
 

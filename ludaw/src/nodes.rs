@@ -1,8 +1,10 @@
+use crate::get_channels;
+use crate::get_sample_rate;
 use crate::ContainsNode;
 use crate::Node;
 use libdaw::nodes::graph::Index;
 use libdaw::FrequencyNode as _;
-use libdaw::Node as _;
+
 use lua::Table;
 use lua::{Lua, UserData};
 use mlua as lua;
@@ -41,12 +43,8 @@ impl ContainsNode for Graph {
 
 impl Graph {
     pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
-        let graph = libdaw::nodes::Graph::default();
-        graph.set_channels(2);
-        graph.set_sample_rate(48000);
-        Ok(Self {
-            node: Rc::new(graph),
-        })
+        let node = libdaw::nodes::Graph::default().into();
+        Ok(Self { node })
     }
 }
 
@@ -101,6 +99,10 @@ impl UserData for Graph {
             },
         );
     }
+
+    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -115,14 +117,16 @@ impl ContainsNode for SquareOscillator {
 }
 
 impl SquareOscillator {
-    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
-        let node: Rc<libdaw::nodes::SquareOscillator> = Default::default();
+    pub fn new(lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node =
+            libdaw::nodes::SquareOscillator::new(get_sample_rate(lua)?, get_channels(lua)?).into();
         Ok(Self { node })
     }
 }
 
 impl UserData for SquareOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
         fields.add_field_method_get("frequency", |_, this| Ok(this.node.get_frequency()));
         fields.add_field_method_set("frequency", |_, this, frequency| {
             this.node.set_frequency(frequency);
@@ -147,14 +151,17 @@ impl ContainsNode for SawtoothOscillator {
 }
 
 impl SawtoothOscillator {
-    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
-        let node: Rc<libdaw::nodes::SawtoothOscillator> = Default::default();
+    pub fn new(lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node =
+            libdaw::nodes::SawtoothOscillator::new(get_sample_rate(lua)?, get_channels(lua)?)
+                .into();
         Ok(Self { node })
     }
 }
 
 impl UserData for SawtoothOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
         fields.add_field_method_get("frequency", |_, this| Ok(this.node.get_frequency()));
         fields.add_field_method_set("frequency", |_, this, frequency| {
             this.node.set_frequency(frequency);
@@ -179,14 +186,15 @@ impl ContainsNode for ConstantValue {
 }
 
 impl ConstantValue {
-    pub fn new(_lua: &Lua, value: f64) -> lua::Result<Self> {
-        let node = Rc::new(libdaw::nodes::ConstantValue::new(value));
+    pub fn new(lua: &Lua, value: f64) -> lua::Result<Self> {
+        let node = libdaw::nodes::ConstantValue::new(get_channels(lua)?, value).into();
         Ok(Self { node })
     }
 }
 
 impl UserData for ConstantValue {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
         fields.add_field_method_get("value", |_, this| Ok(this.node.get_value()));
         fields.add_field_method_set("value", |_, this, value| {
             this.node.set_value(value);
@@ -218,6 +226,9 @@ impl Multiply {
 }
 
 impl UserData for Multiply {
+    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
+    }
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
     }
@@ -235,13 +246,16 @@ impl ContainsNode for Add {
 }
 
 impl Add {
-    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
-        let node: Rc<libdaw::nodes::Add> = Default::default();
+    pub fn new(lua: &Lua, _: ()) -> lua::Result<Self> {
+        let node = libdaw::nodes::Add::new(get_channels(lua)?).into();
         Ok(Self { node })
     }
 }
 
 impl UserData for Add {
+    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
+    }
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
     }
@@ -259,19 +273,16 @@ impl ContainsNode for Delay {
 }
 
 impl Delay {
-    pub fn new(_lua: &Lua, value: f64) -> lua::Result<Self> {
-        let node = Rc::new(libdaw::nodes::Delay::new(Duration::from_secs_f64(value)));
+    pub fn new(lua: &Lua, value: f64) -> lua::Result<Self> {
+        let node =
+            libdaw::nodes::Delay::new(get_sample_rate(lua)?, Duration::from_secs_f64(value)).into();
         Ok(Self { node })
     }
 }
 
 impl UserData for Delay {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("delay", |_, this| Ok(this.node.get_delay().as_secs_f64()));
-        fields.add_field_method_set("delay", |_, this, delay| {
-            this.node.set_delay(Duration::from_secs_f64(delay));
-            Ok(())
-        });
+        Node::add_node_fields(fields);
     }
 
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -291,13 +302,14 @@ impl ContainsNode for Gain {
 
 impl Gain {
     pub fn new(_lua: &Lua, gain: f64) -> lua::Result<Self> {
-        let node = Rc::new(libdaw::nodes::Gain::new(gain));
+        let node = libdaw::nodes::Gain::new(gain).into();
         Ok(Self { node })
     }
 }
 
 impl UserData for Gain {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+        Node::add_node_fields(fields);
         fields.add_field_method_get("gain", |_, this| Ok(this.node.get_gain()));
         fields.add_field_method_set("gain", |_, this, gain| {
             this.node.set_gain(gain);

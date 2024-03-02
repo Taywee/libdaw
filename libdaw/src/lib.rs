@@ -11,10 +11,6 @@ use stream::Stream;
 /// stable rust.  When that happens, the interface will change to &mut self
 /// methods.
 pub trait Node: Debug {
-    fn set_sample_rate(&self, sample_rate: u32);
-    fn set_channels(&self, channels: u16);
-    fn get_sample_rate(&self) -> u32;
-    fn get_channels(&self) -> u16;
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>);
     fn node(self: Rc<Self>) -> Rc<dyn Node>;
 }

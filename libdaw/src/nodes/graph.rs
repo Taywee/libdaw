@@ -50,10 +50,6 @@ struct InnerGraph {
     nodes: Vec<Option<Slot>>,
     empty_nodes: IntSet<Index>,
     set_nodes: IntSet<Index>,
-
-    sample_rate: u32,
-    channels: u16,
-
     process_list: RefCell<ProcessList>,
 }
 
@@ -63,8 +59,6 @@ impl Default for InnerGraph {
             nodes: Default::default(),
             empty_nodes: Default::default(),
             set_nodes: Default::default(),
-            sample_rate: 48000,
-            channels: 2,
             process_list: Default::default(),
         };
         // input
@@ -78,8 +72,6 @@ impl Default for InnerGraph {
 impl InnerGraph {
     pub fn add(&mut self, node: Strong) -> Index {
         self.process_list.borrow_mut().reprocess = true;
-        node.set_sample_rate(self.sample_rate);
-        node.set_channels(self.channels);
         let slot = Some(Slot {
             node,
             output: Default::default(),
@@ -238,17 +230,6 @@ impl InnerGraph {
         }
     }
 
-    fn set_sample_rate(&mut self, sample_rate: u32) {
-        self.sample_rate = sample_rate;
-        for index in &self.set_nodes {
-            self.nodes[index.0]
-                .as_ref()
-                .expect("note not set")
-                .node
-                .set_sample_rate(sample_rate);
-        }
-    }
-
     /// Process all inputs from roots down to the sink.
     /// All sinks are added together to turn this into a single output.
     fn process<'a, 'b, 'c>(&'a mut self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
@@ -267,8 +248,8 @@ impl InnerGraph {
                         .as_ref()
                         .expect("process node not in input values");
                     if let Some(output) = input.stream {
-                        if let Some(&channels) = input_slot.output.borrow().get(output) {
-                            input_buffer.push(channels);
+                        if let Some(stream) = input_slot.output.borrow().get(output).copied() {
+                            input_buffer.push(stream);
                         }
                     } else {
                         input_buffer.extend_from_slice(&input_slot.output.borrow());
@@ -286,23 +267,6 @@ impl InnerGraph {
                 .output
                 .borrow(),
         );
-    }
-
-    fn set_channels(&mut self, channels: u16) {
-        self.channels = channels;
-        for index in &self.set_nodes {
-            self.nodes[index.0]
-                .as_ref()
-                .expect("note not set")
-                .node
-                .set_channels(channels);
-        }
-    }
-    fn get_sample_rate(&self) -> u32 {
-        self.sample_rate
-    }
-    fn get_channels(&self) -> u16 {
-        self.channels
     }
 }
 
@@ -362,22 +326,6 @@ impl Graph {
 }
 
 impl Node for Graph {
-    fn set_sample_rate(&self, sample_rate: u32) {
-        self.inner.borrow_mut().set_sample_rate(sample_rate)
-    }
-
-    fn set_channels(&self, channels: u16) {
-        self.inner.borrow_mut().set_channels(channels)
-    }
-
-    fn get_sample_rate(&self) -> u32 {
-        self.inner.borrow().get_sample_rate()
-    }
-
-    fn get_channels(&self) -> u16 {
-        self.inner.borrow().get_channels()
-    }
-
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
         self.inner.borrow_mut().process(inputs, outputs)
     }

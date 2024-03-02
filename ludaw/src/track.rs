@@ -1,4 +1,6 @@
 use crate::callable::Callable;
+use crate::get_channels;
+use crate::get_sample_rate;
 use crate::indexable::Indexable;
 use crate::ContainsNode as _;
 use crate::Node;
@@ -14,11 +16,12 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
+
 use std::time::Duration;
 
 #[derive(Debug)]
-struct Message {
-    sample: Stream,
+enum Message {
+    Sample(Stream),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -46,6 +49,8 @@ pub struct Track {
 
 #[derive(Debug)]
 pub struct TrackSource {
+    sample_rate: u32,
+    channels: u16,
     receiver: Receiver<Message>,
     sample: IntoIter,
 }
@@ -64,6 +69,53 @@ impl Track {
         {
             let package: Table = lua.globals().get("package")?;
             let preload: Table = package.get("preload")?;
+            preload.set(
+                "daw",
+                lua.create_function(move |lua, ()| {
+                    let module = lua.create_table()?;
+
+                    module.set(
+                        "set_sample_rate",
+                        lua.create_function(move |lua, sample_rate: u32| {
+                            let value: lua::Value = lua.named_registry_value("daw.sample_rate")?;
+                            match value {
+                                lua::Value::Nil => (),
+                                _ => {
+                                    return Err(lua::Error::external(
+                                        "can not set_sample_rate twice",
+                                    ));
+                                }
+                            }
+                            lua.set_named_registry_value("daw.sample_rate", sample_rate)?;
+                            Ok(())
+                        })?,
+                    )?;
+                    module.set(
+                        "sample_rate",
+                        lua.create_function(move |lua, ()| get_sample_rate(lua))?,
+                    )?;
+                    module.set(
+                        "set_channels",
+                        lua.create_function(move |lua, channels: u16| {
+                            let value: lua::Value = lua.named_registry_value("daw.channels")?;
+                            match value {
+                                lua::Value::Nil => (),
+                                _ => {
+                                    return Err(lua::Error::external("can not set_channels twice"));
+                                }
+                            }
+                            lua.set_named_registry_value("daw.channels", channels)?;
+                            Ok(())
+                        })?,
+                    )?;
+                    module.set(
+                        "channels",
+                        lua.create_function(move |lua, ()| get_channels(lua))?,
+                    )?;
+
+                    Ok(module)
+                })?,
+            )?;
             preload.set("daw.nodes", lua.create_function(nodes::setup_module)?)?;
             let callbacks = callbacks.clone();
             preload.set(
@@ -132,19 +184,21 @@ impl Track {
         }
         let node: Node = chunk.call(lua::MultiValue::from_vec(arg_vec))?;
         let node = node.node();
-        node.set_sample_rate(48000);
-        node.set_channels(2);
-        let (sender, receiver) = sync_channel(480000);
+        let sample_rate = get_sample_rate(&lua)?;
+        let channels = get_channels(&lua)?;
+        let (sender, receiver) = sync_channel(sample_rate as usize * 10);
         let track = Track {
             lua,
             sender,
             sample_number: 0,
             node,
-            sample_rate: 48000,
+            sample_rate,
             outputs: Default::default(),
             callbacks,
         };
         let track_source = TrackSource {
+            sample_rate,
+            channels,
             receiver,
             // The initial sample is empty.
             sample: Stream::default().into_iter(),
@@ -176,19 +230,19 @@ impl Track {
 
         if !ended.is_empty() {
             let mut callbacks = self.callbacks.borrow_mut();
-            dbg!(&ended);
             callbacks.retain(|callback| !ended.contains(&callback.handle));
         }
 
         self.outputs.clear();
         self.node.process(&[], &mut self.outputs);
-        let sample = self
-            .outputs
-            .iter()
-            .copied()
-            .reduce(Add::add)
-            .expect("No empty outputs are allowed yet");
-        self.sender.send(Message { sample })?;
+        let lua = &self.lua;
+        let sample = self.outputs.iter().copied().reduce(Add::add);
+
+        let sample = sample.map_or_else(
+            || get_channels(lua).map(|channels| Stream::new(channels as usize)),
+            Ok,
+        )?;
+        self.sender.send(Message::Sample(sample))?;
         self.sample_number += 1;
         Ok(true)
     }
@@ -197,8 +251,8 @@ impl Track {
 impl TrackSource {
     fn refresh(&mut self) {
         if self.sample.len() == 0 {
-            if let Ok(message) = self.receiver.recv() {
-                self.sample = message.sample.into_iter();
+            if let Ok(Message::Sample(sample)) = self.receiver.recv() {
+                self.sample = sample.into_iter();
             }
         }
     }
@@ -210,13 +264,11 @@ impl Source for TrackSource {
     }
 
     fn channels(&self) -> u16 {
-        // TODO: make configurable
-        2
+        self.channels
     }
 
     fn sample_rate(&self) -> u32 {
-        // TODO: make configurable
-        48000
+        self.sample_rate
     }
 
     fn total_duration(&self) -> Option<Duration> {
