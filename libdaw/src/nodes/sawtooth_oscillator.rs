@@ -57,8 +57,4 @@ impl Node for SawtoothOscillator {
         }
         self.sample.set(sample);
     }
-
-    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
-        self
-    }
 }

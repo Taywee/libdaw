@@ -1,6 +1,4 @@
-use mlua::{
-    AnyUserData, AnyUserDataExt as _, Error, FromLua, IntoLua, Lua, Result, Table, Value,
-};
+use mlua::{AnyUserData, AnyUserDataExt as _, Error, FromLua, IntoLua, Lua, Result, Table, Value};
 
 /// A wrapper type for any indexable.
 #[derive(Debug, Clone)]

@@ -26,8 +26,4 @@ impl Node for Add {
                 .unwrap_or_else(|| Stream::new(self.channels)),
         );
     }
-
-    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
-        self
-    }
 }

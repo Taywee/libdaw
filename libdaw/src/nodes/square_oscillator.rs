@@ -61,8 +61,4 @@ impl Node for SquareOscillator {
         }
         self.samples_since_switch.set(samples_since_switch + 1.0);
     }
-
-    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
-        self
-    }
 }
