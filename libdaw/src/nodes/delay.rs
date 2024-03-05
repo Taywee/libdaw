@@ -63,8 +63,4 @@ impl Node for Delay {
             }
         }
     }
-
-    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
-        self
-    }
 }

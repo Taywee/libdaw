@@ -1,11 +1,7 @@
 use crate::{stream::Stream, Node};
-use std::{
-    cell::{Cell},
-    rc::Rc,
-    time::Duration,
-};
+use std::{cell::Cell, time::Duration};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Offset {
     /// Calculate time after `whence`.
     TimeForward(Duration),
@@ -23,7 +19,7 @@ impl Default for Offset {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct EnvelopePoint {
     /// The offset, relative to `whence`
     pub offset: Offset,
@@ -37,7 +33,7 @@ pub struct EnvelopePoint {
 
 /// Internal envelope point, with offset and whence turned into a concrete
 /// start time.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 struct CalculatedEnvelopePoint {
     sample: u64,
     volume: f64,
@@ -154,9 +150,5 @@ impl Node for EnvelopeNode {
         for output in outputs {
             *output *= volume;
         }
-    }
-
-    fn node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
     }
 }

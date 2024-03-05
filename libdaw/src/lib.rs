@@ -1,7 +1,7 @@
 pub mod nodes;
 pub mod stream;
 
-use std::{fmt::Debug, rc::Rc, time::Duration};
+use std::{fmt::Debug, rc::Rc};
 use stream::Stream;
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
@@ -12,26 +12,38 @@ use stream::Stream;
 /// methods.
 pub trait Node: Debug {
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>);
-    fn node(self: Rc<Self>) -> Rc<dyn Node>;
 }
 
 /// A node with a settable frequency.
-pub trait FrequencyNode: Node {
+pub trait FrequencyNode: Node + DynNode {
     fn get_frequency(&self) -> f64;
     fn set_frequency(&self, frequency: f64);
     fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
 }
 
-/// A single note definition.  Defined by frequency, not note name, to not tie
-/// it to any particular tuning or scale.
-/// Detuning and pitch bend should be done to the underlying frequency node.
-#[derive(Debug)]
-pub struct Note {
-    pub start: Duration,
-    pub length: Duration,
-    pub frequency: f64,
+/// Dynamic upcasting trait for Node
+pub trait DynNode {
+    fn node(self: Rc<Self>) -> Rc<dyn Node>;
 }
 
-pub trait Instrument: Node {
-    fn add_note(&self, note: Note);
+impl<T> DynNode for T
+where
+    T: 'static + Node,
+{
+    fn node(self: Rc<Self>) -> Rc<dyn Node> {
+        self
+    }
+}
+/// Dynamic upcasting trait for FrequencyNode
+pub trait DynFrequencyNode {
+    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
+}
+
+impl<T> DynFrequencyNode for T
+where
+    T: 'static + FrequencyNode,
+{
+    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode> {
+        self
+    }
 }

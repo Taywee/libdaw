@@ -1,15 +1,13 @@
 use crate::callable::Callable;
-use crate::get_channels;
-use crate::get_sample_rate;
 use crate::indexable::Indexable;
-use crate::ContainsNode as _;
-use crate::Node;
+use crate::lua_state::LuaState;
+use crate::node::{ContainsNode as _, Node};
 use crate::{error::Error, nodes};
+use crate::{get_channels, get_sample_rate};
 use libdaw::stream::{IntoIter, Stream};
 use lua::{IntoLua, Lua, Table};
 use mlua as lua;
 use nohash_hasher::IntSet;
-use ordered_float::OrderedFloat;
 use rodio::source::Source;
 use std::cell::RefCell;
 
@@ -26,15 +24,14 @@ enum Message {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Callback {
-    start_time: OrderedFloat<f64>,
-    end_time: OrderedFloat<f64>,
+    start_time: Duration,
+    end_time: Duration,
     oneshot: bool,
     handle: i64,
 }
 
 #[derive(Debug)]
 pub struct Track {
-    lua: Lua,
     sender: SyncSender<Message>,
     sample_number: u64,
     node: Rc<dyn libdaw::Node>,
@@ -45,6 +42,8 @@ pub struct Track {
     /// like BTreeSet because iteration speed is much more important than
     /// insertion and deletion speed.
     callbacks: Rc<RefCell<Vec<Callback>>>,
+
+    lua: Rc<Lua>,
 }
 
 #[derive(Debug)]
@@ -64,7 +63,13 @@ impl Track {
     {
         let callbacks: Rc<RefCell<Vec<Callback>>> = Default::default();
         let source = source.as_ref();
-        let lua = Lua::new();
+        let lua = Rc::new(Lua::new());
+        lua.set_named_registry_value(
+            "daw.lua_state",
+            LuaState {
+                state: Rc::downgrade(&lua),
+            },
+        )?;
         lua.set_named_registry_value("daw.callbacks", lua.create_table()?)?;
         {
             let package: Table = lua.globals().get("package")?;
@@ -144,8 +149,12 @@ impl Track {
 
                                 table.set(handle, callback)?;
                                 let callback = Callback {
-                                    start_time: start_time.unwrap_or(f64::NEG_INFINITY).into(),
-                                    end_time: end_time.unwrap_or(f64::INFINITY).into(),
+                                    start_time: start_time
+                                        .map(Duration::from_secs_f64)
+                                        .unwrap_or(Duration::ZERO),
+                                    end_time: end_time
+                                        .map(Duration::from_secs_f64)
+                                        .unwrap_or(Duration::MAX),
                                     handle,
                                     oneshot: oneshot.unwrap_or(false),
                                 };
@@ -207,7 +216,8 @@ impl Track {
     }
 
     pub fn process(&mut self) -> Result<bool, Error> {
-        let sample_time = OrderedFloat(self.sample_number as f64 / self.sample_rate as f64);
+        let sample_time_float = self.sample_number as f64 / self.sample_rate as f64;
+        let sample_time = Duration::from_secs_f64(sample_time_float);
 
         let sample_callback_table: lua::Table = self.lua.named_registry_value("daw.callbacks")?;
         let mut ended = IntSet::default();
@@ -221,7 +231,7 @@ impl Track {
             }
 
             let callable: Callable = sample_callback_table.get(callback.handle)?;
-            let () = callable.call(sample_time.0)?;
+            let () = callable.call(sample_time_float)?;
 
             if callback.oneshot {
                 ended.insert(callback.handle);
@@ -235,6 +245,7 @@ impl Track {
 
         self.outputs.clear();
         self.node.process(&[], &mut self.outputs);
+        self.lua.expire_registry_values();
         let lua = &self.lua;
         let sample = self.outputs.iter().copied().reduce(Add::add);
 

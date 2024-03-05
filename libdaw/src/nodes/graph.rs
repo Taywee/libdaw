@@ -111,8 +111,6 @@ impl InnerGraph {
         }
     }
 
-    /// Connect the given output of the source to the destination.  The same
-    /// output may be attached  multiple times. `None` will attach all outputs.
     fn inner_connect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
         assert!(
             self.nodes[source.0].is_some(),
@@ -156,26 +154,28 @@ impl InnerGraph {
     /// Disconnect the last-added matching connection, returning a boolean
     /// indicating if anything was disconnected.
     pub fn disconnect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot connect or disconnect sink");
-        assert_ne!(destination, Index(0), "use unsink instead");
+        assert_ne!(source, Index(0), "cannot connect or disconnect input");
+        assert_ne!(destination, Index(0), "use remove_input instead");
+        assert_ne!(source, Index(1), "cannot connect or disconnect output");
+        assert_ne!(destination, Index(1), "use remove_output instead");
         self.disconnect(source, destination, stream);
     }
 
-    /// Connect the given output of the source to the final destinaton.  The
+    /// Connect the given output of the initial input to the destination.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&mut self, source: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot input input");
-        assert_ne!(source, Index(1), "cannot input output");
-        self.inner_connect(Index(0), source, stream);
+    pub fn input(&mut self, destination: Index, stream: Option<usize>) {
+        assert_ne!(destination, Index(0), "cannot input input");
+        assert_ne!(destination, Index(1), "cannot input output");
+        self.inner_connect(Index(0), destination, stream);
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&mut self, source: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot remove input");
-        assert_ne!(source, Index(1), "cannot remove output");
-        self.inner_disconnect(Index(0), source, stream);
+    pub fn remove_input(&mut self, destination: Index, stream: Option<usize>) {
+        assert_ne!(destination, Index(0), "cannot remove input");
+        assert_ne!(destination, Index(1), "cannot remove output");
+        self.inner_disconnect(Index(0), destination, stream);
     }
 
     /// Connect the given output of the source to the final destinaton.  The
@@ -328,9 +328,5 @@ impl Graph {
 impl Node for Graph {
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
         self.inner.borrow_mut().process(inputs, outputs)
-    }
-
-    fn node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
     }
 }

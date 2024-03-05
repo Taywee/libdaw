@@ -29,8 +29,4 @@ impl Node for ConstantValue {
         stream.fill(self.value.get());
         outputs.push(stream);
     }
-
-    fn node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn Node> {
-        self
-    }
 }
