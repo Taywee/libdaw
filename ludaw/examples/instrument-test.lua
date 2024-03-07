@@ -75,4 +75,19 @@ instrument:add_note{
 }
 graph:output(graph:add(instrument))
 
+local handle = callbacks.register {
+  start_time = 2,
+  callback = function(time)
+    instrument.detune = (time - 2) / 20
+  end,
+}
+
+callbacks.register {
+  start_time = 7,
+  callback = function()
+    callbacks.cancel(handle)
+  end,
+  oneshot = true,
+}
+
 return graph

@@ -41,10 +41,6 @@ impl FrequencyNode for SquareOscillator {
     fn get_frequency(&self) -> f64 {
         self.frequency.get()
     }
-
-    fn frequency_node(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn FrequencyNode> {
-        self
-    }
 }
 
 impl Node for SquareOscillator {

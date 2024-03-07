@@ -1,4 +1,5 @@
-use crate::{FrequencyNode, Node};
+use super::{envelope_node::EnvelopePoint, graph::Index, DetuneFrequencyNode, EnvelopeNode, Graph};
+use crate::{DynNode as _, FrequencyNode, Node};
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
@@ -7,8 +8,6 @@ use std::{
     rc::Rc,
     time::Duration,
 };
-
-use super::{envelope_node::EnvelopePoint, graph::Index, EnvelopeNode, Graph};
 
 /// A single note definition.  Defined by frequency, not note name, to not tie
 /// it to any particular tuning or scale.
@@ -47,8 +46,7 @@ impl Eq for QueuedNote {}
 #[derive(Debug)]
 struct PlayingNote {
     end_sample: u64,
-    dry_frequency: f64,
-    frequency_node: Rc<dyn FrequencyNode>,
+    frequency_node: Rc<DetuneFrequencyNode>,
     frequency_node_index: Index,
     envelope_node_index: Index,
 }
@@ -79,8 +77,8 @@ pub struct Instrument {
     playing: RefCell<BinaryHeap<Reverse<PlayingNote>>>,
     envelope: Vec<EnvelopePoint>,
     sample_rate: u32,
-    detune: Cell<f64>,
     sample: Cell<u64>,
+    detune: Cell<f64>,
 }
 
 impl fmt::Debug for Instrument {
@@ -110,7 +108,7 @@ impl Instrument {
             queue: Default::default(),
             playing: Default::default(),
             envelope: envelope.into_iter().collect(),
-            detune: Cell::new(1.0),
+            detune: Default::default(),
             sample: Default::default(),
         }
     }
@@ -124,21 +122,12 @@ impl Instrument {
         }));
     }
 
-    /// Set the detune as a number of octaves to shift the note.  In essence,
-    /// this is a log2 of the number that will be multiplied by the dry
-    /// frequency.  ie. 0 will disable detune, 1 will double the frequency
-    /// (raise one octave), 2 will quadruple (raise two octaves), etc.  Each
-    /// whole number shifts the note an octave in that direction. Negatives will
-    /// similarly reduce the frequency by that much. -1 will drop an octave, -2
-    /// will drop another octave, and so on.
-    /// This also detunes all actively playing notes.
+    /// Set the detune in the same way as the DetuneFrequencyNode.
     pub fn set_detune(&self, detune: f64) {
-        let prev_detune = self.detune.replace(2.0f64.powf(detune));
-        if prev_detune != detune {
+        if self.detune.replace(detune) != detune {
             for note in self.playing.borrow().iter() {
                 let note = &note.0;
-                note.frequency_node
-                    .set_frequency(note.dry_frequency * self.detune.get());
+                note.frequency_node.set_detune(detune);
             }
         }
     }
@@ -151,6 +140,7 @@ impl Node for Instrument {
         outputs: &'c mut Vec<crate::stream::Stream>,
     ) {
         let sample = self.sample.replace(self.sample.get() + 1);
+        let detune = self.detune.get();
 
         let mut queue = self.queue.borrow_mut();
         let mut playing = self.playing.borrow_mut();
@@ -172,8 +162,10 @@ impl Node for Instrument {
             let sample_length = (note.length.as_secs_f64() * self.sample_rate as f64) as u64;
             let end_sample = note.start_sample + sample_length;
 
-            let frequency_node = frequency_node_creator();
-            frequency_node.set_frequency(note.frequency * self.detune.get());
+            let frequency_node = Rc::new(DetuneFrequencyNode::new(frequency_node_creator()));
+            frequency_node.set_frequency(note.frequency);
+            frequency_node.set_detune(detune);
+
             let envelope_node = Rc::new(EnvelopeNode::new(
                 self.sample_rate,
                 note.length,
@@ -187,7 +179,6 @@ impl Node for Instrument {
             self.graph.input(frequency_node_index, None);
             playing.push(Reverse(PlayingNote {
                 end_sample,
-                dry_frequency: note.frequency,
                 frequency_node,
                 envelope_node_index,
                 frequency_node_index,

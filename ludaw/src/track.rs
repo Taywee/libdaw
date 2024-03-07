@@ -168,15 +168,13 @@ impl Track {
                     }
 
                     {
-                        let callbacks = callbacks.clone();
+                        let _callbacks = callbacks.clone();
                         module.set(
                             "cancel",
                             lua.create_function(move |lua, handle: i64| {
                                 let table: lua::Table =
                                     lua.named_registry_value("daw.callbacks")?;
                                 table.set(handle, lua::Value::Nil)?;
-                                let mut callbacks = callbacks.borrow_mut();
-                                callbacks.retain(|e| e.handle != handle);
                                 Ok(())
                             })?,
                         )?;
@@ -230,7 +228,12 @@ impl Track {
                 continue;
             }
 
-            let callable: Callable = sample_callback_table.get(callback.handle)?;
+            let Some(callable): Option<Callable> = sample_callback_table.get(callback.handle)?
+            else {
+                ended.insert(callback.handle);
+                continue;
+            };
+
             let () = callable.call(sample_time_float)?;
 
             if callback.oneshot {

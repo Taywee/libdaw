@@ -1,6 +1,7 @@
 pub mod add;
 pub mod constant_value;
 pub mod delay;
+pub mod detune_frequency_node;
 pub mod envelope_node;
 pub mod gain;
 pub mod graph;
@@ -13,6 +14,7 @@ pub mod square_oscillator;
 pub use add::Add;
 pub use constant_value::ConstantValue;
 pub use delay::Delay;
+pub use detune_frequency_node::DetuneFrequencyNode;
 pub use envelope_node::EnvelopeNode;
 pub use gain::Gain;
 pub use graph::Graph;
