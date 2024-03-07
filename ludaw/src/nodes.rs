@@ -1,6 +1,7 @@
 mod add;
 mod constant_value;
 mod delay;
+mod detune_frequency_node;
 mod gain;
 mod graph;
 mod instrument;

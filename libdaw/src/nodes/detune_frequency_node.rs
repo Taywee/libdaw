@@ -1,7 +1,7 @@
 use crate::{FrequencyNode, Node};
 use std::{cell::Cell, rc::Rc};
 
-/// A node that can play a sequence of notes from a frequency node creator.
+/// A wrapper for a FrequencyNode that can apply a detune.
 #[derive(Debug)]
 pub struct DetuneFrequencyNode {
     node: Rc<dyn FrequencyNode>,
