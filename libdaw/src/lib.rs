@@ -18,7 +18,6 @@ pub trait Node: Debug {
 pub trait FrequencyNode: Node + DynNode {
     fn get_frequency(&self) -> f64;
     fn set_frequency(&self, frequency: f64);
-    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
 }
 
 /// Dynamic upcasting trait for Node
