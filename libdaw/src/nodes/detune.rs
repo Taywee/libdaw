@@ -3,14 +3,14 @@ use std::{cell::Cell, rc::Rc};
 
 /// A wrapper for a FrequencyNode that can apply a detune.
 #[derive(Debug)]
-pub struct DetuneFrequencyNode {
+pub struct Detune {
     node: Rc<dyn FrequencyNode>,
     frequency: Cell<f64>,
     detune: Cell<f64>,
     detune_pow2: Cell<f64>,
 }
 
-impl DetuneFrequencyNode {
+impl Detune {
     pub fn new(node: Rc<dyn FrequencyNode>) -> Self {
         Self {
             node,
@@ -41,7 +41,7 @@ impl DetuneFrequencyNode {
     }
 }
 
-impl Node for DetuneFrequencyNode {
+impl Node for Detune {
     fn process<'a, 'b, 'c>(
         &'a self,
         inputs: &'b [crate::stream::Stream],
@@ -51,7 +51,7 @@ impl Node for DetuneFrequencyNode {
     }
 }
 
-impl FrequencyNode for DetuneFrequencyNode {
+impl FrequencyNode for Detune {
     fn get_frequency(&self) -> f64 {
         self.frequency.get()
     }

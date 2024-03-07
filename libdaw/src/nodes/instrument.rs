@@ -1,4 +1,4 @@
-use super::{envelope_node::EnvelopePoint, graph::Index, DetuneFrequencyNode, EnvelopeNode, Graph};
+use super::{envelope_node::EnvelopePoint, graph::Index, Detune, EnvelopeNode, Graph};
 use crate::{DynNode as _, FrequencyNode, Node};
 use std::{
     cell::{Cell, RefCell},
@@ -46,7 +46,7 @@ impl Eq for QueuedNote {}
 #[derive(Debug)]
 struct PlayingNote {
     end_sample: u64,
-    frequency_node: Rc<DetuneFrequencyNode>,
+    frequency_node: Rc<Detune>,
     frequency_node_index: Index,
     envelope_node_index: Index,
 }
@@ -122,7 +122,7 @@ impl Instrument {
         }));
     }
 
-    /// Set the detune in the same way as the DetuneFrequencyNode.
+    /// Set the detune in the same way as the Detune.
     pub fn set_detune(&self, detune: f64) {
         if self.detune.replace(detune) != detune {
             for note in self.playing.borrow().iter() {
@@ -162,7 +162,7 @@ impl Node for Instrument {
             let sample_length = (note.length.as_secs_f64() * self.sample_rate as f64) as u64;
             let end_sample = note.start_sample + sample_length;
 
-            let frequency_node = Rc::new(DetuneFrequencyNode::new(frequency_node_creator()));
+            let frequency_node = Rc::new(Detune::new(frequency_node_creator()));
             frequency_node.set_frequency(note.frequency);
             frequency_node.set_detune(detune);
 

@@ -1,7 +1,7 @@
 mod add;
 mod constant_value;
 mod delay;
-mod detune_frequency_node;
+mod detune;
 mod gain;
 mod graph;
 mod instrument;
@@ -36,5 +36,6 @@ pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> lua::Result<Table<'a>> {
         "Instrument",
         lua.create_function(instrument::Instrument::new)?,
     )?;
+    module.set("Detune", lua.create_function(detune::Detune::new)?)?;
     Ok(module)
 }
