@@ -11,10 +11,10 @@ local detuned_square = nodes.Detune(nodes.SquareOscillator())
 detuned_square.detune = 7 / 12
 
 local frequency = nodes.MultiFrequency{
-  nodes.SawtoothOscillator(),
-  detuned_square,
+  nodes.SineOscillator(),
+  --detuned_square,
 }
-frequency.frequency = 128
+frequency.frequency = 256
 local gain = nodes.Gain(0.5)
 local gain_index = graph:add(gain)
 graph:connect(graph:add(frequency), gain_index)
