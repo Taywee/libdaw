@@ -1,7 +1,7 @@
 use crate::get_sample_rate;
 use crate::indexable::Indexable;
 use crate::lua_state::LuaState;
-use crate::node::FrequencyNode;
+use crate::node::{ContainsFrequencyNode, FrequencyNode};
 use crate::node::{ContainsNode, Node};
 use lua::FromLua;
 use lua::Lua;
@@ -22,6 +22,12 @@ impl ContainsNode for Detune {
     }
 }
 
+impl ContainsFrequencyNode for Detune {
+    fn frequency_node(&self) -> Rc<dyn libdaw::FrequencyNode> {
+        self.node.clone()
+    }
+}
+
 impl Detune {
     pub fn new(lua: &Lua, node: FrequencyNode) -> lua::Result<Self> {
         let node = Rc::new(libdaw::nodes::Detune::new(node.node));
@@ -31,11 +37,11 @@ impl Detune {
 
 impl UserData for Detune {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-        Node::add_node_methods(methods);
+        FrequencyNode::add_node_methods(methods);
     }
 
     fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
-        Node::add_node_fields(fields);
+        FrequencyNode::add_node_fields(fields);
         fields.add_field_method_get("detune", |_, this| Ok(this.node.get_detune()));
         fields.add_field_method_set("detune", |_, this, detune| {
             this.node.set_detune(detune);

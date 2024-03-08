@@ -112,6 +112,13 @@ impl FrequencyNode {
         fields: &mut F,
     ) {
         Node::add_node_fields(fields);
+        fields.add_field_method_get("frequency", |_, this| {
+            Ok(this.frequency_node().get_frequency())
+        });
+        fields.add_field_method_set("frequency", |_, this, frequency| {
+            this.frequency_node().set_frequency(frequency);
+            Ok(())
+        });
     }
     pub fn add_node_methods<
         'lua,

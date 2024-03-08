@@ -8,31 +8,35 @@ use mlua as lua;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct SquareOscillator {
-    node: Rc<libdaw::nodes::SquareOscillator>,
+pub struct MultiFrequency {
+    node: Rc<libdaw::nodes::MultiFrequency>,
 }
 
-impl ContainsNode for SquareOscillator {
+impl ContainsNode for MultiFrequency {
     fn node(&self) -> Rc<dyn libdaw::Node> {
         self.node.clone()
     }
 }
 
-impl ContainsFrequencyNode for SquareOscillator {
+impl ContainsFrequencyNode for MultiFrequency {
     fn frequency_node(&self) -> Rc<dyn libdaw::FrequencyNode> {
         self.node.clone()
     }
 }
 
-impl SquareOscillator {
-    pub fn new(lua: &Lua, _: ()) -> lua::Result<Self> {
-        let node =
-            libdaw::nodes::SquareOscillator::new(get_sample_rate(lua)?, get_channels(lua)?).into();
+impl MultiFrequency {
+    pub fn new(lua: &Lua, frequency_nodes: Vec<FrequencyNode>) -> lua::Result<Self> {
+        let node = libdaw::nodes::MultiFrequency::new(
+            frequency_nodes
+                .into_iter()
+                .map(|node| node.frequency_node()),
+        )
+        .into();
         Ok(Self { node })
     }
 }
 
-impl UserData for SquareOscillator {
+impl UserData for MultiFrequency {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         FrequencyNode::add_node_fields(fields);
     }

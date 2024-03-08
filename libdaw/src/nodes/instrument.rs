@@ -1,4 +1,4 @@
-use super::{envelope_node::EnvelopePoint, graph::Index, Detune, EnvelopeNode, Graph};
+use super::{envelope::EnvelopePoint, graph::Index, Detune, Envelope, Graph};
 use crate::{DynNode as _, FrequencyNode, Node};
 use std::{
     cell::{Cell, RefCell},
@@ -12,14 +12,14 @@ use std::{
 /// A single note definition.  Defined by frequency, not note name, to not tie
 /// it to any particular tuning or scale.
 /// Detuning and pitch bend should be done to the underlying frequency node.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Note {
     pub start: Duration,
     pub length: Duration,
     pub frequency: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct QueuedNote {
     start_sample: u64,
     length: Duration,
@@ -48,7 +48,7 @@ struct PlayingNote {
     end_sample: u64,
     frequency_node: Rc<Detune>,
     frequency_node_index: Index,
-    envelope_node_index: Index,
+    envelope_index: Index,
 }
 
 impl PartialOrd for PlayingNote {
@@ -166,21 +166,21 @@ impl Node for Instrument {
             frequency_node.set_frequency(note.frequency);
             frequency_node.set_detune(detune);
 
-            let envelope_node = Rc::new(EnvelopeNode::new(
+            let envelope = Rc::new(Envelope::new(
                 self.sample_rate,
                 note.length,
                 self.envelope.iter().copied(),
             ));
             let frequency_node_index = self.graph.add(frequency_node.clone().node());
-            let envelope_node_index = self.graph.add(envelope_node.clone());
+            let envelope_index = self.graph.add(envelope.clone());
             self.graph
-                .connect(frequency_node_index, envelope_node_index, None);
-            self.graph.output(envelope_node_index, None);
+                .connect(frequency_node_index, envelope_index, None);
+            self.graph.output(envelope_index, None);
             self.graph.input(frequency_node_index, None);
             playing.push(Reverse(PlayingNote {
                 end_sample,
                 frequency_node,
-                envelope_node_index,
+                envelope_index,
                 frequency_node_index,
             }));
         }
@@ -196,7 +196,7 @@ impl Node for Instrument {
 
             let note = playing.pop().unwrap().0;
             self.graph.remove(note.frequency_node_index);
-            self.graph.remove(note.envelope_node_index);
+            self.graph.remove(note.envelope_index);
         }
 
         // Play graph
