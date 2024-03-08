@@ -61,12 +61,12 @@ impl Ord for CalculatedEnvelopePoint {
 
 /// A frequency node wrapper that applies a volume envelope to the node.
 #[derive(Debug)]
-pub struct EnvelopeNode {
+pub struct Envelope {
     envelope: Box<[CalculatedEnvelopePoint]>,
     sample: Cell<u64>,
 }
 
-impl EnvelopeNode {
+impl Envelope {
     pub fn new(
         sample_rate: u32,
         length: Duration,
@@ -106,7 +106,7 @@ impl EnvelopeNode {
     }
 }
 
-impl Node for EnvelopeNode {
+impl Node for Envelope {
     fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
         outputs.extend_from_slice(inputs);
 

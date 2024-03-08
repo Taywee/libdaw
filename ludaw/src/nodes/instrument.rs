@@ -3,7 +3,7 @@ use crate::indexable::Indexable;
 use crate::lua_state::LuaState;
 use crate::node::FrequencyNode;
 use crate::node::{ContainsNode, Node};
-use libdaw::nodes::{envelope_node, instrument};
+use libdaw::nodes::instrument;
 use lua::FromLua;
 use lua::Lua;
 use lua::Table;
@@ -12,44 +12,24 @@ use mlua as lua;
 use std::rc::Rc;
 use std::time::Duration;
 
-#[derive(Debug)]
-pub struct EnvelopePoint(envelope_node::EnvelopePoint);
-
-impl<'lua> FromLua<'lua> for EnvelopePoint {
-    fn from_lua(value: lua::Value<'lua>, lua: &'lua Lua) -> lua::Result<Self> {
-        let indexable = Indexable::from_lua(value, lua)?;
-        let volume: f64 = indexable.get("volume")?;
-        let whence: f64 = indexable.get("whence")?;
-        let ratio_offset: Option<f64> = indexable.get("ratio_offset")?;
-        let time_offset: Option<f64> = indexable.get("time_offset")?;
-        if ratio_offset.is_some() && time_offset.is_some() {
-            return Err(lua::Error::external(
-                "only one of ratio_offset and time_offset must be set",
-            ));
-        }
-
-        let ratio_offset = ratio_offset.map(envelope_node::Offset::Ratio);
-        let time_offset = time_offset.map(|offset| {
-            if offset >= 0.0 {
-                envelope_node::Offset::TimeForward(Duration::from_secs_f64(offset))
-            } else {
-                envelope_node::Offset::TimeBackward(Duration::from_secs_f64(-offset))
-            }
-        });
-
-        let offset = ratio_offset
-            .or(time_offset)
-            .unwrap_or_else(|| envelope_node::Offset::TimeForward(Duration::ZERO));
-        Ok(EnvelopePoint(envelope_node::EnvelopePoint {
-            offset,
-            whence,
-            volume,
-        }))
-    }
-}
+use super::envelope::EnvelopePoint;
 
 #[derive(Debug)]
 pub struct Note(instrument::Note);
+
+impl std::ops::DerefMut for Note {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::ops::Deref for Note {
+    type Target = instrument::Note;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl<'lua> FromLua<'lua> for Note {
     fn from_lua(value: lua::Value<'lua>, lua: &'lua Lua) -> lua::Result<Self> {
@@ -114,7 +94,7 @@ impl Instrument {
         let node = libdaw::nodes::Instrument::new(
             get_sample_rate(lua)?,
             function,
-            envelope.into_iter().map(|point| point.0),
+            envelope.into_iter().map(|point| *point),
         )
         .into();
         Ok(Self { node })
@@ -125,7 +105,7 @@ impl UserData for Instrument {
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
         methods.add_method("add_note", |_, this, note: Note| {
-            this.node.add_note(note.0);
+            this.node.add_note(*note);
             Ok(())
         });
     }

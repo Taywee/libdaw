@@ -36,11 +36,6 @@ impl SawtoothOscillator {
 impl UserData for SawtoothOscillator {
     fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
         FrequencyNode::add_node_fields(fields);
-        fields.add_field_method_get("frequency", |_, this| Ok(this.node.get_frequency()));
-        fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.node.set_frequency(frequency);
-            Ok(())
-        });
     }
 
     fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
