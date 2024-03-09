@@ -43,6 +43,13 @@ pub struct Track {
     /// insertion and deletion speed.
     callbacks: Rc<RefCell<Vec<Callback>>>,
 
+    /// A copy of the current callbacks that are running, so callbacks can
+    /// modify the callbacks table.
+    running_callbacks: Vec<Callback>,
+
+    /// A cached intset of callbacks that end per frame.
+    ended_callbacks: IntSet<i64>,
+
     lua: Rc<Lua>,
 }
 
@@ -168,13 +175,22 @@ impl Track {
                     }
 
                     {
-                        let _callbacks = callbacks.clone();
+                        let callbacks = callbacks.clone();
                         module.set(
                             "cancel",
                             lua.create_function(move |lua, handle: i64| {
                                 let table: lua::Table =
                                     lua.named_registry_value("daw.callbacks")?;
                                 table.set(handle, lua::Value::Nil)?;
+                                let mut callbacks = callbacks.borrow_mut();
+                                if let Some(index) = callbacks
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(_, callback)| callback.handle == handle)
+                                    .map(|(i, _)| i)
+                                {
+                                    callbacks.remove(index);
+                                }
                                 Ok(())
                             })?,
                         )?;
@@ -201,6 +217,8 @@ impl Track {
             node,
             sample_rate,
             outputs: Default::default(),
+            running_callbacks: Default::default(),
+            ended_callbacks: Default::default(),
             callbacks,
         };
         let track_source = TrackSource {
@@ -217,35 +235,33 @@ impl Track {
         let sample_time_float = self.sample_number as f64 / self.sample_rate as f64;
         let sample_time = Duration::from_secs_f64(sample_time_float);
 
+        self.running_callbacks
+            .extend(self.callbacks.borrow().iter().cloned());
         let sample_callback_table: lua::Table = self.lua.named_registry_value("daw.callbacks")?;
-        let mut ended = IntSet::default();
-        for callback in self.callbacks.borrow().iter() {
+        for callback in self.running_callbacks.drain(..) {
             if sample_time < callback.start_time {
                 break;
             }
             if sample_time >= callback.end_time {
-                ended.insert(callback.handle);
+                self.ended_callbacks.insert(callback.handle);
                 continue;
             }
 
-            let Some(callable): Option<Callable> = sample_callback_table.get(callback.handle)?
-            else {
-                ended.insert(callback.handle);
-                continue;
-            };
+            let callable: Callable = sample_callback_table.get(callback.handle)?;
 
             let () = callable.call(sample_time_float)?;
 
             if callback.oneshot {
-                ended.insert(callback.handle);
+                self.ended_callbacks.insert(callback.handle);
             }
         }
 
-        if !ended.is_empty() {
-            let mut callbacks = self.callbacks.borrow_mut();
-            callbacks.retain(|callback| !ended.contains(&callback.handle));
+        if !self.ended_callbacks.is_empty() {
+            self.callbacks
+                .borrow_mut()
+                .retain(|callback| !self.ended_callbacks.contains(&callback.handle));
+            self.ended_callbacks.clear();
         }
-
         self.outputs.clear();
         self.node.process(&[], &mut self.outputs);
         self.lua.expire_registry_values();
