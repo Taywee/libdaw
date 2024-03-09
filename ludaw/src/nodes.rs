@@ -9,7 +9,9 @@ mod instrument;
 mod multi_frequency;
 mod multiply;
 mod sawtooth_oscillator;
+mod sine_oscillator;
 mod square_oscillator;
+mod triangle_oscillator;
 
 use lua::Lua;
 use lua::Table;
@@ -25,6 +27,14 @@ pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> lua::Result<Table<'a>> {
     module.set(
         "SawtoothOscillator",
         lua.create_function(sawtooth_oscillator::SawtoothOscillator::new)?,
+    )?;
+    module.set(
+        "TriangleOscillator",
+        lua.create_function(triangle_oscillator::TriangleOscillator::new)?,
+    )?;
+    module.set(
+        "SineOscillator",
+        lua.create_function(sine_oscillator::SineOscillator::new)?,
     )?;
     module.set(
         "ConstantValue",

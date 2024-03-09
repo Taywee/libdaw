@@ -46,14 +46,15 @@ impl FrequencyNode for SquareOscillator {
 impl Node for SquareOscillator {
     fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) {
         let mut output = Stream::new(self.channels);
-        output.fill(self.sample.get());
+        let sample = self.sample.get();
+        output.fill(sample);
         outputs.push(output);
 
         let mut samples_since_switch = self.samples_since_switch.get();
         let samples_per_switch = self.samples_per_switch.get();
         if samples_since_switch >= samples_per_switch {
             samples_since_switch -= samples_per_switch;
-            self.sample.set(self.sample.get() * -1.0);
+            self.sample.set(sample * -1.0);
         }
         self.samples_since_switch.set(samples_since_switch + 1.0);
     }

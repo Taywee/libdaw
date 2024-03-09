@@ -10,7 +10,9 @@ pub mod multi_frequency;
 pub mod multiply;
 pub mod passthrough;
 pub mod sawtooth_oscillator;
+pub mod sine_oscillator;
 pub mod square_oscillator;
+pub mod triangle_oscillator;
 
 pub use add::Add;
 pub use constant_value::ConstantValue;
@@ -24,4 +26,6 @@ pub use multi_frequency::MultiFrequency;
 pub use multiply::Multiply;
 pub use passthrough::Passthrough;
 pub use sawtooth_oscillator::SawtoothOscillator;
+pub use sine_oscillator::SineOscillator;
 pub use square_oscillator::SquareOscillator;
+pub use triangle_oscillator::TriangleOscillator;
