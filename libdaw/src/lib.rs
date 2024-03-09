@@ -2,7 +2,7 @@ pub mod nodes;
 pub mod stream;
 
 use std::{fmt::Debug, rc::Rc};
-use stream::Stream;
+pub use stream::Stream;
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed. Some things like setters are self, not mut self, because we

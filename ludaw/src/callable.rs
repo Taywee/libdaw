@@ -3,7 +3,7 @@ use mlua::{
     IntoLuaMulti, Lua, Result, Table, TableExt as _, Value,
 };
 
-/// A wrapper type for any callable.
+/// A wrapper type for any plain callable which need not be indexed.
 #[derive(Debug, Clone)]
 pub enum Callable<'lua> {
     UserData(AnyUserData<'lua>),

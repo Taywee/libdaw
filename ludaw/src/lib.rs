@@ -6,13 +6,12 @@ mod node;
 mod nodes;
 mod track;
 
-use lua::Lua;
+use mlua::{Lua};
+
 pub use track::{Track, TrackSource};
 
-use mlua as lua;
-
 // Get the sample rate if it exists, or set it to the default of 48000
-pub fn get_sample_rate(lua: &Lua) -> lua::Result<u32> {
+pub fn get_sample_rate(lua: &Lua) -> mlua::Result<u32> {
     if let Some(sample_rate) = lua.named_registry_value("daw.sample_rate")? {
         Ok(sample_rate)
     } else {
@@ -22,7 +21,7 @@ pub fn get_sample_rate(lua: &Lua) -> lua::Result<u32> {
 }
 
 // Get the channel count if it exists, or set it to the default of 2
-pub fn get_channels(lua: &Lua) -> lua::Result<u16> {
+pub fn get_channels(lua: &Lua) -> mlua::Result<u16> {
     if let Some(channels) = lua.named_registry_value("daw.channels")? {
         Ok(channels)
     } else {

@@ -1,6 +1,9 @@
-use mlua::{AnyUserData, AnyUserDataExt as _, Error, FromLua, IntoLua, Lua, Result, Table, Value};
+use mlua::{
+    AnyUserData, AnyUserDataExt as _, Error, FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua,
+    Result, Table, TableExt as _, Value,
+};
 
-/// A wrapper type for any indexable.
+/// A wrapper type for any indexable, which may also be callable.
 #[derive(Debug, Clone)]
 pub enum Indexable<'lua> {
     UserData(AnyUserData<'lua>),
@@ -8,10 +11,36 @@ pub enum Indexable<'lua> {
 }
 
 impl<'lua> Indexable<'lua> {
-    pub fn get<K: IntoLua<'lua>, V: FromLua<'lua>>(&self, key: K) -> Result<V> {
+    pub fn get<K, V>(&self, key: K) -> Result<V>
+    where
+        K: IntoLua<'lua>,
+        V: FromLua<'lua>,
+    {
         match self {
             Indexable::UserData(user_data) => user_data.get(key),
             Indexable::Table(table) => table.get(key),
+        }
+    }
+
+    pub fn set<K, V>(&self, key: K, value: V) -> Result<()>
+    where
+        K: IntoLua<'lua>,
+        V: IntoLua<'lua>,
+    {
+        match self {
+            Indexable::UserData(user_data) => user_data.set(key, value),
+            Indexable::Table(table) => table.set(key, value),
+        }
+    }
+
+    pub fn call<A, R>(&self, args: A) -> Result<R>
+    where
+        A: IntoLuaMulti<'lua>,
+        R: FromLuaMulti<'lua>,
+    {
+        match self {
+            Indexable::UserData(user_data) => user_data.call(args),
+            Indexable::Table(table) => table.call(args),
         }
     }
 }
