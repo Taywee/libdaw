@@ -1,5 +1,7 @@
 mod add;
 mod constant_value;
+mod custom;
+mod custom_frequency;
 mod delay;
 mod detune;
 mod envelope;
@@ -13,11 +15,10 @@ mod sine_oscillator;
 mod square_oscillator;
 mod triangle_oscillator;
 
-use lua::Lua;
-use lua::Table;
-use mlua as lua;
+use mlua::Lua;
+use mlua::Table;
 
-pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> lua::Result<Table<'a>> {
+pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> mlua::Result<Table<'a>> {
     let module = lua.create_table()?;
     module.set("Graph", lua.create_function(graph::Graph::new)?)?;
     module.set(
@@ -53,6 +54,11 @@ pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> lua::Result<Table<'a>> {
     module.set(
         "MultiFrequency",
         lua.create_function(multi_frequency::MultiFrequency::new)?,
+    )?;
+    module.set("Custom", lua.create_function(custom::Custom::new)?)?;
+    module.set(
+        "CustomFrequency",
+        lua.create_function(custom_frequency::CustomFrequency::new)?,
     )?;
     Ok(module)
 }

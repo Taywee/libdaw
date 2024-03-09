@@ -1,14 +1,12 @@
 use crate::get_sample_rate;
 use crate::indexable::Indexable;
-use crate::lua_state::LuaState;
-use crate::node::FrequencyNode;
+
 use crate::node::{ContainsNode, Node};
-use libdaw::nodes::{envelope, instrument};
-use lua::FromLua;
-use lua::Lua;
-use lua::Table;
-use lua::UserData;
-use mlua as lua;
+use libdaw::nodes::envelope;
+use mlua::FromLua;
+use mlua::Lua;
+
+use mlua::UserData;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -30,14 +28,14 @@ impl std::ops::Deref for EnvelopePoint {
 }
 
 impl<'lua> FromLua<'lua> for EnvelopePoint {
-    fn from_lua(value: lua::Value<'lua>, lua: &'lua Lua) -> lua::Result<Self> {
+    fn from_lua(value: mlua::Value<'lua>, lua: &'lua Lua) -> mlua::Result<Self> {
         let indexable = Indexable::from_lua(value, lua)?;
         let volume: f64 = indexable.get("volume")?;
         let whence: f64 = indexable.get("whence")?;
         let ratio_offset: Option<f64> = indexable.get("ratio_offset")?;
         let time_offset: Option<f64> = indexable.get("time_offset")?;
         if ratio_offset.is_some() && time_offset.is_some() {
-            return Err(lua::Error::external(
+            return Err(mlua::Error::external(
                 "only one of ratio_offset and time_offset must be set",
             ));
         }
@@ -74,7 +72,7 @@ impl ContainsNode for Envelope {
 }
 
 impl Envelope {
-    pub fn new(lua: &Lua, (length, envelope): (f64, Vec<EnvelopePoint>)) -> lua::Result<Self> {
+    pub fn new(lua: &Lua, (length, envelope): (f64, Vec<EnvelopePoint>)) -> mlua::Result<Self> {
         let length = Duration::from_secs_f64(length);
         let node = libdaw::nodes::Envelope::new(
             get_sample_rate(lua)?,
@@ -86,11 +84,11 @@ impl Envelope {
     }
 }
 impl UserData for Envelope {
-    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
     }
 
-    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<'lua, F: mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
         Node::add_node_fields(fields);
     }
 }

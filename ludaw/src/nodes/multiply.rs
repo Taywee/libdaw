@@ -1,7 +1,6 @@
 use crate::node::{ContainsNode, Node};
-use lua::Lua;
-use lua::UserData;
-use mlua as lua;
+use mlua::Lua;
+use mlua::UserData;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -16,17 +15,17 @@ impl ContainsNode for Multiply {
 }
 
 impl Multiply {
-    pub fn new(_lua: &Lua, _: ()) -> lua::Result<Self> {
+    pub fn new(_lua: &Lua, _: ()) -> mlua::Result<Self> {
         let node: Rc<libdaw::nodes::Multiply> = Default::default();
         Ok(Self { node })
     }
 }
 
 impl UserData for Multiply {
-    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<'lua, F: mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
         Node::add_node_fields(fields);
     }
-    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
     }
 }

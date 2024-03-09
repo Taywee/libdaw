@@ -28,7 +28,7 @@ struct Input {
     execute: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let script = if let Some(path) = cli.input.input {
@@ -44,5 +44,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (mut track, source) = Track::new(script, cli.lua_args)?;
     sink.append(source);
     while track.process()? {}
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if let Err(e) = run() {
+        println!("error: {e}");
+        return Err(e);
+    }
     Ok(())
 }

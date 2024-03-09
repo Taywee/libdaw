@@ -1,9 +1,12 @@
+use libdaw::stream::MAX_CHANNELS;
 use mlua::{
-    AnyUserDataExt as _, Error, FromLua, Function, Lua, Result, UserData, UserDataFields,
+    AnyUserDataExt as _, Error, FromLua, Function, IntoLua, Lua, Result, UserData, UserDataFields,
     UserDataMethods, Value,
 };
 use std::cell::Ref;
 use std::rc::Rc;
+
+use crate::indexable::Indexable;
 
 pub trait ContainsNode {
     fn node(&self) -> Rc<dyn libdaw::Node>;
@@ -35,6 +38,16 @@ impl Node {
         methods: &mut M,
     ) {
         methods.add_method("node", |_, this, ()| Ok(Node::from(this.node())));
+        methods.add_method("process", |lua, this, inputs: Vec<Stream>| {
+            let inputs: Vec<_> = inputs.into_iter().map(|stream| stream.0).collect();
+            let mut outputs = Vec::with_capacity(8);
+            this.node().process(&inputs, &mut outputs);
+            let output_table = lua.create_table_with_capacity(outputs.len(), 0)?;
+            for (i, stream) in outputs.into_iter().enumerate() {
+                output_table.raw_set(i + 1, Stream(stream))?;
+            }
+            Ok(output_table)
+        });
     }
 }
 
@@ -172,5 +185,51 @@ impl<'lua> FromLua<'lua> for FrequencyNode {
                 ),
             }),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Stream(pub libdaw::stream::Stream);
+
+impl std::ops::DerefMut for Stream {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::ops::Deref for Stream {
+    type Target = libdaw::Stream;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'lua> IntoLua<'lua> for Stream {
+    fn into_lua(self, lua: &'lua Lua) -> Result<Value<'lua>> {
+        let table = lua.create_table_with_capacity(self.len(), 0)?;
+        for (i, value) in self.0.into_iter().enumerate() {
+            table.raw_set(i + 1, value)?;
+        }
+        Ok(Value::Table(table))
+    }
+}
+
+impl<'lua> FromLua<'lua> for Stream {
+    fn from_lua(value: Value<'lua>, lua: &'lua Lua) -> Result<Self> {
+        let indexable = Indexable::from_lua(value, lua)?;
+        let mut buffer = [0f64; MAX_CHANNELS];
+        let mut channels = 0usize;
+        for i in 0usize.. {
+            let Some(value): Option<f64> = indexable.get(i + 1)? else {
+                channels = i;
+                break;
+            };
+            assert!(i < MAX_CHANNELS, "stream has too many channels");
+            buffer[i] = value;
+        }
+        Ok(Stream(libdaw::stream::Stream::from_raw_parts(
+            buffer, channels,
+        )))
     }
 }

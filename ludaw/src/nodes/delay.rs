@@ -1,9 +1,8 @@
 use crate::get_sample_rate;
 use crate::node::{ContainsNode, Node};
 
-use lua::Lua;
-use lua::UserData;
-use mlua as lua;
+use mlua::Lua;
+use mlua::UserData;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -19,7 +18,7 @@ impl ContainsNode for Delay {
 }
 
 impl Delay {
-    pub fn new(lua: &Lua, value: f64) -> lua::Result<Self> {
+    pub fn new(lua: &Lua, value: f64) -> mlua::Result<Self> {
         let node =
             libdaw::nodes::Delay::new(get_sample_rate(lua)?, Duration::from_secs_f64(value)).into();
         Ok(Self { node })
@@ -27,11 +26,11 @@ impl Delay {
 }
 
 impl UserData for Delay {
-    fn add_fields<'lua, F: lua::UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<'lua, F: mlua::UserDataFields<'lua, Self>>(fields: &mut F) {
         Node::add_node_fields(fields);
     }
 
-    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
     }
 }

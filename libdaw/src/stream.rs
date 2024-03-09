@@ -39,6 +39,11 @@ impl Stream {
         }
     }
 
+    pub fn from_raw_parts(samples: [f64; MAX_CHANNELS], channels: usize) -> Self {
+        assert!(channels <= MAX_CHANNELS);
+        Self { channels, samples }
+    }
+
     pub fn channels(&self) -> usize {
         self.channels
     }

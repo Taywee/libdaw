@@ -1,15 +1,11 @@
-use crate::get_sample_rate;
-use crate::indexable::Indexable;
-use crate::lua_state::LuaState;
+use crate::node::ContainsNode;
 use crate::node::{ContainsFrequencyNode, FrequencyNode};
-use crate::node::{ContainsNode, Node};
-use lua::FromLua;
-use lua::Lua;
-use lua::Table;
-use lua::UserData;
-use mlua as lua;
+
+use mlua::Lua;
+
+use mlua::UserData;
 use std::rc::Rc;
-use std::time::Duration;
+
 #[derive(Debug, Clone)]
 
 pub struct Detune {
@@ -29,18 +25,18 @@ impl ContainsFrequencyNode for Detune {
 }
 
 impl Detune {
-    pub fn new(lua: &Lua, node: FrequencyNode) -> lua::Result<Self> {
+    pub fn new(_lua: &Lua, node: FrequencyNode) -> mlua::Result<Self> {
         let node = Rc::new(libdaw::nodes::Detune::new(node.node));
         Ok(Self { node })
     }
 }
 
 impl UserData for Detune {
-    fn add_methods<'lua, M: lua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         FrequencyNode::add_node_methods(methods);
     }
 
-    fn add_fields<'lua, F: lua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<'lua, F: mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
         FrequencyNode::add_node_fields(fields);
         fields.add_field_method_get("detune", |_, this| Ok(this.node.get_detune()));
         fields.add_field_method_set("detune", |_, this, detune| {

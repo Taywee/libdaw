@@ -9,7 +9,7 @@ local graph = nodes.Graph()
 
 local instrument = nodes.Instrument(
   function()
-    return nodes.SawtoothOscillator()
+    return nodes.SineOscillator()
   end,
   {
     -- start
@@ -73,7 +73,9 @@ instrument:add_note{
   length = 5,
   frequency = 256 * 2 ^ (7 / 12),
 }
-graph:output(graph:add(instrument))
+local gain = graph:add(nodes.Gain(0.3))
+graph:connect(graph:add(instrument), gain)
+graph:output(gain)
 
 local handle = callbacks.register {
   start_time = 2,

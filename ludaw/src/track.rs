@@ -5,8 +5,7 @@ use crate::node::{ContainsNode as _, Node};
 use crate::{error::Error, nodes};
 use crate::{get_channels, get_sample_rate};
 use libdaw::stream::{IntoIter, Stream};
-use lua::{IntoLua, Lua, Table};
-use mlua as lua;
+use mlua::{IntoLua, Lua, Table};
 use nohash_hasher::IntSet;
 use rodio::source::Source;
 use std::cell::RefCell;
@@ -89,11 +88,11 @@ impl Track {
                     module.set(
                         "set_sample_rate",
                         lua.create_function(move |lua, sample_rate: u32| {
-                            let value: lua::Value = lua.named_registry_value("daw.sample_rate")?;
+                            let value: mlua::Value = lua.named_registry_value("daw.sample_rate")?;
                             match value {
-                                lua::Value::Nil => (),
+                                mlua::Value::Nil => (),
                                 _ => {
-                                    return Err(lua::Error::external(
+                                    return Err(mlua::Error::external(
                                         "can not set_sample_rate twice",
                                     ));
                                 }
@@ -109,11 +108,11 @@ impl Track {
                     module.set(
                         "set_channels",
                         lua.create_function(move |lua, channels: u16| {
-                            let value: lua::Value = lua.named_registry_value("daw.channels")?;
+                            let value: mlua::Value = lua.named_registry_value("daw.channels")?;
                             match value {
-                                lua::Value::Nil => (),
+                                mlua::Value::Nil => (),
                                 _ => {
-                                    return Err(lua::Error::external("can not set_channels twice"));
+                                    return Err(mlua::Error::external("can not set_channels twice"));
                                 }
                             }
                             lua.set_named_registry_value("daw.channels", channels)?;
@@ -140,7 +139,7 @@ impl Track {
                         module.set(
                             "register",
                             lua.create_function(move |lua, registration: Indexable| {
-                                let table: lua::Table =
+                                let table: mlua::Table =
                                     lua.named_registry_value("daw.callbacks")?;
                                 let handle = table.len()? + 1;
                                 let mut callbacks = callbacks.borrow_mut();
@@ -179,9 +178,9 @@ impl Track {
                         module.set(
                             "cancel",
                             lua.create_function(move |lua, handle: i64| {
-                                let table: lua::Table =
+                                let table: mlua::Table =
                                     lua.named_registry_value("daw.callbacks")?;
-                                table.set(handle, lua::Value::Nil)?;
+                                table.set(handle, mlua::Value::Nil)?;
                                 let mut callbacks = callbacks.borrow_mut();
                                 if let Some(index) = callbacks
                                     .iter()
@@ -205,7 +204,7 @@ impl Track {
         for arg in args {
             arg_vec.push(arg.as_ref().into_lua(&lua)?);
         }
-        let node: Node = chunk.call(lua::MultiValue::from_vec(arg_vec))?;
+        let node: Node = chunk.call(mlua::MultiValue::from_vec(arg_vec))?;
         let node = node.node();
         let sample_rate = get_sample_rate(&lua)?;
         let channels = get_channels(&lua)?;
@@ -237,7 +236,7 @@ impl Track {
 
         self.running_callbacks
             .extend(self.callbacks.borrow().iter().cloned());
-        let sample_callback_table: lua::Table = self.lua.named_registry_value("daw.callbacks")?;
+        let sample_callback_table: mlua::Table = self.lua.named_registry_value("daw.callbacks")?;
         for callback in self.running_callbacks.drain(..) {
             if sample_time < callback.start_time {
                 break;
