@@ -1,5 +1,5 @@
 use crate::stream::Stream;
-use crate::Node;
+use crate::{Node, Result};
 use std::cell::Cell;
 
 #[derive(Debug, Default)]
@@ -24,9 +24,10 @@ impl ConstantValue {
 }
 
 impl Node for ConstantValue {
-    fn process<'a, 'b>(&'a self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) {
+    fn process<'a, 'b>(&'a self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) -> Result<()> {
         let mut stream = Stream::new(self.channels);
         stream.fill(self.value.get());
         outputs.push(stream);
+        Ok(())
     }
 }

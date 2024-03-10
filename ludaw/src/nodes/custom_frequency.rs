@@ -25,7 +25,7 @@ impl libdaw::Node for LuaNode {
         &'a self,
         inputs: &'b [libdaw::Stream],
         outputs: &'c mut Vec<libdaw::Stream>,
-    ) {
+    ) -> libdaw::Result<()> {
         let Some(lua) = self.lua_state.state.upgrade() else {
             unreachable!("The graph should not be callable after Lua has been destructed");
         };
@@ -34,36 +34,32 @@ impl libdaw::Node for LuaNode {
         let lua_object: Indexable = lua
             .registry_value(&self.key)
             .expect("set key should be an indexable");
-        let output: Vec<Stream> = lua_object
-            .call(input)
-            .expect("process nodes can not throw errors properly yet");
+        let output: Vec<Stream> = lua_object.call(input)?;
         outputs.extend(output.into_iter().map(|stream| stream.0));
+        Ok(())
     }
 }
 
 impl libdaw::FrequencyNode for LuaNode {
-    fn get_frequency(&self) -> f64 {
+    fn get_frequency(&self) -> libdaw::Result<f64> {
         let Some(lua) = self.lua_state.state.upgrade() else {
             unreachable!("The graph should not be callable after Lua has been destructed");
         };
         let lua_object: Indexable = lua
             .registry_value(&self.key)
             .expect("set key should be an indexable");
-        lua_object
-            .get("frequency")
-            .expect("frequency should be a number")
+        Ok(lua_object.get("frequency")?)
     }
 
-    fn set_frequency(&self, frequency: f64) {
+    fn set_frequency(&self, frequency: f64) -> libdaw::Result<()> {
         let Some(lua) = self.lua_state.state.upgrade() else {
             unreachable!("The graph should not be callable after Lua has been destructed");
         };
         let lua_object: Indexable = lua
             .registry_value(&self.key)
             .expect("set key should be an indexable");
-        lua_object
-            .set("frequency", frequency)
-            .expect("frequency should be a number")
+        lua_object.set("frequency", frequency)?;
+        Ok(())
     }
 }
 

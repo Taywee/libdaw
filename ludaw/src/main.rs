@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Args, Parser};
 use ludaw::Track;
@@ -47,10 +47,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if let Err(e) = run() {
-        println!("error: {e}");
-        return Err(e);
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            println!("error: {e}");
+            ExitCode::FAILURE
+        }
     }
-    Ok(())
 }

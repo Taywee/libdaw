@@ -1,5 +1,5 @@
 use crate::stream::Stream;
-use crate::{FrequencyNode, Node};
+use crate::{FrequencyNode, Node, Result};
 use std::cell::Cell;
 
 #[derive(Debug)]
@@ -31,17 +31,18 @@ impl TriangleOscillator {
 }
 
 impl FrequencyNode for TriangleOscillator {
-    fn set_frequency(&self, frequency: f64) {
+    fn set_frequency(&self, frequency: f64) -> Result<()> {
         self.frequency.set(frequency);
         self.calculate_delta();
+        Ok(())
     }
-    fn get_frequency(&self) -> f64 {
-        self.frequency.get()
+    fn get_frequency(&self) -> Result<f64> {
+        Ok(self.frequency.get())
     }
 }
 
 impl Node for TriangleOscillator {
-    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) -> Result<()> {
         let ramp = self
             .ramp
             .replace((self.ramp.get() + self.delta.get()) % 1.0f64);
@@ -52,5 +53,6 @@ impl Node for TriangleOscillator {
         let mut output = Stream::new(self.channels);
         output.fill(sample);
         outputs.push(output);
+        Ok(())
     }
 }

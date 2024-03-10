@@ -6,7 +6,7 @@ mod node;
 mod nodes;
 mod track;
 
-use mlua::{Lua};
+use mlua::Lua;
 
 pub use track::{Track, TrackSource};
 

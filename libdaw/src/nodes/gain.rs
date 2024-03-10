@@ -1,5 +1,5 @@
 use crate::stream::Stream;
-use crate::Node;
+use crate::{Node, Result};
 use std::cell::Cell;
 
 #[derive(Debug)]
@@ -24,12 +24,17 @@ impl Gain {
 }
 
 impl Node for Gain {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()> {
         outputs.extend_from_slice(inputs);
         let gain = self.gain.get();
 
         for output in outputs {
             *output *= gain;
         }
+        Ok(())
     }
 }

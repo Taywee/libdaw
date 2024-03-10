@@ -1,3 +1,4 @@
+use super::envelope::EnvelopePoint;
 use crate::callable::Callable;
 use crate::get_sample_rate;
 use crate::indexable::Indexable;
@@ -5,15 +6,11 @@ use crate::lua_state::LuaState;
 use crate::node::FrequencyNode;
 use crate::node::{ContainsNode, Node};
 use libdaw::nodes::instrument;
+use mlua::FromLua;
 use mlua::Lua;
-
 use mlua::UserData;
-use mlua::{FromLua};
-
 use std::rc::Rc;
 use std::time::Duration;
-
-use super::envelope::EnvelopePoint;
 
 #[derive(Debug)]
 pub struct Note(instrument::Note);
@@ -98,8 +95,7 @@ impl UserData for Instrument {
     fn add_fields<'lua, F: mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
         Node::add_node_fields(fields);
         fields.add_field_method_set("detune", |_, this, detune| {
-            this.node.set_detune(detune);
-            Ok(())
+            this.node.set_detune(detune).map_err(mlua::Error::external)
         });
     }
 }

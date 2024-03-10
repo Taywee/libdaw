@@ -112,7 +112,9 @@ impl Track {
                             match value {
                                 mlua::Value::Nil => (),
                                 _ => {
-                                    return Err(mlua::Error::external("can not set_channels twice"));
+                                    return Err(mlua::Error::external(
+                                        "can not set_channels twice",
+                                    ));
                                 }
                             }
                             lua.set_named_registry_value("daw.channels", channels)?;
@@ -262,7 +264,7 @@ impl Track {
             self.ended_callbacks.clear();
         }
         self.outputs.clear();
-        self.node.process(&[], &mut self.outputs);
+        self.node.process(&[], &mut self.outputs)?;
         self.lua.expire_registry_values();
         let lua = &self.lua;
         let sample = self.outputs.iter().copied().reduce(Add::add);

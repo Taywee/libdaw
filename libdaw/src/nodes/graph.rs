@@ -1,11 +1,19 @@
+mod error;
+
+pub use error::Error;
+
+type Result<T> = std::result::Result<T, Error>;
+
 use crate::nodes::Passthrough;
 use crate::stream::Stream;
 use crate::Node;
 use nohash_hasher::{IntSet, IsEnabled};
 use std::cell::RefCell;
-
+use std::fmt;
 use std::hash::Hash;
 use std::rc::Rc;
+use Error::IllegalIndex;
+use Error::NoSuchConnection;
 
 /// A strong node wrapper, allowing hashing and comparison on a pointer basis.
 type Strong = Rc<dyn Node>;
@@ -13,6 +21,12 @@ type Strong = Rc<dyn Node>;
 /// The node index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index(pub usize);
+
+impl fmt::Display for Index {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Hash for Index {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -91,108 +105,256 @@ impl InnerGraph {
         }
     }
 
-    pub fn remove(&mut self, index: Index) -> Option<Strong> {
-        assert_ne!(index, Index(0), "Can not remove the input");
-        assert_ne!(index, Index(1), "Can not remove the output");
+    pub fn remove(&mut self, index: Index) -> Result<Option<Strong>> {
+        match index {
+            Index(0) => {
+                return Err(IllegalIndex {
+                    index,
+                    message: "Can not remove the input",
+                })
+            }
+            Index(1) => {
+                return Err(IllegalIndex {
+                    index,
+                    message: "Can not remove the output",
+                })
+            }
+            _ => (),
+        }
+
         self.process_list.borrow_mut().reprocess = true;
 
         if let Some(slot) = self.nodes[index.0].take() {
             self.empty_nodes.insert(index);
             self.set_nodes.remove(&index);
+
+            // Remove all nodes that used this one as input
             for set_index in self.set_nodes.iter().copied() {
                 let slot = self.nodes[set_index.0]
                     .as_mut()
                     .expect("set slot not existing");
                 slot.inputs.retain(|input| input.source != index);
             }
-            Some(slot.node)
+            Ok(Some(slot.node))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn inner_connect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
-        assert!(
-            self.nodes[source.0].is_some(),
-            "source must be a valid index",
-        );
-        self.process_list.borrow_mut().reprocess = true;
+    fn inner_connect(
+        &mut self,
+        source: Index,
+        destination: Index,
+        stream: Option<usize>,
+    ) -> Result<()> {
+        if self.nodes[source.0].is_none() {
+            return Err(IllegalIndex {
+                index: source,
+                message: "source must be a valid index",
+            });
+        }
         let destination = self.nodes[destination.0]
             .as_mut()
-            .expect("destination must be a valid index");
+            .ok_or_else(|| IllegalIndex {
+                index: destination,
+                message: "destination must be a valid index",
+            })?;
+
+        self.process_list.borrow_mut().reprocess = true;
         destination.inputs.push(Input { source, stream });
+        Ok(())
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
-    pub fn connect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
-        assert_ne!(destination, Index(0), "use input instead");
-        assert_ne!(source, Index(0), "can not use the input as a source");
-        assert_ne!(destination, Index(1), "use output instead");
-        assert_ne!(source, Index(1), "can not use the output as a source");
-        self.inner_connect(source, destination, stream);
+    pub fn connect(
+        &mut self,
+        source: Index,
+        destination: Index,
+        stream: Option<usize>,
+    ) -> Result<()> {
+        match (source, destination) {
+            (Index(0), _) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "use `input` instead",
+                })
+            }
+            (Index(1), _) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "cannot connect or disconnect output",
+                })
+            }
+            (_, Index(0)) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "cannot connect or disconnect input",
+                })
+            }
+            (_, Index(1)) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "use `output` instead",
+                })
+            }
+            _ => (),
+        }
+        self.inner_connect(source, destination, stream)
     }
 
-    /// Disconnect the last-added matching connection, returning a boolean
-    /// indicating if anything was disconnected.
-    fn inner_disconnect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
-        let destination = self.nodes[destination.0]
+    /// Disconnect the last-added matching connection.
+    fn inner_disconnect(
+        &mut self,
+        source: Index,
+        destination: Index,
+        stream: Option<usize>,
+    ) -> Result<()> {
+        let destination_slot = self.nodes[destination.0]
             .as_mut()
-            .expect("destination must be a valid index");
-        self.process_list.borrow_mut().reprocess = true;
-        let source = Input { source, stream };
-        let (index, _) = destination
+            .ok_or_else(|| IllegalIndex {
+                index: destination,
+                message: "destination must be a valid index",
+            })?;
+        let source_input = Input { source, stream };
+        let (index, _) = destination_slot
             .inputs
             .iter()
             .enumerate()
             .rev()
-            .find(|(_, input)| **input == source)
-            .expect("could not find connection");
-        destination.inputs.remove(index);
+            .find(|(_, input)| **input == source_input)
+            .ok_or_else(move || NoSuchConnection {
+                source,
+                destination,
+                stream,
+            })?;
+        destination_slot.inputs.remove(index);
+        self.process_list.borrow_mut().reprocess = true;
+        Ok(())
     }
 
     /// Disconnect the last-added matching connection, returning a boolean
     /// indicating if anything was disconnected.
-    pub fn disconnect(&mut self, source: Index, destination: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot connect or disconnect input");
-        assert_ne!(destination, Index(0), "use remove_input instead");
-        assert_ne!(source, Index(1), "cannot connect or disconnect output");
-        assert_ne!(destination, Index(1), "use remove_output instead");
-        self.disconnect(source, destination, stream);
+    pub fn disconnect(
+        &mut self,
+        source: Index,
+        destination: Index,
+        stream: Option<usize>,
+    ) -> Result<()> {
+        match (source, destination) {
+            (Index(0), _) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "use `remove_input` instead",
+                })
+            }
+            (Index(1), _) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "cannot connect or disconnect output",
+                })
+            }
+            (_, Index(0)) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "cannot connect or disconnect input",
+                })
+            }
+            (_, Index(1)) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "use `remove_output` instead",
+                })
+            }
+            _ => (),
+        }
+        self.disconnect(source, destination, stream)
     }
 
     /// Connect the given output of the initial input to the destination.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&mut self, destination: Index, stream: Option<usize>) {
-        assert_ne!(destination, Index(0), "cannot input input");
-        assert_ne!(destination, Index(1), "cannot input output");
-        self.inner_connect(Index(0), destination, stream);
+    pub fn input(&mut self, destination: Index, stream: Option<usize>) -> Result<()> {
+        match destination {
+            Index(0) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "Can not `input` the input",
+                })
+            }
+            Index(1) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "Can not `input` the output",
+                })
+            }
+            _ => (),
+        }
+        self.inner_connect(Index(0), destination, stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&mut self, destination: Index, stream: Option<usize>) {
-        assert_ne!(destination, Index(0), "cannot remove input");
-        assert_ne!(destination, Index(1), "cannot remove output");
-        self.inner_disconnect(Index(0), destination, stream);
+    pub fn remove_input(&mut self, destination: Index, stream: Option<usize>) -> Result<()> {
+        match destination {
+            Index(0) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "Can not `remove_input` the input",
+                })
+            }
+            Index(1) => {
+                return Err(IllegalIndex {
+                    index: destination,
+                    message: "Can not `remove_input` the output",
+                })
+            }
+            _ => (),
+        }
+        self.inner_disconnect(Index(0), destination, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn output(&mut self, source: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot output input");
-        assert_ne!(source, Index(1), "cannot output output");
-        self.inner_connect(source, Index(1), stream);
+    pub fn output(&mut self, source: Index, stream: Option<usize>) -> Result<()> {
+        match source {
+            Index(0) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "Can not `output` the input",
+                })
+            }
+            Index(1) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "Can not `output` the output",
+                })
+            }
+            _ => (),
+        }
+        self.inner_connect(source, Index(1), stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&mut self, source: Index, stream: Option<usize>) {
-        assert_ne!(source, Index(0), "cannot remove input");
-        assert_ne!(source, Index(1), "cannot remove output");
-        self.inner_disconnect(source, Index(1), stream);
+    pub fn remove_output(&mut self, source: Index, stream: Option<usize>) -> Result<()> {
+        match source {
+            Index(0) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "Can not `remove_output` the input",
+                })
+            }
+            Index(1) => {
+                return Err(IllegalIndex {
+                    index: source,
+                    message: "Can not `remove_output` the output",
+                })
+            }
+            _ => (),
+        }
+        self.inner_disconnect(source, Index(1), stream)
     }
 
     fn walk_node(&self, node: Index, process_list: &mut ProcessList) {
@@ -232,7 +394,11 @@ impl InnerGraph {
 
     /// Process all inputs from roots down to the sink.
     /// All sinks are added together to turn this into a single output.
-    fn process<'a, 'b, 'c>(&'a mut self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a mut self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> crate::Result<()> {
         self.build_process_list();
         // First process all process-needing nodes in reverse order.
         for node in self.process_list.borrow().list.iter().rev().copied() {
@@ -258,7 +424,7 @@ impl InnerGraph {
             }
             let mut output = slot.output.borrow_mut();
             output.clear();
-            slot.node.process(&input_buffer, &mut output);
+            slot.node.process(&input_buffer, &mut output)?;
         }
         outputs.extend_from_slice(
             &self.nodes[1]
@@ -267,6 +433,7 @@ impl InnerGraph {
                 .output
                 .borrow(),
         );
+        Ok(())
     }
 }
 
@@ -280,53 +447,62 @@ impl Graph {
         self.inner.borrow_mut().add(node)
     }
 
-    pub fn remove(&self, index: Index) -> Option<Strong> {
+    pub fn remove(&self, index: Index) -> Result<Option<Strong>> {
         self.inner.borrow_mut().remove(index)
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
-    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) {
-        self.inner.borrow_mut().connect(source, destination, stream);
+    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
+        self.inner.borrow_mut().connect(source, destination, stream)
     }
 
     /// Disconnect the last-added matching connection, returning a boolean
     /// indicating if anything was disconnected.
-    pub fn disconnect(&self, source: Index, destination: Index, stream: Option<usize>) {
+    pub fn disconnect(
+        &self,
+        source: Index,
+        destination: Index,
+        stream: Option<usize>,
+    ) -> Result<()> {
         self.inner
             .borrow_mut()
-            .disconnect(source, destination, stream);
+            .disconnect(source, destination, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&self, source: Index, stream: Option<usize>) {
-        self.inner.borrow_mut().input(source, stream);
+    pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
+        self.inner.borrow_mut().input(source, stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&self, source: Index, stream: Option<usize>) {
-        self.inner.borrow_mut().remove_input(source, stream);
+    pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
+        self.inner.borrow_mut().remove_input(source, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn output(&self, source: Index, stream: Option<usize>) {
-        self.inner.borrow_mut().output(source, stream);
+    pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
+        self.inner.borrow_mut().output(source, stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&self, source: Index, stream: Option<usize>) {
-        self.inner.borrow_mut().remove_output(source, stream);
+    pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
+        self.inner.borrow_mut().remove_output(source, stream)
     }
 }
 
 impl Node for Graph {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> crate::Result<()> {
         self.inner.borrow_mut().process(inputs, outputs)
     }
 }

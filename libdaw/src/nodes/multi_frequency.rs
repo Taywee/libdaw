@@ -1,5 +1,5 @@
 use crate::stream::Stream;
-use crate::{FrequencyNode, Node};
+use crate::{FrequencyNode, Node, Result};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -20,21 +20,27 @@ impl MultiFrequency {
 }
 
 impl FrequencyNode for MultiFrequency {
-    fn set_frequency(&self, frequency: f64) {
+    fn set_frequency(&self, frequency: f64) -> Result<()> {
         self.frequency.set(frequency);
         for node in self.nodes.iter() {
-            node.set_frequency(frequency);
+            node.set_frequency(frequency)?;
         }
+        Ok(())
     }
-    fn get_frequency(&self) -> f64 {
-        self.frequency.get()
+    fn get_frequency(&self) -> Result<f64> {
+        Ok(self.frequency.get())
     }
 }
 
 impl Node for MultiFrequency {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()> {
         for node in self.nodes.iter() {
-            node.process(inputs, outputs);
+            node.process(inputs, outputs)?;
         }
+        Ok(())
     }
 }

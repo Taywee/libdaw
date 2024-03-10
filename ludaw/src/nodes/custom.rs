@@ -29,7 +29,7 @@ impl libdaw::Node for LuaCallbackNode {
         &'a self,
         inputs: &'b [libdaw::Stream],
         outputs: &'c mut Vec<libdaw::Stream>,
-    ) {
+    ) -> libdaw::Result<()> {
         let Some(lua) = self.lua_state.state.upgrade() else {
             unreachable!("The graph should not be callable after Lua has been destructed");
         };
@@ -38,10 +38,9 @@ impl libdaw::Node for LuaCallbackNode {
         let callable: Callable = lua
             .registry_value(&self.callable_key)
             .expect("set key should be a function");
-        let output: Vec<Stream> = callable
-            .call(input)
-            .expect("process nodes can not throw errors properly yet");
+        let output: Vec<Stream> = callable.call(input)?;
         outputs.extend(output.into_iter().map(|stream| stream.0));
+        Ok(())
     }
 }
 

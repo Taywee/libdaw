@@ -4,6 +4,9 @@ pub mod stream;
 use std::{fmt::Debug, rc::Rc};
 pub use stream::Stream;
 
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed. Some things like setters are self, not mut self, because we
 /// need to support Rc<dyn Node> so upcasting works.  This will be fixed when
@@ -11,13 +14,17 @@ pub use stream::Stream;
 /// stable rust.  When that happens, the interface will change to &mut self
 /// methods.
 pub trait Node: Debug {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>);
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()>;
 }
 
 /// A node with a settable frequency.
 pub trait FrequencyNode: Node + DynNode {
-    fn get_frequency(&self) -> f64;
-    fn set_frequency(&self, frequency: f64);
+    fn get_frequency(&self) -> Result<f64>;
+    fn set_frequency(&self, frequency: f64) -> Result<()>;
 }
 
 /// Dynamic upcasting trait for Node

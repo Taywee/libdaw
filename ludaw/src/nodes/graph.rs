@@ -27,12 +27,18 @@ impl UserData for Graph {
         Node::add_node_methods(methods);
         methods.add_method_mut("add", |_, this, node: Node| Ok(this.node.add(node.node).0));
         methods.add_method_mut("remove", |_, this, index| {
-            Ok(this.node.remove(Index(index)).map(Node::from))
+            Ok(this
+                .node
+                .remove(Index(index))
+                .map_err(mlua::Error::external)?
+                .map(Node::from))
         });
         methods.add_method_mut(
             "connect",
             |_, this, (source, destination, stream): (usize, usize, Option<usize>)| {
-                this.node.connect(Index(source), Index(destination), stream);
+                this.node
+                    .connect(Index(source), Index(destination), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
@@ -40,35 +46,44 @@ impl UserData for Graph {
             "disconnect",
             |_, this, (source, destination, stream): (usize, usize, Option<usize>)| {
                 this.node
-                    .disconnect(Index(source), Index(destination), stream);
+                    .disconnect(Index(source), Index(destination), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
         methods.add_method_mut(
             "output",
             |_, this, (source, stream): (usize, Option<usize>)| {
-                this.node.output(Index(source), stream);
+                this.node
+                    .output(Index(source), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
         methods.add_method_mut(
             "remove_output",
             |_, this, (source, stream): (usize, Option<usize>)| {
-                this.node.remove_output(Index(source), stream);
+                this.node
+                    .remove_output(Index(source), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
         methods.add_method_mut(
             "input",
             |_, this, (destination, stream): (usize, Option<usize>)| {
-                this.node.input(Index(destination), stream);
+                this.node
+                    .input(Index(destination), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
         methods.add_method_mut(
             "remove_input",
             |_, this, (destination, stream): (usize, Option<usize>)| {
-                this.node.remove_input(Index(destination), stream);
+                this.node
+                    .remove_input(Index(destination), stream)
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         );
