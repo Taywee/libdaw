@@ -40,8 +40,7 @@ impl UserData for Detune {
         FrequencyNode::add_node_fields(fields);
         fields.add_field_method_get("detune", |_, this| Ok(this.node.get_detune()));
         fields.add_field_method_set("detune", |_, this, detune| {
-            this.node.set_detune(detune);
-            Ok(())
+            this.node.set_detune(detune).map_err(mlua::Error::external)
         });
     }
 }

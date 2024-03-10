@@ -1,5 +1,5 @@
 use super::{envelope::EnvelopePoint, graph::Index, Detune, Envelope, Graph};
-use crate::{DynNode as _, FrequencyNode, Node};
+use crate::{DynNode as _, FrequencyNode, Node, Result};
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
@@ -123,13 +123,14 @@ impl Instrument {
     }
 
     /// Set the detune in the same way as the Detune.
-    pub fn set_detune(&self, detune: f64) {
+    pub fn set_detune(&self, detune: f64) -> Result<()> {
         if self.detune.replace(detune) != detune {
             for note in self.playing.borrow().iter() {
                 let note = &note.0;
-                note.frequency_node.set_detune(detune);
+                note.frequency_node.set_detune(detune)?;
             }
         }
+        Ok(())
     }
 }
 
@@ -138,7 +139,7 @@ impl Node for Instrument {
         &'a self,
         inputs: &'b [crate::stream::Stream],
         outputs: &'c mut Vec<crate::stream::Stream>,
-    ) {
+    ) -> Result<()> {
         let sample = self.sample.replace(self.sample.get() + 1);
         let detune = self.detune.get();
 
@@ -146,7 +147,7 @@ impl Node for Instrument {
         let mut playing = self.playing.borrow_mut();
         let mut frequency_node_creator = self.frequency_node_creator.borrow_mut();
         if queue.is_empty() && playing.is_empty() {
-            return;
+            return Ok(());
         }
 
         // Spawn all ready queued notes.
@@ -163,8 +164,8 @@ impl Node for Instrument {
             let end_sample = note.start_sample + sample_length;
 
             let frequency_node = Rc::new(Detune::new(frequency_node_creator()));
-            frequency_node.set_frequency(note.frequency);
-            frequency_node.set_detune(detune);
+            frequency_node.set_frequency(note.frequency)?;
+            frequency_node.set_detune(detune)?;
 
             let envelope = Rc::new(Envelope::new(
                 self.sample_rate,
@@ -174,9 +175,9 @@ impl Node for Instrument {
             let frequency_node_index = self.graph.add(frequency_node.clone().node());
             let envelope_index = self.graph.add(envelope.clone());
             self.graph
-                .connect(frequency_node_index, envelope_index, None);
-            self.graph.output(envelope_index, None);
-            self.graph.input(frequency_node_index, None);
+                .connect(frequency_node_index, envelope_index, None)?;
+            self.graph.output(envelope_index, None)?;
+            self.graph.input(frequency_node_index, None)?;
             playing.push(Reverse(PlayingNote {
                 end_sample,
                 frequency_node,
@@ -195,11 +196,11 @@ impl Node for Instrument {
             }
 
             let note = playing.pop().unwrap().0;
-            self.graph.remove(note.frequency_node_index);
-            self.graph.remove(note.envelope_index);
+            self.graph.remove(note.frequency_node_index)?;
+            self.graph.remove(note.envelope_index)?;
         }
 
         // Play graph
-        self.graph.process(inputs, outputs);
+        self.graph.process(inputs, outputs)
     }
 }

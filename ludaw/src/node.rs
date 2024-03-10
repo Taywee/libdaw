@@ -1,3 +1,4 @@
+use crate::indexable::Indexable;
 use libdaw::stream::MAX_CHANNELS;
 use mlua::{
     AnyUserDataExt as _, Error, FromLua, Function, IntoLua, Lua, Result, UserData, UserDataFields,
@@ -5,8 +6,6 @@ use mlua::{
 };
 use std::cell::Ref;
 use std::rc::Rc;
-
-use crate::indexable::Indexable;
 
 pub trait ContainsNode {
     fn node(&self) -> Rc<dyn libdaw::Node>;
@@ -41,7 +40,9 @@ impl Node {
         methods.add_method("process", |lua, this, inputs: Vec<Stream>| {
             let inputs: Vec<_> = inputs.into_iter().map(|stream| stream.0).collect();
             let mut outputs = Vec::with_capacity(8);
-            this.node().process(&inputs, &mut outputs);
+            this.node()
+                .process(&inputs, &mut outputs)
+                .map_err(mlua::Error::external)?;
             let output_table = lua.create_table_with_capacity(outputs.len(), 0)?;
             for (i, stream) in outputs.into_iter().enumerate() {
                 output_table.raw_set(i + 1, Stream(stream))?;
@@ -126,11 +127,14 @@ impl FrequencyNode {
     ) {
         Node::add_node_fields(fields);
         fields.add_field_method_get("frequency", |_, this| {
-            Ok(this.frequency_node().get_frequency())
+            this.frequency_node()
+                .get_frequency()
+                .map_err(Error::external)
         });
         fields.add_field_method_set("frequency", |_, this, frequency| {
-            this.frequency_node().set_frequency(frequency);
-            Ok(())
+            this.frequency_node()
+                .set_frequency(frequency)
+                .map_err(Error::external)
         });
     }
     pub fn add_node_methods<

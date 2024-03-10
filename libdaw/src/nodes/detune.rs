@@ -1,4 +1,4 @@
-use crate::{FrequencyNode, Node};
+use crate::{FrequencyNode, Node, Result};
 use std::{cell::Cell, rc::Rc};
 
 /// A wrapper for a FrequencyNode that can apply a detune.
@@ -28,12 +28,14 @@ impl Detune {
     /// similarly reduce the frequency by that much. -1 will drop an octave, -2
     /// will drop another octave, and so on.
     /// This also detunes all actively playing notes.
-    pub fn set_detune(&self, detune: f64) {
+    pub fn set_detune(&self, detune: f64) -> Result<()> {
         if self.detune.replace(detune) != detune {
             let detune_pow2 = 2.0f64.powf(detune);
             self.detune_pow2.set(detune_pow2);
-            self.node.set_frequency(self.frequency.get() * detune_pow2);
+            self.node
+                .set_frequency(self.frequency.get() * detune_pow2)?;
         }
+        Ok(())
     }
 
     pub fn get_detune(&self) -> f64 {
@@ -46,19 +48,21 @@ impl Node for Detune {
         &'a self,
         inputs: &'b [crate::stream::Stream],
         outputs: &'c mut Vec<crate::stream::Stream>,
-    ) {
-        self.node.process(inputs, outputs);
+    ) -> Result<()> {
+        self.node.process(inputs, outputs)
     }
 }
 
 impl FrequencyNode for Detune {
-    fn get_frequency(&self) -> f64 {
-        self.frequency.get()
+    fn get_frequency(&self) -> Result<f64> {
+        Ok(self.frequency.get())
     }
 
-    fn set_frequency(&self, frequency: f64) {
+    fn set_frequency(&self, frequency: f64) -> Result<()> {
         if self.frequency.replace(frequency) != frequency {
-            self.node.set_frequency(frequency * self.detune_pow2.get());
+            self.node
+                .set_frequency(frequency * self.detune_pow2.get())?;
         }
+        Ok(())
     }
 }

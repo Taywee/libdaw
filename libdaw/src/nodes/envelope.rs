@@ -1,4 +1,4 @@
-use crate::{stream::Stream, Node};
+use crate::{stream::Stream, Node, Result};
 use std::{cell::Cell, time::Duration};
 
 #[derive(Debug, Clone, Copy)]
@@ -107,14 +107,18 @@ impl Envelope {
 }
 
 impl Node for Envelope {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()> {
         outputs.extend_from_slice(inputs);
 
         let sample = self.sample.replace(self.sample.get() + 1);
 
         let envelope_len = self.envelope.len();
         let volume = match envelope_len {
-            0 => return,
+            0 => return Ok(()),
             1 => self.envelope[0].volume,
             _ => {
                 match self
@@ -150,5 +154,6 @@ impl Node for Envelope {
         for output in outputs {
             *output *= volume;
         }
+        Ok(())
     }
 }

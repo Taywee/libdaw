@@ -1,6 +1,5 @@
 use crate::stream::Stream;
-use crate::Node;
-
+use crate::{Node, Result};
 use std::ops::Add as _;
 
 #[derive(Debug)]
@@ -17,7 +16,11 @@ impl Add {
 }
 
 impl Node for Add {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()> {
         outputs.push(
             inputs
                 .into_iter()
@@ -25,5 +28,6 @@ impl Node for Add {
                 .reduce(Stream::add)
                 .unwrap_or_else(|| Stream::new(self.channels)),
         );
+        Ok(())
     }
 }

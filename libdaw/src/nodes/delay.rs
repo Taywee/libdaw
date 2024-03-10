@@ -1,8 +1,7 @@
 use crate::stream::Stream;
-use crate::Node;
+use crate::{Node, Result};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -32,10 +31,14 @@ impl Delay {
 }
 
 impl Node for Delay {
-    fn process<'a, 'b, 'c>(&'a self, inputs: &'b [Stream], outputs: &'c mut Vec<Stream>) {
+    fn process<'a, 'b, 'c>(
+        &'a self,
+        inputs: &'b [Stream],
+        outputs: &'c mut Vec<Stream>,
+    ) -> Result<()> {
         if self.delay == 0 {
             outputs.extend_from_slice(inputs);
-            return;
+            return Ok(());
         }
         let sample = self.sample.replace(self.sample.get() + 1);
         let play_sample = sample + self.delay;
@@ -62,5 +65,6 @@ impl Node for Delay {
                 });
             }
         }
+        Ok(())
     }
 }
