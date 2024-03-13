@@ -1,3 +1,4 @@
+pub mod metronome;
 pub mod nodes;
 pub mod stream;
 

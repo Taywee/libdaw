@@ -1,6 +1,7 @@
 use crate::callable::Callable;
 use crate::indexable::Indexable;
 use crate::lua_state::LuaState;
+use crate::metronome::Metronome;
 use crate::node::{ContainsNode as _, Node};
 use crate::{error::Error, nodes};
 use crate::{get_channels, get_sample_rate};
@@ -125,6 +126,7 @@ impl Track {
                         "channels",
                         lua.create_function(move |lua, ()| get_channels(lua))?,
                     )?;
+                    module.set("Metronome", lua.create_function(Metronome::new)?)?;
 
                     Ok(module)
                 })?,

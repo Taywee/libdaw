@@ -2,6 +2,7 @@ mod callable;
 pub mod error;
 mod indexable;
 mod lua_state;
+mod metronome;
 mod node;
 mod nodes;
 mod track;

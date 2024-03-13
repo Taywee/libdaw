@@ -67,6 +67,8 @@ pub struct Envelope {
 }
 
 impl Envelope {
+    /// Construct the envelope.  If you give zero envelope points, this will
+    /// effectively be a PassthroughNode.
     pub fn new(
         sample_rate: u32,
         length: Duration,
@@ -114,13 +116,12 @@ impl Node for Envelope {
     ) -> Result<()> {
         outputs.extend_from_slice(inputs);
 
-        let sample = self.sample.replace(self.sample.get() + 1);
-
         let envelope_len = self.envelope.len();
         let volume = match envelope_len {
             0 => return Ok(()),
             1 => self.envelope[0].volume,
             _ => {
+                let sample = self.sample.replace(self.sample.get() + 1);
                 match self
                     .envelope
                     .binary_search_by_key(&sample, |point| point.sample)
