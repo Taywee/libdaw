@@ -18,7 +18,7 @@ mod triangle_oscillator;
 use mlua::Lua;
 use mlua::Table;
 
-pub fn setup_module<'a>(lua: &'a Lua, _: ()) -> mlua::Result<Table<'a>> {
+pub fn setup_module<'lua>(lua: &'lua Lua, _: ()) -> mlua::Result<Table<'lua>> {
     let module = lua.create_table()?;
     module.set("Graph", lua.create_function(graph::Graph::new)?)?;
     module.set(

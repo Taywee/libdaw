@@ -20,7 +20,7 @@ metronome:add_tempo_instruction {
 }
 metronome:add_tempo_instruction {
   beat = 30,
-  beats_per_minute = 500,
+  beats_per_minute = 256,
 }
 
 local instrument = nodes.Instrument(
@@ -37,19 +37,13 @@ local instrument = nodes.Instrument(
     {
       whence = 0,
       volume = 1,
-      time_offset = 0.1,
-    },
-    -- decay
-    {
-      whence = 0,
-      volume = 0.6,
-      time_offset = 0.2,
+      ratio_offset = 0.05,
     },
     -- sustain
     {
       whence = 1,
-      volume = 0.5,
-      time_offset = -0.3,
+      volume = 1,
+      ratio_offset = -0.05,
     },
     -- zero
     {

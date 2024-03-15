@@ -4,17 +4,18 @@ use crate::lua_state::LuaState;
 use crate::metronome::Metronome;
 use crate::node::{ContainsNode as _, Node};
 use crate::{error::Error, nodes};
-use crate::{get_channels, get_sample_rate};
+use crate::{get_channels, get_sample_rate, pitch};
+use blake3::Hasher;
 use libdaw::stream::{IntoIter, Stream};
 use mlua::{IntoLua, Lua, Table};
 use nohash_hasher::IntSet;
+use rand::{Rng as _, SeedableRng};
+use rand_blake3::Rng;
 use rodio::source::Source;
 use std::cell::RefCell;
-
 use std::ops::Add;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
-
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -68,6 +69,9 @@ impl Track {
         A1: IntoIterator<Item = A2>,
         A2: AsRef<str>,
     {
+        let rng = Rc::new(RefCell::new(Rng::from_seed(
+            *b"6QW4uIs34JAI5CvRjtug1cXkWWC06l89",
+        )));
         let callbacks: Rc<RefCell<Vec<Callback>>> = Default::default();
         let source = source.as_ref();
         let lua = Rc::new(Lua::new());
@@ -85,6 +89,101 @@ impl Track {
                 "daw",
                 lua.create_function(move |lua, ()| {
                     let module = lua.create_table()?;
+                    {
+                        let rng = rng.clone();
+                        module.set(
+                            "random",
+                            lua.create_function(move |_, (m, n): (Option<i64>, Option<i64>)| {
+                                let mut rng = rng.borrow_mut();
+                                match (m, n) {
+                                    (None, None) => Ok(mlua::Value::Number(rng.gen())),
+                                    (None, Some(_)) => Err(mlua::Error::external(
+                                        "random may only be called with one or two integers",
+                                    )),
+                                    (Some(n), None) => {
+                                        if n < 0 {
+                                            Err(mlua::Error::external(
+                                        "random may only be called with one or two integers",
+                                            ))
+                                        } else if n == 0 {
+                                            Ok(mlua::Value::Integer(rng.gen()))
+                                        } else {
+                                            Ok(mlua::Value::Integer(rng.gen_range(1..=n)))
+                                        }
+                                    }
+                                    (Some(m), Some(n)) => {
+                                        if m < n {
+                                            Err(mlua::Error::external("m must be greater than n"))
+                                        } else {
+                                            Ok(mlua::Value::Integer(rng.gen_range(m..=n)))
+                                        }
+                                    }
+                                }
+                            })?,
+                        )?;
+                    }
+
+                    {
+                        let rng = rng.clone();
+                        module.set(
+                            "randomseed",
+                            lua.create_function(move |_, seed: mlua::Value| {
+                                let mut hasher = Hasher::new();
+                                match seed {
+                                    mlua::Value::Nil => {
+                                        hasher.update(&[0]);
+                                    }
+                                    mlua::Value::Boolean(b) => {
+                                        hasher.update(&[1, b as u8]);
+                                    }
+                                    mlua::Value::LightUserData(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with light userdata",
+                                        ));
+                                    }
+                                    mlua::Value::Integer(i) => {
+                                        hasher.update(&[2]);
+                                        hasher.update(&i.to_be_bytes());
+                                    }
+                                    mlua::Value::Number(f) => {
+                                        hasher.update(&[3]);
+                                        hasher.update(&f.to_be_bytes());
+                                    }
+                                    mlua::Value::String(s) => {
+                                        hasher.update(&[4]);
+                                        hasher.update(&s.as_bytes());
+                                    }
+                                    mlua::Value::Table(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with table",
+                                        ));
+                                    }
+                                    mlua::Value::Function(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with function",
+                                        ));
+                                    }
+                                    mlua::Value::Thread(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with thread",
+                                        ));
+                                    }
+                                    mlua::Value::UserData(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with userdata",
+                                        ));
+                                    }
+                                    mlua::Value::Error(_) => {
+                                        return Err(mlua::Error::external(
+                                            "Can not seed with error",
+                                        ));
+                                    }
+                                };
+                                *rng.borrow_mut() = hasher.into();
+                                Ok(())
+                            })?,
+                        )?;
+                    }
 
                     module.set(
                         "set_sample_rate",
@@ -132,6 +231,7 @@ impl Track {
                 })?,
             )?;
             preload.set("daw.nodes", lua.create_function(nodes::setup_module)?)?;
+            preload.set("daw.pitch", lua.create_function(pitch::setup_module)?)?;
             let callbacks = callbacks.clone();
             preload.set(
                 "daw.callbacks",

@@ -11,8 +11,11 @@ categories = [
 ]
 
 [dependencies]
+blake3 = "1.5.1"
 clap = { version = "4.5.1", features = ["derive"] }
 nohash-hasher = "0.2.0"
+rand = "0.8.5"
+rand_blake3 = "1.0.2"
 rodio = "0.17.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
