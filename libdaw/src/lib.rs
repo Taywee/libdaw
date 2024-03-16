@@ -1,5 +1,7 @@
 pub mod metronome;
 pub mod nodes;
+pub mod notation;
+pub mod pitch;
 pub mod stream;
 
 use std::{fmt::Debug, rc::Rc};

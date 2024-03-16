@@ -5,6 +5,7 @@ mod lua_state;
 mod metronome;
 mod node;
 mod nodes;
+mod pitch;
 mod track;
 
 use mlua::Lua;

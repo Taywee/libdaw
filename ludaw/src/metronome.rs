@@ -1,7 +1,5 @@
 use crate::indexable::Indexable;
-use mlua::FromLua;
-use mlua::Lua;
-use mlua::UserData;
+use mlua::{FromLua, Lua, UserData};
 
 #[derive(Debug)]
 struct TempoInstruction(libdaw::metronome::TempoInstruction);
