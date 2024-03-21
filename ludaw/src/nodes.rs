@@ -7,7 +7,7 @@ mod detune;
 mod envelope;
 mod gain;
 mod graph;
-mod instrument;
+pub mod instrument;
 mod multi_frequency;
 mod multiply;
 mod sawtooth_oscillator;

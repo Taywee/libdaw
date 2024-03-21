@@ -1,8 +1,8 @@
-mod parse;
-
-use std::{error::Error, fmt, str::FromStr};
-
+use crate::parse::pitch as parse;
+use crate::parse::Error;
 use nom::{combinator::all_consuming, Finish};
+use std::fmt;
+use std::str::FromStr;
 
 /// A relative pitch within an octave, corresponding to the western note names
 /// and a standard C major scale.
@@ -18,8 +18,27 @@ pub enum PitchClass {
     B = 11,
 }
 
+impl PitchClass {
+    pub fn name(self) -> char {
+        match self {
+            PitchClass::C => 'C',
+            PitchClass::D => 'D',
+            PitchClass::E => 'E',
+            PitchClass::F => 'F',
+            PitchClass::G => 'G',
+            PitchClass::A => 'A',
+            PitchClass::B => 'B',
+        }
+    }
+}
+impl fmt::Display for PitchClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", (*self).name())
+    }
+}
+
 impl FromStr for PitchClass {
-    type Err = parse::Error<String>;
+    type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::pitch_class)(s)
@@ -45,7 +64,7 @@ pub struct Pitch {
 /// and ratios of these, along with symbolic ones.
 /// B𝄫𝄪###[14/12e8]-12 is a valid (but completely inaudible) absolute note.
 impl FromStr for Pitch {
-    type Err = parse::Error<String>;
+    type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::pitch)(s)

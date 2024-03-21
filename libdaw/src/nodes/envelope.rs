@@ -1,13 +1,14 @@
-use crate::{stream::Stream, Node, Result};
-use std::{cell::Cell, time::Duration};
+use crate::{
+    stream::Stream,
+    time::{Duration, Time},
+    Node, Result,
+};
+use std::cell::Cell;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Offset {
-    /// Calculate time after `whence`.
-    TimeForward(Duration),
-
-    /// Calculate time before `whence`.
-    TimeBackward(Duration),
+    /// Calculate time from `whence`.
+    Time(Time),
 
     /// Calculate time as a ratio of the length.  This may be negative.
     Ratio(f64),
@@ -15,7 +16,7 @@ pub enum Offset {
 
 impl Default for Offset {
     fn default() -> Self {
-        Self::TimeForward(Duration::ZERO)
+        Self::Time(Time::ZERO)
     }
 }
 
@@ -77,27 +78,22 @@ impl Envelope {
         let mut envelope: Vec<CalculatedEnvelopePoint> = envelope
             .into_iter()
             .flat_map(move |point| {
-                Duration::try_from_secs_f64(length.as_secs_f64() * point.whence)
-                    .ok()
-                    .and_then(move |whence| {
-                        let time = match point.offset {
-                            Offset::TimeForward(offset) => Some(whence + offset),
-                            Offset::TimeBackward(offset) => whence.checked_sub(offset),
-                            Offset::Ratio(offset) => {
-                                if offset >= 0.0 {
-                                    let offset = length.mul_f64(offset);
-                                    Some(whence + offset)
-                                } else {
-                                    let offset = length.mul_f64(-offset);
-                                    whence.checked_sub(offset)
-                                }
-                            }
-                        };
-                        time.map(move |time| CalculatedEnvelopePoint {
-                            sample: (time.as_secs_f64() * sample_rate as f64) as u64,
-                            volume: point.volume,
-                        })
-                    })
+                let length = length.seconds();
+                let whence = length * point.whence;
+                let time = match point.offset {
+                    Offset::Time(offset) => whence + offset.seconds(),
+                    Offset::Ratio(offset) => {
+                        let offset = length * offset;
+                        whence + offset
+                    }
+                };
+                if time.is_nan() {
+                    return None;
+                }
+                Some(CalculatedEnvelopePoint {
+                    sample: (time * sample_rate as f64) as u64,
+                    volume: point.volume,
+                })
             })
             .collect();
         envelope.sort();

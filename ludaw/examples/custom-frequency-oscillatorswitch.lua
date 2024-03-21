@@ -77,19 +77,25 @@ local instrument = nodes.Instrument(
     {
       whence = 0,
       volume = 1,
-      time_offset = 0.1,
+      offset = {
+        time = 0.1,
+      }
     },
     -- decay
     {
       whence = 0,
       volume = 0.6,
-      time_offset = 0.2,
+      offset = {
+        time = 0.2,
+      }
     },
     -- sustain
     {
       whence = 1,
       volume = 0.5,
-      time_offset = -0.1,
+      offset = {
+        time = -0.1,
+      }
     },
     -- zero
     {
@@ -98,17 +104,17 @@ local instrument = nodes.Instrument(
     },
   }
 )
-instrument:add_note{
+instrument:add_tone{
   start = 0,
   length = 0.5,
   frequency = 256,
 }
-instrument:add_note{
+instrument:add_tone{
   start = 0.5,
   length = 0.5,
   frequency = 256 * 2 ^ (4 / 12),
 }
-instrument:add_note{
+instrument:add_tone{
   start = 1,
   length = 0.5,
   frequency = 256 * 2 ^ (7 / 12),

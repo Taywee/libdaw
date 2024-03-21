@@ -1,10 +1,10 @@
-use crate::get_sample_rate;
-use crate::node::{ContainsNode, Node};
-
-use mlua::Lua;
-use mlua::UserData;
+use crate::{
+    get_sample_rate,
+    node::{ContainsNode, Node},
+};
+use libdaw::time::Duration;
+use mlua::{Lua, UserData};
 use std::rc::Rc;
-use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct Delay {
@@ -18,9 +18,9 @@ impl ContainsNode for Delay {
 }
 
 impl Delay {
-    pub fn new(lua: &Lua, value: f64) -> mlua::Result<Self> {
-        let node =
-            libdaw::nodes::Delay::new(get_sample_rate(lua)?, Duration::from_secs_f64(value)).into();
+    pub fn new(lua: &Lua, seconds: f64) -> mlua::Result<Self> {
+        let delay = Duration::from_seconds(seconds).map_err(mlua::Error::external)?;
+        let node = libdaw::nodes::Delay::new(get_sample_rate(lua)?, delay).into();
         Ok(Self { node })
     }
 }

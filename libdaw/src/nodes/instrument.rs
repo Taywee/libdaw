@@ -1,80 +1,83 @@
 use super::{envelope::EnvelopePoint, graph::Index, Detune, Envelope, Graph};
-use crate::{DynNode as _, FrequencyNode, Node, Result};
+use crate::{
+    time::{Duration, Timestamp},
+    DynNode as _, FrequencyNode, Node, Result,
+};
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
     collections::BinaryHeap,
     fmt,
     rc::Rc,
-    time::Duration,
 };
 
-/// A single note definition.  Defined by frequency, not note name, to not tie
+/// A single tone definition.  Defined by frequency, not note name, to not tie
 /// it to any particular tuning or scale.
 /// Detuning and pitch bend should be done to the underlying frequency node.
 #[derive(Debug, Clone, Copy)]
-pub struct Note {
-    pub start: Duration,
+pub struct Tone {
+    pub start: Timestamp,
     pub length: Duration,
     pub frequency: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
-struct QueuedNote {
+struct QueuedTone {
     start_sample: u64,
+    end_sample: u64,
     length: Duration,
     frequency: f64,
 }
-impl PartialOrd for QueuedNote {
+impl PartialOrd for QueuedTone {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.start_sample.partial_cmp(&other.start_sample)
     }
 }
 
-impl Ord for QueuedNote {
+impl Ord for QueuedTone {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.start_sample.cmp(&other.start_sample)
     }
 }
-impl PartialEq for QueuedNote {
+impl PartialEq for QueuedTone {
     fn eq(&self, other: &Self) -> bool {
         self.start_sample.eq(&other.start_sample)
     }
 }
-impl Eq for QueuedNote {}
+impl Eq for QueuedTone {}
 
 #[derive(Debug)]
-struct PlayingNote {
+struct PlayingTone {
     end_sample: u64,
     frequency_node: Rc<Detune>,
     frequency_node_index: Index,
     envelope_index: Index,
 }
 
-impl PartialOrd for PlayingNote {
+impl PartialOrd for PlayingTone {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.end_sample.partial_cmp(&other.end_sample)
     }
 }
 
-impl Ord for PlayingNote {
+impl Ord for PlayingTone {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.end_sample.cmp(&other.end_sample)
     }
 }
-impl PartialEq for PlayingNote {
+impl PartialEq for PlayingTone {
     fn eq(&self, other: &Self) -> bool {
         self.end_sample.eq(&other.end_sample)
     }
 }
-impl Eq for PlayingNote {}
+impl Eq for PlayingTone {}
 
-/// A node that can play a sequence of notes from a frequency node creator.
+/// A node that can play a sequence of tones from a frequency node creator.
 pub struct Instrument {
     frequency_node_creator: Box<RefCell<dyn FnMut() -> Rc<dyn FrequencyNode>>>,
     graph: Graph,
-    queue: RefCell<BinaryHeap<Reverse<QueuedNote>>>,
-    playing: RefCell<BinaryHeap<Reverse<PlayingNote>>>,
+    queue: RefCell<BinaryHeap<Reverse<QueuedTone>>>,
+    playing: RefCell<BinaryHeap<Reverse<PlayingTone>>>,
     envelope: Vec<EnvelopePoint>,
     sample_rate: u32,
     sample: Cell<u64>,
@@ -113,21 +116,26 @@ impl Instrument {
         }
     }
 
-    pub fn add_note(&self, note: Note) {
-        let start_sample = (note.start.as_secs_f64() * self.sample_rate as f64) as u64;
-        self.queue.borrow_mut().push(Reverse(QueuedNote {
-            start_sample,
-            length: note.length,
-            frequency: note.frequency,
-        }));
+    pub fn add_tone(&self, tone: Tone) {
+        let start_sample = (tone.start.seconds() * self.sample_rate as f64) as u64;
+        let end = tone.start + tone.length;
+        let end_sample = (end.seconds() * self.sample_rate as f64) as u64;
+        if end_sample > start_sample {
+            self.queue.borrow_mut().push(Reverse(QueuedTone {
+                start_sample,
+                end_sample,
+                length: tone.length,
+                frequency: tone.frequency,
+            }));
+        }
     }
 
     /// Set the detune in the same way as the Detune.
     pub fn set_detune(&self, detune: f64) -> Result<()> {
         if self.detune.replace(detune) != detune {
-            for note in self.playing.borrow().iter() {
-                let note = &note.0;
-                note.frequency_node.set_detune(detune)?;
+            for tone in self.playing.borrow().iter() {
+                let tone = &tone.0;
+                tone.frequency_node.set_detune(detune)?;
             }
         }
         Ok(())
@@ -150,26 +158,23 @@ impl Node for Instrument {
             return Ok(());
         }
 
-        // Spawn all ready queued notes.
+        // Spawn all ready queued tones.
         loop {
-            let Some(note) = queue.peek() else {
+            let Some(tone) = queue.peek() else {
                 break;
             };
-            if sample < note.0.start_sample {
+            if sample < tone.0.start_sample {
                 break;
             }
 
-            let note = queue.pop().unwrap().0;
-            let sample_length = (note.length.as_secs_f64() * self.sample_rate as f64) as u64;
-            let end_sample = note.start_sample + sample_length;
-
+            let tone = queue.pop().unwrap().0;
             let frequency_node = Rc::new(Detune::new(frequency_node_creator()));
-            frequency_node.set_frequency(note.frequency)?;
+            frequency_node.set_frequency(tone.frequency)?;
             frequency_node.set_detune(detune)?;
 
             let envelope = Rc::new(Envelope::new(
                 self.sample_rate,
-                note.length,
+                tone.length,
                 self.envelope.iter().copied(),
             ));
             let frequency_node_index = self.graph.add(frequency_node.clone().node());
@@ -178,26 +183,25 @@ impl Node for Instrument {
                 .connect(frequency_node_index, envelope_index, None)?;
             self.graph.output(envelope_index, None)?;
             self.graph.input(frequency_node_index, None)?;
-            playing.push(Reverse(PlayingNote {
-                end_sample,
+            playing.push(Reverse(PlayingTone {
+                end_sample: tone.end_sample,
                 frequency_node,
                 envelope_index,
                 frequency_node_index,
             }));
         }
 
-        // Remove finished notes
         loop {
-            let Some(note) = playing.peek() else {
+            let Some(tone) = playing.peek() else {
                 break;
             };
-            if sample < note.0.end_sample {
+            if sample < tone.0.end_sample {
                 break;
             }
 
-            let note = playing.pop().unwrap().0;
-            self.graph.remove(note.frequency_node_index)?;
-            self.graph.remove(note.envelope_index)?;
+            let tone = playing.pop().unwrap().0;
+            self.graph.remove(tone.frequency_node_index)?;
+            self.graph.remove(tone.envelope_index)?;
         }
 
         // Play graph
