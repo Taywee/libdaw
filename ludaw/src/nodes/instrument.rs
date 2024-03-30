@@ -1,45 +1,58 @@
 use super::envelope::EnvelopePoint;
-use crate::callable::Callable;
-use crate::get_sample_rate;
-use crate::indexable::Indexable;
-use crate::lua_state::LuaState;
-use crate::node::FrequencyNode;
-use crate::node::{ContainsNode, Node};
-use libdaw::nodes::instrument;
-use mlua::FromLua;
-use mlua::Lua;
-use mlua::UserData;
+use crate::{
+    callable::Callable,
+    get_sample_rate,
+    indexable::Indexable,
+    lua_state::LuaState,
+    node::{ContainsNode, FrequencyNode, Node},
+};
+use libdaw::{
+    nodes::instrument,
+    time::{Duration, Timestamp},
+};
+use mlua::{FromLua, IntoLua, Lua, UserData};
 use std::rc::Rc;
-use std::time::Duration;
 
 #[derive(Debug)]
-pub struct Note(instrument::Note);
+pub struct Tone(pub instrument::Tone);
 
-impl std::ops::DerefMut for Note {
+impl std::ops::DerefMut for Tone {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl std::ops::Deref for Note {
-    type Target = instrument::Note;
+impl std::ops::Deref for Tone {
+    type Target = instrument::Tone;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'lua> FromLua<'lua> for Note {
+impl<'lua> FromLua<'lua> for Tone {
     fn from_lua(value: mlua::Value<'lua>, lua: &'lua Lua) -> mlua::Result<Self> {
         let indexable = Indexable::from_lua(value, lua)?;
-        let start = Duration::from_secs_f64(indexable.get("start")?);
-        let length = Duration::from_secs_f64(indexable.get("length")?);
+        let start =
+            Timestamp::from_seconds(indexable.get("start")?).map_err(mlua::Error::external)?;
+        let length =
+            Duration::from_seconds(indexable.get("length")?).map_err(mlua::Error::external)?;
         let frequency = indexable.get("frequency")?;
-        Ok(Note(instrument::Note {
+        Ok(Tone(instrument::Tone {
             start,
             length,
             frequency,
         }))
+    }
+}
+
+impl<'lua> IntoLua<'lua> for Tone {
+    fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<mlua::prelude::LuaValue<'lua>> {
+        let table = lua.create_table()?;
+        table.set("start", self.0.start.seconds())?;
+        table.set("length", self.0.length.seconds())?;
+        table.set("frequency", self.0.frequency)?;
+        IntoLua::into_lua(table, lua)
     }
 }
 
@@ -86,8 +99,8 @@ impl Instrument {
 impl UserData for Instrument {
     fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         Node::add_node_methods(methods);
-        methods.add_method("add_note", |_, this, note: Note| {
-            this.node.add_note(*note);
+        methods.add_method("add_tone", |_, this, tone: Tone| {
+            this.node.add_tone(*tone);
             Ok(())
         });
     }

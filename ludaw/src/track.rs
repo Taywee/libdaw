@@ -7,6 +7,7 @@ use crate::{error::Error, nodes};
 use crate::{get_channels, get_sample_rate, pitch};
 use blake3::Hasher;
 use libdaw::stream::{IntoIter, Stream};
+use libdaw::time::Timestamp;
 use mlua::{IntoLua, Lua, Table};
 use nohash_hasher::IntSet;
 use rand::{Rng as _, SeedableRng};
@@ -16,7 +17,6 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
-use std::time::Duration;
 
 #[derive(Debug)]
 enum Message {
@@ -25,8 +25,8 @@ enum Message {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Callback {
-    start_time: Duration,
-    end_time: Duration,
+    start_time: Timestamp,
+    end_time: Timestamp,
     oneshot: bool,
     handle: i64,
 }
@@ -231,6 +231,10 @@ impl Track {
                 })?,
             )?;
             preload.set("daw.nodes", lua.create_function(nodes::setup_module)?)?;
+            preload.set(
+                "daw.notation.absolute",
+                lua.create_function(crate::notation::absolute::setup_module)?,
+            )?;
             preload.set("daw.pitch", lua.create_function(pitch::setup_module)?)?;
             let callbacks = callbacks.clone();
             preload.set(
@@ -254,17 +258,23 @@ impl Track {
                                 );
                                 let callback: Callable = registration.get("callback")?;
                                 let start_time: Option<f64> = registration.get("start_time")?;
+                                let start_time = start_time
+                                    .map(Timestamp::from_seconds)
+                                    .transpose()
+                                    .map_err(mlua::Error::external)?
+                                    .unwrap_or(Timestamp::MIN);
                                 let end_time: Option<f64> = registration.get("end_time")?;
+                                let end_time = end_time
+                                    .map(Timestamp::from_seconds)
+                                    .transpose()
+                                    .map_err(mlua::Error::external)?
+                                    .unwrap_or(Timestamp::MAX);
                                 let oneshot: Option<bool> = registration.get("oneshot")?;
 
                                 table.set(handle, callback)?;
                                 let callback = Callback {
-                                    start_time: start_time
-                                        .map(Duration::from_secs_f64)
-                                        .unwrap_or(Duration::ZERO),
-                                    end_time: end_time
-                                        .map(Duration::from_secs_f64)
-                                        .unwrap_or(Duration::MAX),
+                                    start_time,
+                                    end_time,
                                     handle,
                                     oneshot: oneshot.unwrap_or(false),
                                 };
@@ -336,7 +346,7 @@ impl Track {
 
     pub fn process(&mut self) -> Result<bool, Error> {
         let sample_time_float = self.sample_number as f64 / self.sample_rate as f64;
-        let sample_time = Duration::from_secs_f64(sample_time_float);
+        let sample_time = Timestamp::from_seconds(sample_time_float)?;
 
         self.running_callbacks
             .extend(self.callbacks.borrow().iter().cloned());
@@ -404,7 +414,7 @@ impl Source for TrackSource {
         self.sample_rate
     }
 
-    fn total_duration(&self) -> Option<Duration> {
+    fn total_duration(&self) -> Option<std::time::Duration> {
         None
     }
 }

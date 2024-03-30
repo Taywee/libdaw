@@ -1,14 +1,14 @@
-use crate::get_sample_rate;
-use crate::indexable::Indexable;
-
-use crate::node::{ContainsNode, Node};
-use libdaw::nodes::envelope;
-use mlua::FromLua;
-use mlua::Lua;
-
-use mlua::UserData;
+use crate::{
+    get_sample_rate,
+    indexable::Indexable,
+    node::{ContainsNode, Node},
+};
+use libdaw::{
+    nodes::envelope::{self, Offset},
+    time::{Duration, Time},
+};
+use mlua::{FromLua, Lua, UserData};
 use std::rc::Rc;
-use std::time::Duration;
 
 #[derive(Debug)]
 pub struct EnvelopePoint(envelope::EnvelopePoint);
@@ -32,26 +32,24 @@ impl<'lua> FromLua<'lua> for EnvelopePoint {
         let indexable = Indexable::from_lua(value, lua)?;
         let volume: f64 = indexable.get("volume")?;
         let whence: f64 = indexable.get("whence")?;
-        let ratio_offset: Option<f64> = indexable.get("ratio_offset")?;
-        let time_offset: Option<f64> = indexable.get("time_offset")?;
-        if ratio_offset.is_some() && time_offset.is_some() {
-            return Err(mlua::Error::external(
-                "only one of ratio_offset and time_offset must be set",
-            ));
-        }
-
-        let ratio_offset = ratio_offset.map(envelope::Offset::Ratio);
-        let time_offset = time_offset.map(|offset| {
-            if offset >= 0.0 {
-                envelope::Offset::TimeForward(Duration::from_secs_f64(offset))
-            } else {
-                envelope::Offset::TimeBackward(Duration::from_secs_f64(-offset))
+        let offset: Option<Indexable> = indexable.get("offset")?;
+        let (ratio_offset, time_offset) = match offset {
+            Some(offset) => (offset.get("ratio")?, offset.get("time")?),
+            None => (None, None),
+        };
+        let offset = match (ratio_offset, time_offset) {
+            (None, None) => Offset::Time(Time::ZERO),
+            (None, Some(time)) => {
+                Offset::Time(Time::from_seconds(time).map_err(mlua::Error::external)?)
             }
-        });
+            (Some(ratio), None) => Offset::Ratio(ratio),
+            (Some(_), Some(_)) => {
+                return Err(mlua::Error::external(
+                    "only one of ratio_offset and time_offset must be set",
+                ))
+            }
+        };
 
-        let offset = ratio_offset
-            .or(time_offset)
-            .unwrap_or_else(|| envelope::Offset::TimeForward(Duration::ZERO));
         Ok(EnvelopePoint(envelope::EnvelopePoint {
             offset,
             whence,
@@ -73,7 +71,7 @@ impl ContainsNode for Envelope {
 
 impl Envelope {
     pub fn new(lua: &Lua, (length, envelope): (f64, Vec<EnvelopePoint>)) -> mlua::Result<Self> {
-        let length = Duration::from_secs_f64(length);
+        let length = Duration::from_seconds(length).map_err(mlua::Error::external)?;
         let node = libdaw::nodes::Envelope::new(
             get_sample_rate(lua)?,
             length,

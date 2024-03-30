@@ -1,8 +1,10 @@
 pub mod metronome;
 pub mod nodes;
 pub mod notation;
+mod parse;
 pub mod pitch;
 pub mod stream;
+pub mod time;
 
 use std::{fmt::Debug, rc::Rc};
 pub use stream::Stream;

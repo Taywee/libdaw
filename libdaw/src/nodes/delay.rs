@@ -1,8 +1,8 @@
 use crate::stream::Stream;
+use crate::time::Duration;
 use crate::{Node, Result};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::time::Duration;
 
 #[derive(Debug)]
 struct Sample {
@@ -21,7 +21,7 @@ pub struct Delay {
 
 impl Delay {
     pub fn new(sample_rate: u32, delay: Duration) -> Self {
-        let delay = (delay.as_secs_f64() * sample_rate as f64) as u64;
+        let delay = (delay.seconds() * sample_rate as f64) as u64;
         Self {
             buffers: Default::default(),
             sample: Default::default(),

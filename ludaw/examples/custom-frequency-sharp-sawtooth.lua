@@ -115,17 +115,17 @@ local instrument = nodes.Instrument(
     },
   }
 )
-instrument:add_note{
+instrument:add_tone{
   start = 0,
   length = 0.5,
   frequency = 256,
 }
-instrument:add_note{
+instrument:add_tone{
   start = 0.5,
   length = 0.5,
   frequency = 256 * 2 ^ (4 / 12),
 }
-instrument:add_note{
+instrument:add_tone{
   start = 1,
   length = 0.5,
   frequency = 256 * 2 ^ (7 / 12),

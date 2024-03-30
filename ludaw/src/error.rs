@@ -3,11 +3,20 @@ use std::{
     sync::mpsc::{RecvError, SendError},
 };
 
+use libdaw::time::IllegalTimestamp;
+
 #[derive(Debug)]
 pub enum Error {
     Lua(mlua::Error),
     AudioDisconnect,
     LibDAW(libdaw::Error),
+    IllegalTimestamp(IllegalTimestamp),
+}
+
+impl From<IllegalTimestamp> for Error {
+    fn from(v: IllegalTimestamp) -> Self {
+        Self::IllegalTimestamp(v)
+    }
 }
 
 impl From<libdaw::Error> for Error {
@@ -40,6 +49,10 @@ impl fmt::Display for Error {
             Error::Lua(e) => write!(f, "lua error: {e}"),
             Error::AudioDisconnect => write!(f, "audio disconnected"),
             Error::LibDAW(e) => write!(f, "libdaw error: {e}"),
+            Error::IllegalTimestamp(e) => write!(
+                f,
+                "Illegal timestamp. sample_rate may have been set to zero: {e}"
+            ),
         }
     }
 }

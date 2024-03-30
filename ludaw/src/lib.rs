@@ -5,6 +5,7 @@ mod lua_state;
 mod metronome;
 mod node;
 mod nodes;
+mod notation;
 mod pitch;
 mod track;
 

@@ -57,7 +57,7 @@ for i=0, 50 do
   local start = metronome:beat_to_time(i)
   local end_ = metronome:beat_to_time(i + 0.5)
   local length = end_ - start
-  instrument:add_note{
+  instrument:add_tone{
     start = start,
     length = length,
     frequency = 256,
