@@ -8,7 +8,7 @@ use crate::{
 use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Overlapped(pub Vec<Section>);
 
 impl Overlapped {

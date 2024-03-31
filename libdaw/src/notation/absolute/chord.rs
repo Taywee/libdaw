@@ -7,43 +7,45 @@ use crate::{
 use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
 
-/// An absolute note, contextually relevant.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Note {
-    pub pitch: Pitch,
+/// An absolute chord, contextually relevant.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chord {
+    pub pitches: Vec<Pitch>,
 
-    // Conceptual length of the note in beats
+    // Conceptual length of the chord in beats
     pub length: Option<Beat>,
 
-    // Actual playtime of the note in beats, which will default to the length
+    // Actual playtime of the chord in beats, which will default to the length
     // usually.
     pub duration: Option<Beat>,
 }
 
-impl Note {
-    /// Resolve all the section's notes to playable instrument tones.
+impl Chord {
+    /// Resolve all the section's chords to playable instrument tones.
     /// The offset is the beat offset.
-    pub fn resolve<S>(
-        &self,
+    pub fn resolve<'a, S>(
+        &'a self,
         offset: Beat,
-        metronome: &Metronome,
-        standard: &S,
+        metronome: &'a Metronome,
+        standard: &'a S,
         default_length: Beat,
-    ) -> Tone
+    ) -> impl Iterator<Item = Tone> + 'a
     where
         S: PitchStandard + ?Sized,
     {
-        let frequency = standard.resolve(self.pitch);
         let start = metronome.beat_to_time(offset);
         let duration = self.duration(default_length);
         let end_beat = offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
-        Tone {
-            start,
-            length,
-            frequency,
-        }
+        self.pitches.iter().map(move |pitch| {
+            let frequency = standard.resolve(*pitch);
+            Tone {
+                start,
+                length,
+                frequency,
+            }
+        })
     }
 
     pub fn length(&self, default_length: Beat) -> Beat {
@@ -55,14 +57,14 @@ impl Note {
     }
 }
 
-impl FromStr for Note {
+impl FromStr for Chord {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::note)(s)
+        let chord = all_consuming(parse::chord)(s)
             .finish()
             .map_err(|e| e.to_owned())?
             .1;
-        Ok(note)
+        Ok(chord)
     }
 }

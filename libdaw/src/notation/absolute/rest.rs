@@ -8,12 +8,12 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Rest {
     // Conceptual length of the note in beats
-    pub length: Beat,
+    pub length: Option<Beat>,
 }
 
 impl Rest {
-    pub fn length(&self) -> Beat {
-        self.length
+    pub fn length(&self, default_length: Beat) -> Beat {
+        self.length.unwrap_or(default_length)
     }
     pub const fn duration(&self) -> Beat {
         Beat::ZERO

@@ -10,12 +10,14 @@
 //! a duration. Also present is overlapped sections; multiple runs of notes that
 //! run simultaneously to one another.  These are all enclosed in curly braces
 
+mod chord;
 mod item;
 mod note;
 mod overlapped;
 mod rest;
 mod section;
 
+pub use chord::Chord;
 pub use item::Item;
 pub use note::Note;
 pub use overlapped::Overlapped;

@@ -1,5 +1,5 @@
 use crate::parse::{Error, IResult};
-use crate::pitch::{Pitch, PitchClass};
+use crate::pitch::{Pitch, PitchClass, PitchName};
 use nom::{
     bytes::complete::tag,
     character::complete::{digit1, one_of},
@@ -8,16 +8,16 @@ use nom::{
     sequence::preceded,
 };
 
-pub fn pitch_class(input: &str) -> IResult<&str, PitchClass> {
+pub fn pitch_name(input: &str) -> IResult<&str, PitchName> {
     let (input, note) = one_of("cdefgabCDEFGAB")(input)?;
     let note = match note {
-        'C' | 'c' => PitchClass::C,
-        'D' | 'd' => PitchClass::D,
-        'E' | 'e' => PitchClass::E,
-        'F' | 'f' => PitchClass::F,
-        'G' | 'g' => PitchClass::G,
-        'A' | 'a' => PitchClass::A,
-        'B' | 'b' => PitchClass::B,
+        'C' | 'c' => PitchName::C,
+        'D' | 'd' => PitchName::D,
+        'E' | 'e' => PitchName::E,
+        'F' | 'f' => PitchName::F,
+        'G' | 'g' => PitchName::G,
+        'A' | 'a' => PitchName::A,
+        'B' | 'b' => PitchName::B,
         _ => unreachable!(),
     };
     Ok((input, note))
@@ -71,16 +71,20 @@ fn octave(input: &str) -> IResult<&str, i8> {
     Ok((input, octave))
 }
 
-pub fn pitch(input: &str) -> IResult<&str, Pitch> {
-    let (input, note) = pitch_class(input)?;
+pub fn pitch_class(input: &str) -> IResult<&str, PitchClass> {
+    let (input, note) = pitch_name(input)?;
     let (input, adjustment) = adjustment(input)?;
-    let (input, octave) = octave(input)?;
     Ok((
         input,
-        Pitch {
-            octave,
-            class: note,
+        PitchClass {
+            name: note,
             adjustment,
         },
     ))
+}
+
+pub fn pitch(input: &str) -> IResult<&str, Pitch> {
+    let (input, class) = pitch_class(input)?;
+    let (input, octave) = octave(input)?;
+    Ok((input, Pitch { class, octave }))
 }

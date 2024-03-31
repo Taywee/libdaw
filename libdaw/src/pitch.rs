@@ -1,12 +1,12 @@
 mod pitch;
 
-pub use pitch::{Pitch, PitchClass};
+pub use pitch::{Pitch, PitchClass, PitchName};
 
 use std::fmt::Debug;
 
 pub trait PitchStandard: Debug {
     /// Resolve a pitch to a frequency.
-    fn resolve(&self, note: Pitch) -> f64;
+    fn resolve(&self, pitch: Pitch) -> f64;
 }
 
 trait TwelveToneEqualTemperament {
@@ -36,9 +36,9 @@ impl<T> PitchStandard for T
 where
     T: TwelveToneEqualTemperament + Debug,
 {
-    fn resolve(&self, note: Pitch) -> f64 {
+    fn resolve(&self, pitch: Pitch) -> f64 {
         let exponent_numerator =
-            note.octave as f64 * 12.0 + note.class as i8 as f64 + note.adjustment;
+            pitch.octave as f64 * 12.0 + pitch.class.name as i8 as f64 + pitch.class.adjustment;
         Self::c0() * 2.0f64.powf(exponent_numerator / 12.0)
     }
 }

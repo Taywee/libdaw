@@ -1,4 +1,4 @@
-use super::{Note, Overlapped, Rest};
+use super::{Chord, Note, Overlapped, Rest};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -8,9 +8,10 @@ use crate::{
 use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Note(Note),
+    Chord(Chord),
     Rest(Rest),
     Overlapped(Overlapped),
 }
@@ -23,13 +24,20 @@ impl Item {
         offset: Beat,
         metronome: &'a Metronome,
         standard: &'a S,
+        default_length: Beat,
     ) -> Box<dyn Iterator<Item = Tone> + 'a>
     where
         S: PitchStandard + ?Sized,
     {
         match self {
-            Item::Note(note) => {
-                Box::new(std::iter::once(note.resolve(offset, metronome, standard)))
+            Item::Note(note) => Box::new(std::iter::once(note.resolve(
+                offset,
+                metronome,
+                standard,
+                default_length,
+            ))),
+            Item::Chord(chord) => {
+                Box::new(chord.resolve(offset, metronome, standard, default_length))
             }
             Item::Rest(_) => Box::new(std::iter::empty()),
             Item::Overlapped(overlapped) => {
@@ -38,17 +46,19 @@ impl Item {
         }
     }
 
-    pub fn length(&self) -> Beat {
+    pub fn length(&self, default: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.length(),
-            Item::Rest(rest) => rest.length(),
+            Item::Note(note) => note.length(default),
+            Item::Chord(chord) => chord.length(default),
+            Item::Rest(rest) => rest.length(default),
             Item::Overlapped(overlapped) => overlapped.length(),
         }
     }
 
-    pub fn duration(&self) -> Beat {
+    pub fn duration(&self, default_length: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.duration(),
+            Item::Note(note) => note.duration(default_length),
+            Item::Chord(chord) => chord.duration(default_length),
             Item::Rest(rest) => rest.duration(),
             Item::Overlapped(overlapped) => overlapped.duration(),
         }
