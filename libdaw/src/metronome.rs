@@ -19,6 +19,7 @@ impl Eq for Beat {}
 
 impl Beat {
     pub const ZERO: Beat = Beat(0.0);
+    pub const ONE: Beat = Beat(1.0);
 
     pub fn new(beat: f64) -> Option<Self> {
         if beat >= 0.0 {

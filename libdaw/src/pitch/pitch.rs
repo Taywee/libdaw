@@ -8,7 +8,7 @@ use std::str::FromStr;
 /// and a standard C major scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
-pub enum PitchClass {
+pub enum PitchName {
     C = 0,
     D = 2,
     E = 4,
@@ -18,25 +18,48 @@ pub enum PitchClass {
     B = 11,
 }
 
-impl PitchClass {
+impl PitchName {
     pub fn name(self) -> char {
         match self {
-            PitchClass::C => 'C',
-            PitchClass::D => 'D',
-            PitchClass::E => 'E',
-            PitchClass::F => 'F',
-            PitchClass::G => 'G',
-            PitchClass::A => 'A',
-            PitchClass::B => 'B',
+            PitchName::C => 'C',
+            PitchName::D => 'D',
+            PitchName::E => 'E',
+            PitchName::F => 'F',
+            PitchName::G => 'G',
+            PitchName::A => 'A',
+            PitchName::B => 'B',
         }
     }
 }
-impl fmt::Display for PitchClass {
+impl fmt::Display for PitchName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", (*self).name())
     }
 }
 
+impl FromStr for PitchName {
+    type Err = Error<String>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let note = all_consuming(parse::pitch_name)(s)
+            .finish()
+            .map_err(|e| e.to_owned())?
+            .1;
+        Ok(note)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PitchClass {
+    pub name: PitchName,
+    pub adjustment: f64,
+}
+
+/// Can parse a string like C#4 into its absolute note.
+/// Can handle adjustments from this set: #b♭♯𝄳𝄫𝄪𝄲♮,'
+/// Can also handle numeric adjustments, expressed in semitones, in square brackets,
+/// and ratios of these, along with symbolic ones.
+/// B𝄫𝄪###[14/12e8]-12 is a valid (but completely inaudible) absolute note.
 impl FromStr for PitchClass {
     type Err = Error<String>;
 
@@ -51,11 +74,10 @@ impl FromStr for PitchClass {
 
 /// An absolute pitch, with the octave and any adjustments specified.  This lets
 /// you get any frequency, subject to the PitchStandard used.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pitch {
     pub octave: i8,
     pub class: PitchClass,
-    pub adjustment: f64,
 }
 
 /// Can parse a string like C#4 into its absolute note.

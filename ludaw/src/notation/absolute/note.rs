@@ -12,7 +12,7 @@ impl<'lua> IntoLua<'lua> for Note {
     fn into_lua(self, lua: &'lua Lua) -> mlua::Result<mlua::Value<'lua>> {
         let table = lua.create_table()?;
         table.set("pitch", Pitch(self.0.pitch))?;
-        table.set("length", self.0.length.get())?;
+        table.set("length", self.0.length.as_ref().map(Beat::get))?;
         table.set("duration", self.0.duration.map(|beat| beat.get()))?;
         Ok(mlua::Value::Table(table))
     }
@@ -26,10 +26,14 @@ impl<'lua> FromLua<'lua> for Note {
         } else {
             let indexable = Indexable::from_lua(value, lua)?;
             let pitch: Pitch = indexable.get("pitch")?;
-            let length = indexable.get("length")?;
-            let length = Beat::new(length).ok_or_else(move || {
-                mlua::Error::external(format!("illegal length value: {length}"))
-            })?;
+            let length: Option<f64> = indexable.get("length")?;
+            let length = length
+                .map(|length| {
+                    Beat::new(length).ok_or_else(move || {
+                        mlua::Error::external(format!("illegal length value: {length}"))
+                    })
+                })
+                .transpose()?;
             let duration: Option<f64> = indexable.get("duration")?;
             let duration = duration
                 .map(|duration| {

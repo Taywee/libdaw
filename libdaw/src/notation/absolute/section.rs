@@ -9,7 +9,7 @@ use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
 
 /// A linear sequence of items.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Section(pub Vec<Item>);
 
 impl FromStr for Section {
@@ -35,23 +35,35 @@ impl Section {
         S: PitchStandard + ?Sized,
     {
         let mut start = offset;
+        let mut previous_length = Beat::ONE;
         self.0.iter().flat_map(move |item| {
-            let resolved = item.resolve(start, metronome, standard);
-            start += item.length();
+            let resolved = item.resolve(start, metronome, standard, previous_length);
+            previous_length = item.length(previous_length);
+            start += previous_length;
             resolved
         })
     }
 
     pub fn length(&self) -> Beat {
-        self.0.iter().map(|item| item.length()).sum()
+        let mut previous_length = Beat::ONE;
+        self.0
+            .iter()
+            .map(move |item| {
+                previous_length = item.length(previous_length);
+                previous_length
+            })
+            .sum()
     }
 
     pub fn duration(&self) -> Beat {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
+        let mut previous_length = Beat::ONE;
         for item in &self.0 {
-            duration = duration.max(start + item.duration());
-            start += item.length();
+            let item_duration = item.duration(previous_length);
+            previous_length = item.length(previous_length);
+            duration = duration.max(start + item_duration);
+            start += previous_length;
         }
         duration
     }

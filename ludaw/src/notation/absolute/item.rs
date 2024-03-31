@@ -1,11 +1,7 @@
+use super::{Chord, Note, Overlapped, Rest};
 use crate::indexable::Indexable;
-
 use libdaw::notation::absolute;
-use mlua::FromLua;
-use mlua::IntoLua;
-use mlua::Lua;
-
-use super::{Note, Overlapped, Rest};
+use mlua::{FromLua, IntoLua, Lua};
 
 #[derive(Debug)]
 pub struct Item(pub absolute::Item);
@@ -16,6 +12,9 @@ impl<'lua> IntoLua<'lua> for Item {
         match self.0 {
             absolute::Item::Note(note) => {
                 table.set("note", Note(note))?;
+            }
+            absolute::Item::Chord(chord) => {
+                table.set("chord", Chord(chord))?;
             }
             absolute::Item::Rest(rest) => {
                 table.set("rest", Rest(rest))?;
@@ -39,6 +38,10 @@ impl<'lua> FromLua<'lua> for Item {
             let note: Option<Note> = indexable.get("note")?;
             if let Some(note) = note {
                 return Ok(Self(absolute::Item::Note(note.0)));
+            }
+            let chord: Option<Chord> = indexable.get("chord")?;
+            if let Some(chord) = chord {
+                return Ok(Self(absolute::Item::Chord(chord.0)));
             }
             let rest: Option<Rest> = indexable.get("rest")?;
             if let Some(rest) = rest {

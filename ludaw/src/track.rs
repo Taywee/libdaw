@@ -227,6 +227,9 @@ impl Track {
                     )?;
                     module.set("Metronome", lua.create_function(Metronome::new)?)?;
 
+                    let dump: mlua::Function = lua.load(include_str!("dump.lua")).call(())?;
+                    module.set("dump", dump)?;
+
                     Ok(module)
                 })?,
             )?;
