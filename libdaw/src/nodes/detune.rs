@@ -1,22 +1,22 @@
-use crate::{FrequencyNode, Node, Result};
-use std::{cell::Cell, rc::Rc};
+use crate::{sync::AtomicF64, FrequencyNode, Node, Result};
+use std::sync::{atomic::Ordering, Arc};
 
 /// A wrapper for a FrequencyNode that can apply a detune.
 #[derive(Debug)]
 pub struct Detune {
-    node: Rc<dyn FrequencyNode>,
-    frequency: Cell<f64>,
-    detune: Cell<f64>,
-    detune_pow2: Cell<f64>,
+    node: Arc<dyn FrequencyNode>,
+    frequency: AtomicF64,
+    detune: AtomicF64,
+    detune_pow2: AtomicF64,
 }
 
 impl Detune {
-    pub fn new(node: Rc<dyn FrequencyNode>) -> Self {
+    pub fn new(node: Arc<dyn FrequencyNode>) -> Self {
         Self {
             node,
-            frequency: Cell::new(256.0),
+            frequency: AtomicF64::new(256.0),
             detune: Default::default(),
-            detune_pow2: Cell::new(1.0),
+            detune_pow2: AtomicF64::new(1.0),
         }
     }
 
@@ -29,17 +29,17 @@ impl Detune {
     /// will drop another octave, and so on.
     /// This also detunes all actively playing notes.
     pub fn set_detune(&self, detune: f64) -> Result<()> {
-        if self.detune.replace(detune) != detune {
+        if self.detune.swap(detune, Ordering::Relaxed) != detune {
             let detune_pow2 = 2.0f64.powf(detune);
-            self.detune_pow2.set(detune_pow2);
+            self.detune_pow2.store(detune_pow2, Ordering::Relaxed);
             self.node
-                .set_frequency(self.frequency.get() * detune_pow2)?;
+                .set_frequency(self.frequency.load(Ordering::Relaxed) * detune_pow2)?;
         }
         Ok(())
     }
 
     pub fn get_detune(&self) -> f64 {
-        self.detune.get()
+        self.detune.load(Ordering::Relaxed)
     }
 }
 
@@ -55,13 +55,13 @@ impl Node for Detune {
 
 impl FrequencyNode for Detune {
     fn get_frequency(&self) -> Result<f64> {
-        Ok(self.frequency.get())
+        Ok(self.frequency.load(Ordering::Relaxed))
     }
 
     fn set_frequency(&self, frequency: f64) -> Result<()> {
-        if self.frequency.replace(frequency) != frequency {
+        if self.frequency.swap(frequency, Ordering::Relaxed) != frequency {
             self.node
-                .set_frequency(frequency * self.detune_pow2.get())?;
+                .set_frequency(frequency * self.detune_pow2.load(Ordering::Relaxed))?;
         }
         Ok(())
     }

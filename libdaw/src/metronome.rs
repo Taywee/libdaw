@@ -1,13 +1,45 @@
 use crate::time::Timestamp;
 use ordered_float::OrderedFloat;
 use std::{
+    fmt,
+    hash::{Hash, Hasher},
     iter::Sum,
     ops::{Add, AddAssign},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IllegalBeat {
+    NaN,
+    Negative,
+}
+
+impl fmt::Display for IllegalBeat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IllegalBeat::NaN => write!(f, "Beat may not be NaN"),
+            IllegalBeat::Negative => {
+                write!(f, "Beat may not be Negative")
+            }
+        }
+    }
+}
+
+impl std::error::Error for IllegalBeat {}
+
 /// A representation of a beat, a non-negative floating point number.
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Beat(f64);
+
+impl Eq for Beat {}
+
+impl Hash for Beat {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        state.write_u64(self.0.to_bits())
+    }
+}
 
 impl Ord for Beat {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -15,25 +47,29 @@ impl Ord for Beat {
     }
 }
 
-impl Eq for Beat {}
-
 impl Beat {
     pub const ZERO: Beat = Beat(0.0);
     pub const ONE: Beat = Beat(1.0);
 
-    pub fn new(beat: f64) -> Option<Self> {
+    pub fn new(beat: f64) -> Result<Self, IllegalBeat> {
         if beat >= 0.0 {
-            Some(Self(beat))
+            Ok(Self(beat))
+        } else if beat.is_nan() {
+            Err(IllegalBeat::NaN)
         } else {
-            None
+            Err(IllegalBeat::Negative)
         }
     }
     pub fn get(&self) -> f64 {
         self.0
     }
 
-    pub fn max(self, other: Beat) -> Beat {
-        Beat(self.0.max(other.0))
+    pub fn max(self, other: Self) -> Self {
+        Self(self.0.max(other.0))
+    }
+
+    pub fn checked_add(self, other: Self) -> Result<Self, IllegalBeat> {
+        Self::new(self.0 + other.0)
     }
 }
 
@@ -41,40 +77,106 @@ impl Add for Beat {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
+        self.checked_add(rhs).expect("added to illegal beat")
     }
 }
 
 impl AddAssign for Beat {
     fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
+        self.0 = self.checked_add(rhs).expect("added to illegal beat").0;
     }
 }
 
 impl Sum for Beat {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Beat(iter.map(|each| each.0).sum())
+        Self::new(iter.map(|each| each.0).sum()).expect("summed to illegal beat")
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IllegalBeatsPerMinute {
+    NaN,
+    NonPositive,
+}
+
+impl fmt::Display for IllegalBeatsPerMinute {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IllegalBeatsPerMinute::NaN => write!(f, "BeatsPerMinute may not be NaN"),
+            IllegalBeatsPerMinute::NonPositive => {
+                write!(f, "BeatsPerMinute must be positive")
+            }
+        }
+    }
+}
+
+impl std::error::Error for IllegalBeatsPerMinute {}
 
 /// A representation of a tempo, a positive floating point number.
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct BeatsPerMinute(f64);
 
+impl Eq for BeatsPerMinute {}
+
+impl Ord for BeatsPerMinute {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other)
+            .expect("BeatsPerMinute may not be NaN")
+    }
+}
+
+impl Hash for BeatsPerMinute {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        state.write_u64(self.0.to_bits())
+    }
+}
+
 impl BeatsPerMinute {
-    pub fn new(beat: f64) -> Option<Self> {
-        if beat > 0.0 {
-            Some(Self(beat))
+    pub fn new(beats_per_minute: f64) -> Result<Self, IllegalBeatsPerMinute> {
+        if beats_per_minute > 0.0 {
+            Ok(Self(beats_per_minute))
+        } else if beats_per_minute.is_nan() {
+            Err(IllegalBeatsPerMinute::NaN)
         } else {
-            None
+            Err(IllegalBeatsPerMinute::NonPositive)
         }
     }
     pub fn get(&self) -> f64 {
         self.0
     }
+
+    pub fn max(self, other: Self) -> Self {
+        Self(self.0.max(other.0))
+    }
+
+    pub fn checked_add(self, other: Self) -> Result<Self, IllegalBeatsPerMinute> {
+        Self::new(self.0 + other.0)
+    }
+}
+impl Add for BeatsPerMinute {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.checked_add(rhs).expect("added to illegal beat")
+    }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+impl AddAssign for BeatsPerMinute {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 = self.checked_add(rhs).expect("added to illegal beat").0;
+    }
+}
+
+impl Sum for BeatsPerMinute {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self::new(iter.map(|each| each.0).sum()).expect("summed to illegal beat")
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct TempoInstruction {
     /// The beat to apply this instruction at.
     /// Must be non-negative.

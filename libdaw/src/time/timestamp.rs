@@ -1,10 +1,10 @@
+use super::{Duration, IllegalDuration};
 use std::{
     fmt,
+    hash::{Hash, Hasher},
     ops::{Add, Sub},
     time,
 };
-
-use super::{Duration, IllegalDuration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IllegalTimestamp {
@@ -19,7 +19,7 @@ impl fmt::Display for IllegalTimestamp {
             IllegalTimestamp::NaN => write!(f, "Timestamp may not be NaN"),
             IllegalTimestamp::Infinite => write!(f, "Timestamp may not be Infinite"),
             IllegalTimestamp::Negative => {
-                write!(f, "Timestamp may not be NegativeInfinite")
+                write!(f, "Timestamp may not be Negative")
             }
         }
     }
@@ -29,7 +29,7 @@ impl std::error::Error for IllegalTimestamp {}
 
 /// A timestamp value representing a finite number of seconds, which may be positive
 /// or negative.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Timestamp {
     seconds: f64,
 }
@@ -96,23 +96,20 @@ impl TryFrom<Timestamp> for time::Duration {
     }
 }
 
-impl PartialEq for Timestamp {
-    fn eq(&self, other: &Self) -> bool {
-        self.seconds.eq(&other.seconds)
-    }
-}
-
 impl Eq for Timestamp {}
-
-impl PartialOrd for Timestamp {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.seconds.partial_cmp(&other.seconds)
-    }
-}
 
 impl Ord for Timestamp {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other)
             .expect("One of the timestamp values was invalid")
+    }
+}
+
+impl Hash for Timestamp {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        state.write_u64(self.seconds.to_bits())
     }
 }

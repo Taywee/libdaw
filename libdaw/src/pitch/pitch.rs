@@ -76,8 +76,8 @@ impl FromStr for PitchClass {
 /// you get any frequency, subject to the PitchStandard used.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pitch {
+    pub pitch_class: PitchClass,
     pub octave: i8,
-    pub class: PitchClass,
 }
 
 /// Can parse a string like C#4 into its absolute note.

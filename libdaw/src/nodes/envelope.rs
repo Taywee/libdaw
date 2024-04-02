@@ -3,7 +3,7 @@ use crate::{
     time::{Duration, Time},
     Node, Result,
 };
-use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Offset {
@@ -21,7 +21,7 @@ impl Default for Offset {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct EnvelopePoint {
+pub struct Point {
     /// The offset, relative to `whence`
     pub offset: Offset,
 
@@ -35,26 +35,26 @@ pub struct EnvelopePoint {
 /// Internal envelope point, with offset and whence turned into a concrete
 /// start time.
 #[derive(Debug, Default, Clone, Copy)]
-struct CalculatedEnvelopePoint {
+struct CalculatedPoint {
     sample: u64,
     volume: f64,
 }
 
-impl PartialOrd for CalculatedEnvelopePoint {
+impl PartialOrd for CalculatedPoint {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.sample.partial_cmp(&other.sample)
     }
 }
 
-impl PartialEq for CalculatedEnvelopePoint {
+impl PartialEq for CalculatedPoint {
     fn eq(&self, other: &Self) -> bool {
         self.sample.eq(&other.sample)
     }
 }
 
-impl Eq for CalculatedEnvelopePoint {}
+impl Eq for CalculatedPoint {}
 
-impl Ord for CalculatedEnvelopePoint {
+impl Ord for CalculatedPoint {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.sample.cmp(&other.sample)
     }
@@ -63,8 +63,8 @@ impl Ord for CalculatedEnvelopePoint {
 /// A frequency node wrapper that applies a volume envelope to the node.
 #[derive(Debug)]
 pub struct Envelope {
-    envelope: Box<[CalculatedEnvelopePoint]>,
-    sample: Cell<u64>,
+    envelope: Box<[CalculatedPoint]>,
+    sample: AtomicU64,
 }
 
 impl Envelope {
@@ -73,9 +73,9 @@ impl Envelope {
     pub fn new(
         sample_rate: u32,
         length: Duration,
-        envelope: impl IntoIterator<Item = EnvelopePoint>,
+        envelope: impl IntoIterator<Item = Point>,
     ) -> Self {
-        let mut envelope: Vec<CalculatedEnvelopePoint> = envelope
+        let mut envelope: Vec<CalculatedPoint> = envelope
             .into_iter()
             .flat_map(move |point| {
                 let length = length.seconds();
@@ -90,7 +90,7 @@ impl Envelope {
                 if time.is_nan() {
                     return None;
                 }
-                Some(CalculatedEnvelopePoint {
+                Some(CalculatedPoint {
                     sample: (time * sample_rate as f64) as u64,
                     volume: point.volume,
                 })
@@ -117,7 +117,9 @@ impl Node for Envelope {
             0 => return Ok(()),
             1 => self.envelope[0].volume,
             _ => {
-                let sample = self.sample.replace(self.sample.get() + 1);
+                let sample = self
+                    .sample
+                    .swap(self.sample.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
                 match self
                     .envelope
                     .binary_search_by_key(&sample, |point| point.sample)

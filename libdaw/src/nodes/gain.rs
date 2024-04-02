@@ -1,25 +1,24 @@
-use crate::stream::Stream;
-use crate::{Node, Result};
-use std::cell::Cell;
+use crate::{stream::Stream, sync::AtomicF64, Node, Result};
+use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub struct Gain {
-    gain: Cell<f64>,
+    gain: AtomicF64,
 }
 
 impl Gain {
     pub fn new(gain: f64) -> Self {
         Self {
-            gain: Cell::new(gain),
+            gain: AtomicF64::new(gain),
         }
     }
 
     pub fn set_gain(&self, gain: f64) {
-        self.gain.set(gain);
+        self.gain.store(gain, Ordering::Relaxed);
     }
 
     pub fn get_gain(&self) -> f64 {
-        self.gain.get()
+        self.gain.load(Ordering::Relaxed)
     }
 }
 
@@ -30,7 +29,7 @@ impl Node for Gain {
         outputs: &'c mut Vec<Stream>,
     ) -> Result<()> {
         outputs.extend_from_slice(inputs);
-        let gain = self.gain.get();
+        let gain = self.gain.load(Ordering::Relaxed);
 
         for output in outputs {
             *output *= gain;

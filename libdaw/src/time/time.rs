@@ -1,8 +1,8 @@
 use std::{
     fmt,
+    hash::{Hash, Hasher},
     time::{Duration, TryFromFloatSecsError},
 };
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IllegalTime {
     NaN,
@@ -24,7 +24,7 @@ impl std::error::Error for IllegalTime {}
 
 /// A time value representing a finite number of seconds, which may be positive
 /// or negative.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Time {
     seconds: f64,
 }
@@ -66,23 +66,20 @@ impl TryFrom<Time> for Duration {
     }
 }
 
-impl PartialEq for Time {
-    fn eq(&self, other: &Self) -> bool {
-        self.seconds.eq(&other.seconds)
-    }
-}
-
 impl Eq for Time {}
-
-impl PartialOrd for Time {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.seconds.partial_cmp(&other.seconds)
-    }
-}
 
 impl Ord for Time {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other)
             .expect("One of the time values was invalid")
+    }
+}
+
+impl Hash for Time {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        state.write_u64(self.seconds.to_bits())
     }
 }

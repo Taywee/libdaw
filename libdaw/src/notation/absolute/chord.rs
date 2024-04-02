@@ -23,13 +23,13 @@ pub struct Chord {
 impl Chord {
     /// Resolve all the section's chords to playable instrument tones.
     /// The offset is the beat offset.
-    pub fn resolve<'a, S>(
-        &'a self,
+    pub fn resolve<S>(
+        &self,
         offset: Beat,
-        metronome: &'a Metronome,
-        standard: &'a S,
+        metronome: &Metronome,
+        pitch_standard: &S,
         default_length: Beat,
-    ) -> impl Iterator<Item = Tone> + 'a
+    ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
@@ -38,14 +38,19 @@ impl Chord {
         let end_beat = offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
-        self.pitches.iter().map(move |pitch| {
-            let frequency = standard.resolve(*pitch);
-            Tone {
-                start,
-                length,
-                frequency,
-            }
-        })
+        let pitches: Vec<_> = self
+            .pitches
+            .iter()
+            .map(move |pitch| {
+                let frequency = pitch_standard.resolve(*pitch);
+                Tone {
+                    start,
+                    length,
+                    frequency,
+                }
+            })
+            .collect();
+        pitches.into_iter()
     }
 
     pub fn length(&self, default_length: Beat) -> Beat {

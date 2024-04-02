@@ -18,7 +18,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::IllegalIndex { index, message } => {
-                write!(f, "illegal index {index}: {message}")
+                write!(f, "illegal index {index:?}: {message}")
             }
             Error::NoSuchConnection {
                 source,
@@ -27,7 +27,7 @@ impl fmt::Display for Error {
             } => {
                 write!(
                     f,
-                    "Connection does not exist between {source} and {destination}"
+                    "Connection does not exist between {source:?} and {destination:?}"
                 )?;
                 match stream {
                     Some(stream) => write!(f, " for output {stream}"),

@@ -6,61 +6,69 @@ use crate::{
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Item {
-    Note(Note),
-    Chord(Chord),
-    Rest(Rest),
-    Overlapped(Overlapped),
+    Note(Arc<Mutex<Note>>),
+    Chord(Arc<Mutex<Chord>>),
+    Rest(Arc<Mutex<Rest>>),
+    Overlapped(Arc<Mutex<Overlapped>>),
 }
 
 impl Item {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
-    pub fn resolve<'a, S>(
-        &'a self,
+    pub fn resolve<S>(
+        &self,
         offset: Beat,
-        metronome: &'a Metronome,
-        standard: &'a S,
+        metronome: &Metronome,
+        pitch_standard: &S,
         default_length: Beat,
-    ) -> Box<dyn Iterator<Item = Tone> + 'a>
+    ) -> Box<dyn Iterator<Item = Tone> + 'static>
     where
         S: PitchStandard + ?Sized,
     {
         match self {
-            Item::Note(note) => Box::new(std::iter::once(note.resolve(
+            Item::Note(note) => Box::new(std::iter::once(note.lock().expect("poisoned").resolve(
                 offset,
                 metronome,
-                standard,
+                pitch_standard,
                 default_length,
             ))),
-            Item::Chord(chord) => {
-                Box::new(chord.resolve(offset, metronome, standard, default_length))
-            }
+            Item::Chord(chord) => Box::new(chord.lock().expect("poisoned").resolve(
+                offset,
+                metronome,
+                pitch_standard,
+                default_length,
+            )),
             Item::Rest(_) => Box::new(std::iter::empty()),
-            Item::Overlapped(overlapped) => {
-                Box::new(overlapped.resolve(offset, metronome, standard))
-            }
+            Item::Overlapped(overlapped) => Box::new(overlapped.lock().expect("poisoned").resolve(
+                offset,
+                metronome,
+                pitch_standard,
+            )),
         }
     }
 
     pub fn length(&self, default: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.length(default),
-            Item::Chord(chord) => chord.length(default),
-            Item::Rest(rest) => rest.length(default),
-            Item::Overlapped(overlapped) => overlapped.length(),
+            Item::Note(note) => note.lock().expect("poisoned").length(default),
+            Item::Chord(chord) => chord.lock().expect("poisoned").length(default),
+            Item::Rest(rest) => rest.lock().expect("poisoned").length(default),
+            Item::Overlapped(overlapped) => overlapped.lock().expect("poisoned").length(),
         }
     }
 
     pub fn duration(&self, default_length: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.duration(default_length),
-            Item::Chord(chord) => chord.duration(default_length),
-            Item::Rest(rest) => rest.duration(),
-            Item::Overlapped(overlapped) => overlapped.duration(),
+            Item::Note(note) => note.lock().expect("poisoned").duration(default_length),
+            Item::Chord(chord) => chord.lock().expect("poisoned").duration(default_length),
+            Item::Rest(rest) => rest.lock().expect("poisoned").duration(),
+            Item::Overlapped(overlapped) => overlapped.lock().expect("poisoned").duration(),
         }
     }
 }
