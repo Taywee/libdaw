@@ -45,7 +45,7 @@ impl Note {
             offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
-            default_length=Beat(DawBeat::ONE),
+            previous_length=Beat(DawBeat::ONE),
         )
     )]
     pub fn resolve(
@@ -53,7 +53,7 @@ impl Note {
         offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
-        default_length: Beat,
+        previous_length: Beat,
     ) -> Tone {
         let metronome = MaybeMetronome::from(metronome);
         let pitch_standard = MaybePitchStandard::from(pitch_standard);
@@ -61,7 +61,7 @@ impl Note {
             offset.0,
             &metronome,
             pitch_standard.deref(),
-            default_length.0,
+            previous_length.0,
         ))
     }
 
@@ -80,12 +80,12 @@ impl Note {
         self.0.lock().expect("poisoned").duration = value.map(|beat| beat.0);
     }
 
-    pub fn length(&self, default: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").length(default.0))
+    pub fn length(&self, previous_length: Beat) -> Beat {
+        Beat(self.0.lock().expect("poisoned").length(previous_length.0))
     }
 
-    pub fn duration(&self, default: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").duration(default.0))
+    pub fn duration(&self, previous_length: Beat) -> Beat {
+        Beat(self.0.lock().expect("poisoned").duration(previous_length.0))
     }
 
     pub fn __repr__(&self) -> String {

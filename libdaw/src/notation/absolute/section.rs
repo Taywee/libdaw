@@ -30,27 +30,26 @@ impl Section {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
+        mut previous_length: Beat,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
         let mut start = offset;
-        let mut previous_length = Beat::ONE;
         let tones: Vec<_> = self
             .0
             .iter()
             .flat_map(move |item| {
                 let resolved = item.resolve(start, metronome, pitch_standard, previous_length);
-                previous_length = item.length(previous_length);
-                start += previous_length;
+                start += item.length(previous_length);
+                previous_length = item.next_previous_length(previous_length);
                 resolved
             })
             .collect();
         tones.into_iter()
     }
 
-    pub fn length(&self) -> Beat {
-        let mut previous_length = Beat::ONE;
+    pub fn length(&self, mut previous_length: Beat) -> Beat {
         self.0
             .iter()
             .map(move |item| {
@@ -60,10 +59,9 @@ impl Section {
             .sum()
     }
 
-    pub fn duration(&self) -> Beat {
+    pub fn duration(&self, mut previous_length: Beat) -> Beat {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
-        let mut previous_length = Beat::ONE;
         for item in &self.0 {
             let item_duration = item.duration(previous_length);
             previous_length = item.length(previous_length);

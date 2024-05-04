@@ -30,8 +30,8 @@ impl Rest {
         self.0.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
 
-    pub fn length(&self, default: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").length(default.0))
+    pub fn length(&self, previous_length: Beat) -> Beat {
+        Beat(self.0.lock().expect("poisoned").length(previous_length.0))
     }
 
     pub fn duration(&self) -> Beat {

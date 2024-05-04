@@ -12,8 +12,8 @@ pub struct Rest {
 }
 
 impl Rest {
-    pub fn length(&self, default_length: Beat) -> Beat {
-        self.length.unwrap_or(default_length)
+    pub fn length(&self, previous_length: Beat) -> Beat {
+        self.length.unwrap_or(previous_length)
     }
     pub const fn duration(&self) -> Beat {
         Beat::ZERO

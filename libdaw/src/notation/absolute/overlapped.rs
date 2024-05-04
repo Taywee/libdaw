@@ -20,6 +20,7 @@ impl Overlapped {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
+        previous_length: Beat,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -28,27 +29,29 @@ impl Overlapped {
             .0
             .iter()
             .flat_map(move |section| {
-                section
-                    .lock()
-                    .expect("poisoned")
-                    .resolve(offset, metronome, pitch_standard)
+                section.lock().expect("poisoned").resolve(
+                    offset,
+                    metronome,
+                    pitch_standard,
+                    previous_length,
+                )
             })
             .collect();
         pitches.into_iter()
     }
 
-    pub fn length(&self) -> Beat {
+    pub fn length(&self, previous_length: Beat) -> Beat {
         self.0
             .iter()
-            .map(|section| section.lock().expect("poisoned").length())
+            .map(|section| section.lock().expect("poisoned").length(previous_length))
             .max()
             .unwrap_or(Beat::ZERO)
     }
 
-    pub fn duration(&self) -> Beat {
+    pub fn duration(&self, previous_length: Beat) -> Beat {
         self.0
             .iter()
-            .map(|section| section.lock().expect("poisoned").duration())
+            .map(|section| section.lock().expect("poisoned").duration(previous_length))
             .max()
             .unwrap_or(Beat::ZERO)
     }

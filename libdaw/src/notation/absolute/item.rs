@@ -27,7 +27,7 @@ impl Item {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        default_length: Beat,
+        previous_length: Beat,
     ) -> Box<dyn Iterator<Item = Tone> + 'static>
     where
         S: PitchStandard + ?Sized,
@@ -37,38 +37,53 @@ impl Item {
                 offset,
                 metronome,
                 pitch_standard,
-                default_length,
+                previous_length,
             ))),
             Item::Chord(chord) => Box::new(chord.lock().expect("poisoned").resolve(
                 offset,
                 metronome,
                 pitch_standard,
-                default_length,
+                previous_length,
             )),
             Item::Rest(_) => Box::new(std::iter::empty()),
             Item::Overlapped(overlapped) => Box::new(overlapped.lock().expect("poisoned").resolve(
                 offset,
                 metronome,
                 pitch_standard,
+                previous_length,
             )),
         }
     }
 
-    pub fn length(&self, default: Beat) -> Beat {
+    pub fn length(&self, previous_length: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.lock().expect("poisoned").length(default),
-            Item::Chord(chord) => chord.lock().expect("poisoned").length(default),
-            Item::Rest(rest) => rest.lock().expect("poisoned").length(default),
-            Item::Overlapped(overlapped) => overlapped.lock().expect("poisoned").length(),
+            Item::Note(note) => note.lock().expect("poisoned").length(previous_length),
+            Item::Chord(chord) => chord.lock().expect("poisoned").length(previous_length),
+            Item::Rest(rest) => rest.lock().expect("poisoned").length(previous_length),
+            Item::Overlapped(overlapped) => {
+                overlapped.lock().expect("poisoned").length(previous_length)
+            }
         }
     }
 
-    pub fn duration(&self, default_length: Beat) -> Beat {
+    pub fn next_previous_length(&self, previous_length: Beat) -> Beat {
         match self {
-            Item::Note(note) => note.lock().expect("poisoned").duration(default_length),
-            Item::Chord(chord) => chord.lock().expect("poisoned").duration(default_length),
+            Item::Note(note) => note.lock().expect("poisoned").length(previous_length),
+            Item::Chord(chord) => chord.lock().expect("poisoned").length(previous_length),
+            Item::Rest(rest) => rest.lock().expect("poisoned").length(previous_length),
+            Item::Overlapped(_) => previous_length,
+        }
+    }
+
+    pub fn duration(&self, previous_length: Beat) -> Beat {
+        match self {
+            Item::Note(note) => note.lock().expect("poisoned").duration(previous_length),
+            Item::Chord(chord) => chord.lock().expect("poisoned").duration(previous_length),
             Item::Rest(rest) => rest.lock().expect("poisoned").duration(),
-            Item::Overlapped(overlapped) => overlapped.lock().expect("poisoned").duration(),
+            Item::Overlapped(overlapped) => overlapped
+                .lock()
+                .expect("poisoned")
+                .duration(previous_length),
         }
     }
 }

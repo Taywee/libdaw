@@ -42,6 +42,7 @@ impl Section {
             offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
+            previous_length=Beat(DawBeat::ONE),
         )
     )]
     pub fn resolve(
@@ -49,21 +50,27 @@ impl Section {
         offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
+        previous_length: Beat,
     ) -> Vec<Tone> {
         self.0
             .lock()
             .expect("poisoned")
-            .resolve(offset.0, &metronome, pitch_standard.deref())
+            .resolve(
+                offset.0,
+                &metronome,
+                pitch_standard.deref(),
+                previous_length.0,
+            )
             .map(Tone)
             .collect()
     }
 
-    pub fn length(&self) -> Beat {
-        Beat(self.0.lock().expect("poisoned").length())
+    pub fn length(&self, previous_length: Beat) -> Beat {
+        Beat(self.0.lock().expect("poisoned").length(previous_length.0))
     }
 
-    pub fn duration(&self) -> Beat {
-        Beat(self.0.lock().expect("poisoned").duration())
+    pub fn duration(&self, previous_length: Beat) -> Beat {
+        Beat(self.0.lock().expect("poisoned").duration(previous_length.0))
     }
 
     pub fn __len__(&self) -> usize {

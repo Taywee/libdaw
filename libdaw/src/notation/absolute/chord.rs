@@ -28,13 +28,13 @@ impl Chord {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        default_length: Beat,
+        previous_length: Beat,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
         let start = metronome.beat_to_time(offset);
-        let duration = self.duration(default_length);
+        let duration = self.duration(previous_length);
         let end_beat = offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
@@ -53,12 +53,12 @@ impl Chord {
         pitches.into_iter()
     }
 
-    pub fn length(&self, default_length: Beat) -> Beat {
-        self.length.unwrap_or(default_length)
+    pub fn length(&self, previous_length: Beat) -> Beat {
+        self.length.unwrap_or(previous_length)
     }
 
-    pub fn duration(&self, default_length: Beat) -> Beat {
-        self.duration.or(self.length).unwrap_or(default_length)
+    pub fn duration(&self, previous_length: Beat) -> Beat {
+        self.duration.or(self.length).unwrap_or(previous_length)
     }
 }
 
