@@ -4,7 +4,7 @@ pub use pitch::{Pitch, PitchClass, PitchName};
 
 use std::fmt::Debug;
 
-pub trait PitchStandard: Debug {
+pub trait PitchStandard: Debug + Send + Sync {
     /// Resolve a pitch to a frequency.
     fn resolve(&self, pitch: Pitch) -> f64;
 }
@@ -34,11 +34,52 @@ impl TwelveToneEqualTemperament for A440 {
 
 impl<T> PitchStandard for T
 where
-    T: TwelveToneEqualTemperament + Debug,
+    T: TwelveToneEqualTemperament + Debug + Send + Sync,
 {
     fn resolve(&self, pitch: Pitch) -> f64 {
-        let exponent_numerator =
-            pitch.octave as f64 * 12.0 + pitch.class.name as i8 as f64 + pitch.class.adjustment;
+        let exponent_numerator = pitch.octave as f64 * 12.0
+            + pitch.pitch_class.name as i8 as f64
+            + pitch.pitch_class.adjustment;
         Self::c0() * 2.0f64.powf(exponent_numerator / 12.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn round(a: f64, magnitude: f64) -> f64 {
+        (a * magnitude).round() / magnitude
+    }
+    #[test]
+    fn a440() {
+        assert_eq!(
+            round(
+                A440.resolve(Pitch {
+                    octave: 4,
+                    pitch_class: PitchClass {
+                        name: PitchName::A,
+                        adjustment: 0.0
+                    }
+                }),
+                1.0e10
+            ),
+            440.0,
+        );
+    }
+    #[test]
+    fn scientific_pitch() {
+        assert_eq!(
+            round(
+                ScientificPitch.resolve(Pitch {
+                    octave: 4,
+                    pitch_class: PitchClass {
+                        name: PitchName::C,
+                        adjustment: 0.0
+                    }
+                }),
+                1.0e10
+            ),
+            256.0,
+        );
     }
 }

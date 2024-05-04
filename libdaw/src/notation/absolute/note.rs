@@ -27,13 +27,13 @@ impl Note {
         &self,
         offset: Beat,
         metronome: &Metronome,
-        standard: &S,
+        pitch_standard: &S,
         default_length: Beat,
     ) -> Tone
     where
         S: PitchStandard + ?Sized,
     {
-        let frequency = standard.resolve(self.pitch);
+        let frequency = pitch_standard.resolve(self.pitch);
         let start = metronome.beat_to_time(offset);
         let duration = self.duration(default_length);
         let end_beat = offset + duration;

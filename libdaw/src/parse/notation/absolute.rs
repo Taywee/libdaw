@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
     notation::absolute::{Chord, Item, Note, Overlapped, Rest, Section},
     parse::{beat, pitch::pitch, IResult},
@@ -60,8 +62,12 @@ fn overlapped_subsection(input: &str) -> IResult<&str, Section> {
 
 pub fn overlapped(input: &str) -> IResult<&str, Overlapped> {
     let (input, _) = tag("[")(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, subsections) = many1(preceded(multispace0, overlapped_subsection))(input)?;
+    let (input, subsections) = many1(preceded(
+        multispace0,
+        map(overlapped_subsection, move |section| {
+            Arc::new(Mutex::new(section))
+        }),
+    ))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = tag("]")(input)?;
     Ok((input, Overlapped(subsections)))
@@ -69,10 +75,12 @@ pub fn overlapped(input: &str) -> IResult<&str, Overlapped> {
 
 pub fn item(input: &str) -> IResult<&str, Item> {
     alt((
-        map(note, Item::Note),
-        map(chord, Item::Chord),
-        map(rest, Item::Rest),
-        map(overlapped, Item::Overlapped),
+        map(note, move |note| Item::Note(Arc::new(Mutex::new(note)))),
+        map(chord, move |chord| Item::Chord(Arc::new(Mutex::new(chord)))),
+        map(rest, move |rest| Item::Rest(Arc::new(Mutex::new(rest)))),
+        map(overlapped, move |overlapped| {
+            Item::Overlapped(Arc::new(Mutex::new(overlapped)))
+        }),
     ))(input)
 }
 

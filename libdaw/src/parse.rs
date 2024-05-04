@@ -29,6 +29,6 @@ fn number(input: &str) -> IResult<&str, f64> {
 /// Parse a number using the `number` parser and turn it into a beat.
 fn beat(input: &str) -> IResult<&str, Beat> {
     let (input, number) = number(input)?;
-    let beat = Beat::new(number).ok_or_else(move || nom::Err::Error(Error::IllegalBeat(number)))?;
+    let beat = Beat::new(number).map_err(move |e| nom::Err::Error(Error::IllegalBeat(e)))?;
     Ok((input, beat))
 }

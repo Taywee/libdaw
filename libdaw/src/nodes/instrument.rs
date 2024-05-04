@@ -1,14 +1,17 @@
-use super::{envelope::EnvelopePoint, graph::Index, Detune, Envelope, Graph};
 use crate::{
+    nodes::{envelope::Point, graph::Index, Detune, Envelope, Graph},
+    sync::AtomicF64,
     time::{Duration, Timestamp},
     DynNode as _, FrequencyNode, Node, Result,
 };
 use std::{
-    cell::{Cell, RefCell},
     cmp::Reverse,
     collections::BinaryHeap,
     fmt,
-    rc::Rc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
 };
 
 /// A single tone definition.  Defined by frequency, not note name, to not tie
@@ -49,7 +52,7 @@ impl Eq for QueuedTone {}
 #[derive(Debug)]
 struct PlayingTone {
     end_sample: u64,
-    frequency_node: Rc<Detune>,
+    frequency_node: Arc<Detune>,
     frequency_node_index: Index,
     envelope_index: Index,
 }
@@ -74,14 +77,14 @@ impl Eq for PlayingTone {}
 
 /// A node that can play a sequence of tones from a frequency node creator.
 pub struct Instrument {
-    frequency_node_creator: Box<RefCell<dyn FnMut() -> Rc<dyn FrequencyNode>>>,
+    frequency_node_creator: Box<Mutex<dyn FnMut() -> Result<Arc<dyn FrequencyNode>> + Send>>,
     graph: Graph,
-    queue: RefCell<BinaryHeap<Reverse<QueuedTone>>>,
-    playing: RefCell<BinaryHeap<Reverse<PlayingTone>>>,
-    envelope: Vec<EnvelopePoint>,
+    queue: Mutex<BinaryHeap<Reverse<QueuedTone>>>,
+    playing: Mutex<BinaryHeap<Reverse<PlayingTone>>>,
+    envelope: Vec<Point>,
     sample_rate: u32,
-    sample: Cell<u64>,
-    detune: Cell<f64>,
+    sample: AtomicU64,
+    detune: AtomicF64,
 }
 
 impl fmt::Debug for Instrument {
@@ -101,12 +104,12 @@ impl fmt::Debug for Instrument {
 impl Instrument {
     pub fn new(
         sample_rate: u32,
-        frequency_node_creator: impl 'static + FnMut() -> Rc<dyn FrequencyNode>,
-        envelope: impl IntoIterator<Item = EnvelopePoint>,
+        frequency_node_creator: impl 'static + FnMut() -> Result<Arc<dyn FrequencyNode>> + Send,
+        envelope: impl IntoIterator<Item = Point>,
     ) -> Self {
         Self {
             sample_rate,
-            frequency_node_creator: Box::new(RefCell::new(frequency_node_creator)),
+            frequency_node_creator: Box::new(Mutex::new(frequency_node_creator)),
             graph: Default::default(),
             queue: Default::default(),
             playing: Default::default(),
@@ -121,19 +124,22 @@ impl Instrument {
         let end = tone.start + tone.length;
         let end_sample = (end.seconds() * self.sample_rate as f64) as u64;
         if end_sample > start_sample {
-            self.queue.borrow_mut().push(Reverse(QueuedTone {
-                start_sample,
-                end_sample,
-                length: tone.length,
-                frequency: tone.frequency,
-            }));
+            self.queue
+                .lock()
+                .expect("mutex poisoned")
+                .push(Reverse(QueuedTone {
+                    start_sample,
+                    end_sample,
+                    length: tone.length,
+                    frequency: tone.frequency,
+                }));
         }
     }
 
     /// Set the detune in the same way as the Detune.
     pub fn set_detune(&self, detune: f64) -> Result<()> {
-        if self.detune.replace(detune) != detune {
-            for tone in self.playing.borrow().iter() {
+        if self.detune.swap(detune, Ordering::Relaxed) != detune {
+            for tone in self.playing.lock().expect("mutex poisoned").iter() {
                 let tone = &tone.0;
                 tone.frequency_node.set_detune(detune)?;
             }
@@ -148,12 +154,15 @@ impl Node for Instrument {
         inputs: &'b [crate::stream::Stream],
         outputs: &'c mut Vec<crate::stream::Stream>,
     ) -> Result<()> {
-        let sample = self.sample.replace(self.sample.get() + 1);
-        let detune = self.detune.get();
+        let sample = self
+            .sample
+            .swap(self.sample.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
+        let detune = self.detune.load(Ordering::Relaxed);
 
-        let mut queue = self.queue.borrow_mut();
-        let mut playing = self.playing.borrow_mut();
-        let mut frequency_node_creator = self.frequency_node_creator.borrow_mut();
+        let mut queue = self.queue.lock().expect("mutex poisoned");
+        let mut playing = self.playing.lock().expect("mutex poisoned");
+        let mut frequency_node_creator =
+            self.frequency_node_creator.lock().expect("mutex poisoned");
         if queue.is_empty() && playing.is_empty() {
             return Ok(());
         }
@@ -168,11 +177,11 @@ impl Node for Instrument {
             }
 
             let tone = queue.pop().unwrap().0;
-            let frequency_node = Rc::new(Detune::new(frequency_node_creator()));
+            let frequency_node = Arc::new(Detune::new(frequency_node_creator()?));
             frequency_node.set_frequency(tone.frequency)?;
             frequency_node.set_detune(detune)?;
 
-            let envelope = Rc::new(Envelope::new(
+            let envelope = Arc::new(Envelope::new(
                 self.sample_rate,
                 tone.length,
                 self.envelope.iter().copied(),

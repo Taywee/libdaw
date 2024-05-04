@@ -9,7 +9,7 @@ use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
 
 /// A linear sequence of items.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone)]
 pub struct Section(pub Vec<Item>);
 
 impl FromStr for Section {
@@ -25,23 +25,28 @@ impl FromStr for Section {
 }
 
 impl Section {
-    pub fn resolve<'a, S>(
-        &'a self,
+    pub fn resolve<S>(
+        &self,
         offset: Beat,
-        metronome: &'a Metronome,
-        standard: &'a S,
-    ) -> impl Iterator<Item = Tone> + 'a
+        metronome: &Metronome,
+        pitch_standard: &S,
+    ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
         let mut start = offset;
         let mut previous_length = Beat::ONE;
-        self.0.iter().flat_map(move |item| {
-            let resolved = item.resolve(start, metronome, standard, previous_length);
-            previous_length = item.length(previous_length);
-            start += previous_length;
-            resolved
-        })
+        let tones: Vec<_> = self
+            .0
+            .iter()
+            .flat_map(move |item| {
+                let resolved = item.resolve(start, metronome, pitch_standard, previous_length);
+                previous_length = item.length(previous_length);
+                start += previous_length;
+                resolved
+            })
+            .collect();
+        tones.into_iter()
     }
 
     pub fn length(&self) -> Beat {

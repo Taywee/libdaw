@@ -8,31 +8,18 @@ use crate::nodes::Passthrough;
 use crate::stream::Stream;
 use crate::Node;
 use nohash_hasher::{IntSet, IsEnabled};
-use std::cell::RefCell;
-use std::fmt;
+
 use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use Error::IllegalIndex;
 use Error::NoSuchConnection;
 
-/// A strong node wrapper, allowing hashing and comparison on a pointer basis.
-type Strong = Rc<dyn Node>;
+/// A strong node shared smart pointer.
+type Strong = Arc<dyn Node>;
 
 /// The node index.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Index(pub usize);
-
-impl fmt::Display for Index {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Hash for Index {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0);
-    }
-}
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct Index(usize);
 
 impl IsEnabled for Index {}
 
@@ -42,11 +29,11 @@ struct Input {
     stream: Option<usize>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Slot {
     node: Strong,
-    output: RefCell<Vec<Stream>>,
-    input_buffer: RefCell<Vec<Stream>>,
+    output: Mutex<Vec<Stream>>,
+    input_buffer: Mutex<Vec<Stream>>,
     inputs: Vec<Input>,
 }
 
@@ -64,7 +51,7 @@ struct InnerGraph {
     nodes: Vec<Option<Slot>>,
     empty_nodes: IntSet<Index>,
     set_nodes: IntSet<Index>,
-    process_list: RefCell<ProcessList>,
+    process_list: Mutex<ProcessList>,
 }
 
 impl Default for InnerGraph {
@@ -76,16 +63,16 @@ impl Default for InnerGraph {
             process_list: Default::default(),
         };
         // input
-        graph.add(Rc::new(Passthrough::default()));
+        graph.add(Arc::new(Passthrough::default()));
         // output
-        graph.add(Rc::new(Passthrough::default()));
+        graph.add(Arc::new(Passthrough::default()));
         graph
     }
 }
 
 impl InnerGraph {
     pub fn add(&mut self, node: Strong) -> Index {
-        self.process_list.borrow_mut().reprocess = true;
+        self.process_list.lock().expect("mutex poisoned").reprocess = true;
         let slot = Some(Slot {
             node,
             output: Default::default(),
@@ -122,7 +109,7 @@ impl InnerGraph {
             _ => (),
         }
 
-        self.process_list.borrow_mut().reprocess = true;
+        self.process_list.lock().expect("mutex poisoned").reprocess = true;
 
         if let Some(slot) = self.nodes[index.0].take() {
             self.empty_nodes.insert(index);
@@ -160,7 +147,7 @@ impl InnerGraph {
                 message: "destination must be a valid index",
             })?;
 
-        self.process_list.borrow_mut().reprocess = true;
+        self.process_list.lock().expect("mutex poisoned").reprocess = true;
         destination.inputs.push(Input { source, stream });
         Ok(())
     }
@@ -229,7 +216,7 @@ impl InnerGraph {
                 stream,
             })?;
         destination_slot.inputs.remove(index);
-        self.process_list.borrow_mut().reprocess = true;
+        self.process_list.lock().expect("mutex poisoned").reprocess = true;
         Ok(())
     }
 
@@ -374,7 +361,7 @@ impl InnerGraph {
 
     /// Get the processing list, in order from sink to roots.
     fn build_process_list(&self) {
-        let mut process_list = self.process_list.borrow_mut();
+        let mut process_list = self.process_list.lock().expect("mutex poisoned");
         if process_list.reprocess {
             process_list.list.clear();
             process_list.memo.clear();
@@ -401,9 +388,17 @@ impl InnerGraph {
     ) -> crate::Result<()> {
         self.build_process_list();
         // First process all process-needing nodes in reverse order.
-        for node in self.process_list.borrow().list.iter().rev().copied() {
+        for node in self
+            .process_list
+            .lock()
+            .expect("mutex poisoned")
+            .list
+            .iter()
+            .rev()
+            .copied()
+        {
             let slot = self.nodes[node.0].as_ref().expect("node needs to be set");
-            let mut input_buffer = slot.input_buffer.borrow_mut();
+            let mut input_buffer = slot.input_buffer.lock().expect("mutex poisoned");
             input_buffer.clear();
             if node == Index(0) {
                 // The input node, 0, just gets the inputs from the outside world.
@@ -414,15 +409,22 @@ impl InnerGraph {
                         .as_ref()
                         .expect("process node not in input values");
                     if let Some(output) = input.stream {
-                        if let Some(stream) = input_slot.output.borrow().get(output).copied() {
+                        if let Some(stream) = input_slot
+                            .output
+                            .lock()
+                            .expect("mutex poisoned")
+                            .get(output)
+                            .copied()
+                        {
                             input_buffer.push(stream);
                         }
                     } else {
-                        input_buffer.extend_from_slice(&input_slot.output.borrow());
+                        input_buffer
+                            .extend_from_slice(&input_slot.output.lock().expect("mutex poisoned"));
                     }
                 }
             }
-            let mut output = slot.output.borrow_mut();
+            let mut output = slot.output.lock().expect("mutex poisoned");
             output.clear();
             slot.node.process(&input_buffer, &mut output)?;
         }
@@ -431,7 +433,8 @@ impl InnerGraph {
                 .as_ref()
                 .expect("Sink does not exist")
                 .output
-                .borrow(),
+                .lock()
+                .expect("mutex poisoned"),
         );
         Ok(())
     }
@@ -439,22 +442,25 @@ impl InnerGraph {
 
 #[derive(Debug, Default)]
 pub struct Graph {
-    inner: RefCell<InnerGraph>,
+    inner: Mutex<InnerGraph>,
 }
 
 impl Graph {
     pub fn add(&self, node: Strong) -> Index {
-        self.inner.borrow_mut().add(node)
+        self.inner.lock().expect("mutex poisoned").add(node)
     }
 
     pub fn remove(&self, index: Index) -> Result<Option<Strong>> {
-        self.inner.borrow_mut().remove(index)
+        self.inner.lock().expect("mutex poisoned").remove(index)
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
     pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.borrow_mut().connect(source, destination, stream)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .connect(source, destination, stream)
     }
 
     /// Disconnect the last-added matching connection, returning a boolean
@@ -466,7 +472,8 @@ impl Graph {
         stream: Option<usize>,
     ) -> Result<()> {
         self.inner
-            .borrow_mut()
+            .lock()
+            .expect("mutex poisoned")
             .disconnect(source, destination, stream)
     }
 
@@ -474,26 +481,38 @@ impl Graph {
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.borrow_mut().input(source, stream)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .input(source, stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.borrow_mut().remove_input(source, stream)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .remove_input(source, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.borrow_mut().output(source, stream)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .output(source, stream)
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.borrow_mut().remove_output(source, stream)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .remove_output(source, stream)
     }
 }
 
@@ -503,6 +522,9 @@ impl Node for Graph {
         inputs: &'b [Stream],
         outputs: &'c mut Vec<Stream>,
     ) -> crate::Result<()> {
-        self.inner.borrow_mut().process(inputs, outputs)
+        self.inner
+            .lock()
+            .expect("mutex poisoned")
+            .process(inputs, outputs)
     }
 }

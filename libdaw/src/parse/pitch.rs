@@ -84,7 +84,13 @@ pub fn pitch_class(input: &str) -> IResult<&str, PitchClass> {
 }
 
 pub fn pitch(input: &str) -> IResult<&str, Pitch> {
-    let (input, class) = pitch_class(input)?;
+    let (input, pitch_class) = pitch_class(input)?;
     let (input, octave) = octave(input)?;
-    Ok((input, Pitch { class, octave }))
+    Ok((
+        input,
+        Pitch {
+            pitch_class,
+            octave,
+        },
+    ))
 }

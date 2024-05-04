@@ -1,8 +1,11 @@
-use crate::stream::Stream;
-use crate::time::Duration;
-use crate::{Node, Result};
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
+use crate::{stream::Stream, time::Duration, Node, Result};
+use std::{
+    collections::VecDeque,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex,
+    },
+};
 
 #[derive(Debug)]
 struct Sample {
@@ -14,8 +17,8 @@ type Buffer = VecDeque<Sample>;
 
 #[derive(Debug)]
 pub struct Delay {
-    buffers: RefCell<Vec<Buffer>>,
-    sample: Cell<u64>,
+    buffers: Mutex<Vec<Buffer>>,
+    sample: AtomicU64,
     delay: u64,
 }
 
@@ -40,10 +43,12 @@ impl Node for Delay {
             outputs.extend_from_slice(inputs);
             return Ok(());
         }
-        let sample = self.sample.replace(self.sample.get() + 1);
+        let sample = self
+            .sample
+            .swap(self.sample.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
         let play_sample = sample + self.delay;
 
-        let mut buffers = self.buffers.borrow_mut();
+        let mut buffers = self.buffers.lock().expect("mutex poisoned");
         if inputs.len() > buffers.len() {
             let delay = self.delay as usize;
             buffers.resize_with(inputs.len(), || VecDeque::with_capacity(delay));

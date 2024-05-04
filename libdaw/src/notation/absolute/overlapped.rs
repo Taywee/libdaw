@@ -6,30 +6,41 @@ use crate::{
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Overlapped(pub Vec<Section>);
+#[derive(Debug, Clone)]
+pub struct Overlapped(pub Vec<Arc<Mutex<Section>>>);
 
 impl Overlapped {
-    pub fn resolve<'a, S>(
-        &'a self,
+    pub fn resolve<S>(
+        &self,
         offset: Beat,
-        metronome: &'a Metronome,
-        standard: &'a S,
-    ) -> impl Iterator<Item = Tone> + 'a
+        metronome: &Metronome,
+        pitch_standard: &S,
+    ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
-        self.0
+        let pitches: Vec<_> = self
+            .0
             .iter()
-            .flat_map(move |section| section.resolve(offset, metronome, standard))
+            .flat_map(move |section| {
+                section
+                    .lock()
+                    .expect("poisoned")
+                    .resolve(offset, metronome, pitch_standard)
+            })
+            .collect();
+        pitches.into_iter()
     }
 
     pub fn length(&self) -> Beat {
         self.0
             .iter()
-            .map(|section| section.length())
+            .map(|section| section.lock().expect("poisoned").length())
             .max()
             .unwrap_or(Beat::ZERO)
     }
@@ -37,7 +48,7 @@ impl Overlapped {
     pub fn duration(&self) -> Beat {
         self.0
             .iter()
-            .map(|section| section.duration())
+            .map(|section| section.lock().expect("poisoned").duration())
             .max()
             .unwrap_or(Beat::ZERO)
     }

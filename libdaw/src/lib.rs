@@ -4,9 +4,11 @@ pub mod notation;
 mod parse;
 pub mod pitch;
 pub mod stream;
+mod sync;
 pub mod time;
 
-use std::{fmt::Debug, rc::Rc};
+use std::fmt::Debug;
+use std::sync::Arc;
 pub use stream::Stream;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -14,11 +16,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// An audio node trait, allowing a sample_rate to be set and processing to
 /// be performed. Some things like setters are self, not mut self, because we
-/// need to support Rc<dyn Node> so upcasting works.  This will be fixed when
+/// need to support Arc<dyn Node> so upcasting works.  This will be fixed when
 /// https://github.com/rust-lang/rust/issues/65991 is fully finished and in
 /// stable rust.  When that happens, the interface will change to &mut self
 /// methods.
-pub trait Node: Debug {
+pub trait Node: Debug + Send + Sync {
     fn process<'a, 'b, 'c>(
         &'a self,
         inputs: &'b [Stream],
@@ -34,27 +36,27 @@ pub trait FrequencyNode: Node + DynNode {
 
 /// Dynamic upcasting trait for Node
 pub trait DynNode {
-    fn node(self: Rc<Self>) -> Rc<dyn Node>;
+    fn node(self: Arc<Self>) -> Arc<dyn Node>;
 }
 
 impl<T> DynNode for T
 where
     T: 'static + Node,
 {
-    fn node(self: Rc<Self>) -> Rc<dyn Node> {
+    fn node(self: Arc<Self>) -> Arc<dyn Node> {
         self
     }
 }
 /// Dynamic upcasting trait for FrequencyNode
 pub trait DynFrequencyNode {
-    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode>;
+    fn frequency_node(self: Arc<Self>) -> Arc<dyn FrequencyNode>;
 }
 
 impl<T> DynFrequencyNode for T
 where
     T: 'static + FrequencyNode,
 {
-    fn frequency_node(self: Rc<Self>) -> Rc<dyn FrequencyNode> {
+    fn frequency_node(self: Arc<Self>) -> Arc<dyn FrequencyNode> {
         self
     }
 }

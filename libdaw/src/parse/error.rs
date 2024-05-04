@@ -1,3 +1,4 @@
+use crate::metronome::IllegalBeat;
 use nom::error::ErrorKind;
 use std::{fmt, num::ParseIntError};
 
@@ -5,7 +6,7 @@ use std::{fmt, num::ParseIntError};
 pub enum Error<I> {
     Nom(nom::error::Error<I>),
     ParseInt(ParseIntError),
-    IllegalBeat(f64),
+    IllegalBeat(IllegalBeat),
 }
 
 impl Error<&str> {
