@@ -1,8 +1,10 @@
+mod parse;
+
 use super::{Chord, Note, Overlapped, Rest};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{notation::absolute as parse, Error},
+    parse::{Error, IResult},
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, Finish as _};
@@ -85,6 +87,10 @@ impl Item {
                 .expect("poisoned")
                 .duration(previous_length),
         }
+    }
+
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::item(input)
     }
 }
 

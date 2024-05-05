@@ -1,6 +1,8 @@
+mod parse;
+
 use crate::{
     metronome::Beat,
-    parse::{notation::absolute as parse, Error},
+    parse::{Error, IResult},
 };
 use nom::{combinator::all_consuming, Finish as _};
 use std::str::FromStr;
@@ -17,6 +19,9 @@ impl Rest {
     }
     pub const fn duration(&self) -> Beat {
         Beat::ZERO
+    }
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::rest(input)
     }
 }
 

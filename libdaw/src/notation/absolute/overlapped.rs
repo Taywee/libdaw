@@ -1,8 +1,10 @@
+mod parse;
+
 use super::Section;
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{notation::absolute as parse, Error},
+    parse::{Error, IResult},
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, Finish as _};
@@ -54,6 +56,9 @@ impl Overlapped {
             .map(|section| section.lock().expect("poisoned").duration(previous_length))
             .max()
             .unwrap_or(Beat::ZERO)
+    }
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::overlapped(input)
     }
 }
 

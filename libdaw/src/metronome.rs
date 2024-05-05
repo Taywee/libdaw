@@ -1,4 +1,6 @@
-use crate::time::Timestamp;
+mod parse;
+
+use crate::{parse::IResult, time::Timestamp};
 use ordered_float::OrderedFloat;
 use std::{
     fmt,
@@ -70,6 +72,10 @@ impl Beat {
 
     pub fn checked_add(self, other: Self) -> Result<Self, IllegalBeat> {
         Self::new(self.0 + other.0)
+    }
+
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::beat(input)
     }
 }
 

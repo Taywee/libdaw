@@ -1,7 +1,9 @@
+mod parse;
+
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{notation::absolute as parse, Error},
+    parse::{Error, IResult},
     pitch::{Pitch, PitchStandard},
 };
 use nom::{combinator::all_consuming, Finish as _};
@@ -59,6 +61,10 @@ impl Chord {
 
     pub fn duration(&self, previous_length: Beat) -> Beat {
         self.duration.or(self.length).unwrap_or(previous_length)
+    }
+
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::chord(input)
     }
 }
 
