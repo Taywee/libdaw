@@ -7,12 +7,15 @@ use crate::{
     pitch::{Pitch, PitchStandard},
 };
 use nom::{combinator::all_consuming, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 /// An absolute chord, contextually relevant.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Chord {
-    pub pitches: Vec<Pitch>,
+    pub pitches: Vec<Arc<Mutex<Pitch>>>,
 
     // Conceptual length of the chord in beats
     pub length: Option<Beat>,
@@ -44,7 +47,8 @@ impl Chord {
             .pitches
             .iter()
             .map(move |pitch| {
-                let frequency = pitch_standard.resolve(*pitch);
+                let pitch = pitch.lock().expect("poisoned");
+                let frequency = pitch_standard.resolve(&pitch);
                 Tone {
                     start,
                     length,
@@ -65,6 +69,18 @@ impl Chord {
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::chord(input)
+    }
+
+    pub fn deep_clone(&self) -> Self {
+        Self {
+            pitches: self
+                .pitches
+                .iter()
+                .map(|pitch| Arc::new(Mutex::new(pitch.lock().expect("poisoned").deep_clone())))
+                .collect(),
+            length: self.length,
+            duration: self.duration,
+        }
     }
 }
 

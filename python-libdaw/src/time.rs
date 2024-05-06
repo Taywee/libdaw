@@ -9,7 +9,7 @@ use pyo3::{
 };
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 
-#[pyclass]
+#[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Duration(pub libdaw::time::Duration);
 
@@ -67,9 +67,13 @@ impl Duration {
     pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
         self.clone()
     }
+
+    pub fn __getnewargs__(&self) -> (f64,) {
+        (self.0.seconds(),)
+    }
 }
 
-#[pyclass]
+#[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Time(pub libdaw::time::Time);
 
@@ -127,9 +131,13 @@ impl Time {
     pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
         self.clone()
     }
+
+    pub fn __getnewargs__(&self) -> (f64,) {
+        (self.0.seconds(),)
+    }
 }
 
-#[pyclass]
+#[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(pub libdaw::time::Timestamp);
 
@@ -186,6 +194,10 @@ impl Timestamp {
 
     pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
         self.clone()
+    }
+
+    pub fn __getnewargs__(&self) -> (f64,) {
+        (self.0.seconds(),)
     }
 }
 

@@ -1,23 +1,14 @@
 use pyo3::{
-    exceptions::PyIndexError,
     pyclass, pymethods,
     types::{PyAnyMethods as _, PyInt},
     Bound, PyAny, PyResult,
 };
 
+use crate::resolve_index;
+
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw")]
 pub struct Stream(pub ::libdaw::Stream);
-
-impl Stream {
-    /// Resolve a possibly-negative index into an adjusted one.
-    /// This is still signed to make dealing with things like insert easier.
-    fn resolve_index(&self, index: isize) -> PyResult<isize> {
-        let len = isize::try_from(self.__len__())
-            .map_err(|error| PyIndexError::new_err(error.to_string()))?;
-        Ok(if index < 0 { len + index } else { index })
-    }
-}
 
 #[pymethods]
 impl Stream {
@@ -41,17 +32,12 @@ impl Stream {
     }
 
     pub fn __getitem__(&self, index: isize) -> PyResult<f64> {
-        usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| self.0.get(index).copied())
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))
+        let index = resolve_index(self.__len__(), index)?;
+        Ok(self.0[index])
     }
     pub fn __setitem__(&mut self, index: isize, value: f64) -> PyResult<()> {
-        let slot = usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| self.0.get_mut(index))
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))?;
-        *slot = value;
+        let index = resolve_index(self.__len__(), index)?;
+        self.0[index] = value;
         Ok(())
     }
     pub fn __repr__(&self) -> String {

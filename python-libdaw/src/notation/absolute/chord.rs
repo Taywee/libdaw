@@ -2,40 +2,67 @@ use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
     pitch::{MaybePitchStandard, Pitch},
-    Result,
+    resolve_index, resolve_index_for_insert,
 };
-use libdaw::metronome::Beat as DawBeat;
-use pyo3::{exceptions::PyIndexError, pyclass, pymethods, Bound, PyResult};
+use libdaw::{metronome::Beat as DawBeat, notation::absolute::Chord as DawChord};
+use pyo3::{
+    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy as _, Py, PyResult,
+    PyTraverseError, PyVisit, Python,
+};
 use std::{
     ops::Deref as _,
     sync::{Arc, Mutex},
 };
 
-#[pyclass]
+#[pyclass(module = "libdaw.notation.absolute")]
 #[derive(Debug, Clone)]
-pub struct Chord(pub Arc<Mutex<libdaw::notation::absolute::Chord>>);
+pub struct Chord {
+    pub inner: Arc<Mutex<DawChord>>,
+    pub pitches: Vec<Py<Pitch>>,
+}
 
 impl Chord {
-    fn resolve_index(&self, index: isize) -> PyResult<isize> {
-        let len = isize::try_from(self.__len__())
-            .map_err(|error| PyIndexError::new_err(error.to_string()))?;
-        Ok(if index < 0 { len + index } else { index })
+    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawChord>>) -> Py<Self> {
+        let pitches = inner
+            .lock()
+            .expect("poisoned")
+            .pitches
+            .iter()
+            .cloned()
+            .map(move |pitch| Pitch::from_inner(py, pitch))
+            .collect();
+        Self { inner, pitches }
+            .into_py(py)
+            .downcast_bound(py)
+            .unwrap()
+            .clone()
+            .unbind()
     }
 }
 
 #[pymethods]
 impl Chord {
     #[new]
-    pub fn new(pitches: Vec<Pitch>, length: Option<Beat>, duration: Option<Beat>) -> Self {
-        Self(Arc::new(Mutex::new(libdaw::notation::absolute::Chord {
-            pitches: pitches.into_iter().map(|pitch| pitch.0).collect(),
-            length: length.map(|beat| beat.0),
-            duration: duration.map(|beat| beat.0),
-        })))
+    pub fn new(
+        pitches: Vec<Bound<'_, Pitch>>,
+        length: Option<Beat>,
+        duration: Option<Beat>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(DawChord {
+                pitches: pitches
+                    .iter()
+                    .map(|pitch| pitch.borrow().inner.clone())
+                    .collect(),
+                length: length.map(|beat| beat.0),
+                duration: duration.map(|beat| beat.0),
+            })),
+            pitches: pitches.into_iter().map(|pitch| pitch.unbind()).collect(),
+        }
     }
     #[staticmethod]
-    pub fn parse(source: String) -> Result<Self> {
-        Ok(Self(Arc::new(Mutex::new(source.parse()?))))
+    pub fn parse(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
+        Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 
     #[pyo3(
@@ -56,7 +83,7 @@ impl Chord {
     ) -> Vec<Tone> {
         let metronome = MaybeMetronome::from(metronome);
         let pitch_standard = MaybePitchStandard::from(pitch_standard);
-        self.0
+        self.inner
             .lock()
             .expect("poisoned")
             .resolve(
@@ -69,57 +96,56 @@ impl Chord {
             .collect()
     }
 
-    pub fn get_length(&self) -> Option<Beat> {
-        self.0.lock().expect("poisoned").length.map(Beat)
+    #[getter]
+    pub fn get_length_(&self) -> Option<Beat> {
+        self.inner.lock().expect("poisoned").length.map(Beat)
     }
-    pub fn get_duration(&self) -> Option<Beat> {
-        self.0.lock().expect("poisoned").duration.map(Beat)
+    #[getter]
+    pub fn get_duration_(&self) -> Option<Beat> {
+        self.inner.lock().expect("poisoned").duration.map(Beat)
     }
-    #[pyo3(signature = (value))]
-    pub fn set_length(&mut self, value: Option<Beat>) {
-        self.0.lock().expect("poisoned").length = value.map(|beat| beat.0);
+    #[setter]
+    pub fn set_length_(&mut self, value: Option<Beat>) {
+        self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
-    #[pyo3(signature = (value))]
-    pub fn set_duration(&mut self, value: Option<Beat>) {
-        self.0.lock().expect("poisoned").duration = value.map(|beat| beat.0);
+    #[setter]
+    pub fn set_duration_(&mut self, value: Option<Beat>) {
+        self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
     }
 
     pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").length(previous_length.0))
+        Beat(
+            self.inner
+                .lock()
+                .expect("poisoned")
+                .length(previous_length.0),
+        )
     }
 
     pub fn duration(&self, previous_length: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").duration(previous_length.0))
+        Beat(
+            self.inner
+                .lock()
+                .expect("poisoned")
+                .duration(previous_length.0),
+        )
     }
 
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self.0.lock().expect("poisoned"))
+        format!("{:?}", self.inner.lock().expect("poisoned"))
     }
 
     pub fn __len__(&self) -> usize {
-        self.0.lock().expect("poisoned").pitches.len()
+        self.pitches.len()
     }
-    pub fn __getitem__(&self, index: isize) -> PyResult<Pitch> {
-        usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| {
-                self.0
-                    .lock()
-                    .expect("poisoned")
-                    .pitches
-                    .get(index)
-                    .cloned()
-                    .map(Pitch)
-            })
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))
+    pub fn __getitem__(&self, index: isize) -> PyResult<Py<Pitch>> {
+        let index = resolve_index(self.pitches.len(), index)?;
+        Ok(self.pitches[index].clone())
     }
-    pub fn __setitem__(&mut self, index: isize, value: Pitch) -> PyResult<()> {
-        let mut lock = self.0.lock().expect("poisoned");
-        let slot = usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| lock.pitches.get_mut(index))
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))?;
-        *slot = value.0;
+    pub fn __setitem__(&mut self, index: isize, value: Bound<'_, Pitch>) -> PyResult<()> {
+        let index = resolve_index(self.pitches.len(), index)?;
+        self.inner.lock().expect("poisoned").pitches[index] = value.borrow().inner.clone();
+        self.pitches[index] = value.unbind();
         Ok(())
     }
     pub fn __delitem__(&mut self, index: isize) -> PyResult<()> {
@@ -127,50 +153,65 @@ impl Chord {
     }
 
     pub fn __iter__(&self) -> ChordIterator {
-        ChordIterator(self.0.lock().expect("poisoned").pitches.clone().into_iter())
+        ChordIterator(self.pitches.clone().into_iter())
     }
 
-    pub fn append(&mut self, value: Pitch) -> PyResult<()> {
-        self.0.lock().expect("poisoned").pitches.push(value.0);
+    pub fn append(&mut self, value: Bound<'_, Pitch>) -> PyResult<()> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .pitches
+            .push(value.borrow().inner.clone());
+        self.pitches.push(value.unbind());
         Ok(())
     }
 
-    pub fn insert(&mut self, index: isize, value: Pitch) -> PyResult<()> {
-        let index = usize::try_from(self.resolve_index(index)?).unwrap_or(0);
-        if index >= self.0.lock().expect("poisoned").pitches.len() {
-            self.0.lock().expect("poisoned").pitches.push(value.0);
-        } else {
-            self.0
-                .lock()
-                .expect("poisoned")
-                .pitches
-                .insert(index, value.0);
-        }
+    pub fn insert(&mut self, index: isize, value: Bound<'_, Pitch>) -> PyResult<()> {
+        let index = resolve_index_for_insert(self.pitches.len(), index)?;
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .pitches
+            .insert(index, value.borrow().inner.clone());
+        self.pitches.insert(index, value.unbind());
         Ok(())
     }
 
-    pub fn pop(&mut self, index: Option<isize>) -> PyResult<Pitch> {
-        let len = self.0.lock().expect("poisoned").pitches.len();
+    pub fn pop(&mut self, index: Option<isize>) -> PyResult<Py<Pitch>> {
+        let len = self.pitches.len();
         if len == 0 {
             return Err(PyIndexError::new_err("Pop from empty"));
         }
         let index = match index {
-            Some(index) => usize::try_from(self.resolve_index(index)?)
-                .ok()
-                .filter(move |index| *index < len)
-                .ok_or_else(|| PyIndexError::new_err("Index out of range"))?,
+            Some(index) => resolve_index(len, index)?,
             None => len - 1,
         };
+        self.inner.lock().expect("poisoned").pitches.remove(index);
+        Ok(self.pitches.remove(index))
+    }
+    pub fn __copy__(&self) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
+            pitches: self.pitches.clone(),
+        }
+    }
 
-        Ok(Pitch(
-            self.0.lock().expect("poisoned").pitches.remove(index),
-        ))
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for pitch in &self.pitches {
+            visit.call(pitch)?
+        }
+        Ok(())
+    }
+
+    pub fn __clear__(&mut self) {
+        self.inner.lock().expect("poisoned").pitches.clear();
+        self.pitches.clear();
     }
 }
 
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw.notation.absolute")]
-pub struct ChordIterator(pub std::vec::IntoIter<libdaw::pitch::Pitch>);
+pub struct ChordIterator(pub std::vec::IntoIter<Py<Pitch>>);
 
 #[pymethods]
 impl ChordIterator {
@@ -180,7 +221,7 @@ impl ChordIterator {
     pub fn __repr__(&self) -> String {
         format!("ChordIterator<{:?}>", self.0)
     }
-    pub fn __next__(&mut self) -> Option<Pitch> {
-        self.0.next().map(Pitch)
+    pub fn __next__(&mut self) -> Option<Py<Pitch>> {
+        self.0.next()
     }
 }

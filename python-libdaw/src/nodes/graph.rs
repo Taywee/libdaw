@@ -13,10 +13,10 @@ use std::{
 
 #[pyclass(module = "libdaw.nodes")]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct GraphIndex(libdaw::nodes::graph::Index);
+pub struct Index(libdaw::nodes::graph::Index);
 
 #[pymethods]
-impl GraphIndex {
+impl Index {
     pub fn __repr__(&self) -> String {
         format!("{self:?}")
     }
@@ -32,13 +32,13 @@ impl GraphIndex {
     }
 }
 
-impl From<libdaw::nodes::graph::Index> for GraphIndex {
+impl From<libdaw::nodes::graph::Index> for Index {
     fn from(value: libdaw::nodes::graph::Index) -> Self {
         Self(value)
     }
 }
-impl From<GraphIndex> for libdaw::nodes::graph::Index {
-    fn from(value: GraphIndex) -> Self {
+impl From<Index> for libdaw::nodes::graph::Index {
+    fn from(value: Index) -> Self {
         value.0
     }
 }
@@ -55,22 +55,17 @@ impl Graph {
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 
-    pub fn add(&self, node: Bound<'_, Node>) -> GraphIndex {
+    pub fn add(&self, node: Bound<'_, Node>) -> Index {
         self.0.add(node.borrow().0.clone()).into()
     }
 
-    pub fn remove(&self, index: GraphIndex) -> Result<Option<Node>> {
+    pub fn remove(&self, index: Index) -> Result<Option<Node>> {
         Ok(self.0.remove(index.0)?.map(Node))
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
-    pub fn connect(
-        &self,
-        source: GraphIndex,
-        destination: GraphIndex,
-        stream: Option<usize>,
-    ) -> Result<()> {
+    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
         self.0
             .connect(source.0, destination.0, stream)
             .map_err(Into::into)
@@ -80,8 +75,8 @@ impl Graph {
     /// indicating if anything was disconnected.
     pub fn disconnect(
         &self,
-        source: GraphIndex,
-        destination: GraphIndex,
+        source: Index,
+        destination: Index,
         stream: Option<usize>,
     ) -> Result<()> {
         self.0
@@ -92,31 +87,31 @@ impl Graph {
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&self, source: GraphIndex, stream: Option<usize>) -> Result<()> {
+    pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.0.input(source.0, stream).map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&self, source: GraphIndex, stream: Option<usize>) -> Result<()> {
+    pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.0.remove_input(source.0, stream).map_err(Into::into)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn output(&self, source: GraphIndex, stream: Option<usize>) -> Result<()> {
+    pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.0.output(source.0, stream).map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&self, source: GraphIndex, stream: Option<usize>) -> Result<()> {
+    pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.0.remove_output(source.0, stream).map_err(Into::into)
     }
 }
 
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<GraphIndex>()?;
+    module.add_class::<Index>()?;
     Ok(())
 }

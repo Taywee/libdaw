@@ -12,13 +12,13 @@ use std::str::FromStr;
 
 /// A linear sequence of items.
 #[derive(Default, Debug, Clone)]
-pub struct Section(pub Vec<Item>);
+pub struct Sequence(pub Vec<Item>);
 
-impl FromStr for Section {
+impl FromStr for Sequence {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::section)(s)
+        let note = all_consuming(parse::sequence)(s)
             .finish()
             .map_err(|e| e.to_owned())?
             .1;
@@ -26,7 +26,7 @@ impl FromStr for Section {
     }
 }
 
-impl Section {
+impl Sequence {
     pub fn resolve<S>(
         &self,
         offset: Beat,
@@ -74,6 +74,9 @@ impl Section {
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::section(input)
+        parse::sequence(input)
+    }
+    pub fn deep_clone(&self) -> Self {
+        Self(self.0.iter().map(Item::deep_clone).collect())
     }
 }

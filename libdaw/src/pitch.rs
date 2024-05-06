@@ -5,6 +5,7 @@ use nom::{combinator::all_consuming, Finish};
 use std::fmt;
 use std::fmt::Debug;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 /// A relative pitch within an octave, corresponding to the western note names
 /// and a standard C major scale.
@@ -86,15 +87,23 @@ impl FromStr for PitchClass {
 
 /// An absolute pitch, with the octave and any adjustments specified.  This lets
 /// you get any frequency, subject to the PitchStandard used.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Pitch {
-    pub pitch_class: PitchClass,
+    pub pitch_class: Arc<Mutex<PitchClass>>,
     pub octave: i8,
 }
 
 impl Pitch {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::pitch(input)
+    }
+    pub fn deep_clone(&self) -> Self {
+        Self {
+            pitch_class: Arc::new(Mutex::new(
+                self.pitch_class.lock().expect("poisoned").clone(),
+            )),
+            octave: self.octave,
+        }
     }
 }
 
@@ -117,7 +126,7 @@ impl FromStr for Pitch {
 
 pub trait PitchStandard: Debug + Send + Sync {
     /// Resolve a pitch to a frequency.
-    fn resolve(&self, pitch: Pitch) -> f64;
+    fn resolve(&self, pitch: &Pitch) -> f64;
 }
 
 trait TwelveToneEqualTemperament {
@@ -147,10 +156,10 @@ impl<T> PitchStandard for T
 where
     T: TwelveToneEqualTemperament + Debug + Send + Sync,
 {
-    fn resolve(&self, pitch: Pitch) -> f64 {
-        let exponent_numerator = pitch.octave as f64 * 12.0
-            + pitch.pitch_class.name as i8 as f64
-            + pitch.pitch_class.adjustment;
+    fn resolve(&self, pitch: &Pitch) -> f64 {
+        let pitch_class = pitch.pitch_class.lock().expect("poisoned");
+        let exponent_numerator =
+            pitch.octave as f64 * 12.0 + pitch_class.name as i8 as f64 + pitch_class.adjustment;
         Self::c0() * 2.0f64.powf(exponent_numerator / 12.0)
     }
 }
@@ -165,12 +174,12 @@ mod tests {
     fn a440() {
         assert_eq!(
             round(
-                A440.resolve(Pitch {
+                A440.resolve(&Pitch {
                     octave: 4,
-                    pitch_class: PitchClass {
+                    pitch_class: Arc::new(Mutex::new(PitchClass {
                         name: PitchName::A,
                         adjustment: 0.0
-                    }
+                    })),
                 }),
                 1.0e10
             ),
@@ -181,12 +190,12 @@ mod tests {
     fn scientific_pitch() {
         assert_eq!(
             round(
-                ScientificPitch.resolve(Pitch {
+                ScientificPitch.resolve(&Pitch {
                     octave: 4,
-                    pitch_class: PitchClass {
+                    pitch_class: Arc::new(Mutex::new(PitchClass {
                         name: PitchName::C,
                         adjustment: 0.0
-                    }
+                    })),
                 }),
                 1.0e10
             ),
