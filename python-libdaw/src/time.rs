@@ -60,14 +60,6 @@ impl Duration {
         hasher.finish()
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
-    }
-
     pub fn __getnewargs__(&self) -> (f64,) {
         (self.0.seconds(),)
     }
@@ -124,14 +116,6 @@ impl Time {
         hasher.finish()
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
-    }
-
     pub fn __getnewargs__(&self) -> (f64,) {
         (self.0.seconds(),)
     }
@@ -186,14 +170,6 @@ impl Timestamp {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
-    }
-
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
     }
 
     pub fn __getnewargs__(&self) -> (f64,) {

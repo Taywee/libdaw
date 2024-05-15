@@ -189,11 +189,13 @@ impl Chord {
         self.inner.lock().expect("poisoned").pitches.remove(index);
         Ok(self.pitches.remove(index))
     }
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-            pitches: self.pitches.clone(),
-        }
+    pub fn __getnewargs__(&self) -> (Vec<Py<Pitch>>, Option<Beat>, Option<Beat>) {
+        let lock = self.inner.lock().expect("poisoned");
+        (
+            self.pitches.clone(),
+            lock.length.map(Beat),
+            lock.duration.map(Beat),
+        )
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {

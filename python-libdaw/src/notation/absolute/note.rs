@@ -127,12 +127,15 @@ impl Note {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
 
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-            pitch: self.pitch.clone(),
-        }
+    pub fn __getnewargs__(&self) -> (Py<Pitch>, Option<Beat>, Option<Beat>) {
+        let lock = self.inner.lock().expect("poisoned");
+        (
+            self.pitch.clone().expect("cleared"),
+            lock.length.map(Beat),
+            lock.duration.map(Beat),
+        )
     }
+
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         if let Some(pitch) = &self.pitch {
             visit.call(pitch)?

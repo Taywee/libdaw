@@ -1,14 +1,14 @@
+use crate::resolve_index;
+use libdaw::Stream as DawStream;
 use pyo3::{
     pyclass, pymethods,
     types::{PyAnyMethods as _, PyInt},
     Bound, PyAny, PyResult,
 };
 
-use crate::resolve_index;
-
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw")]
-pub struct Stream(pub ::libdaw::Stream);
+pub struct Stream(pub DawStream);
 
 #[pymethods]
 impl Stream {
@@ -16,10 +16,10 @@ impl Stream {
     pub fn new(value: Bound<'_, PyAny>) -> PyResult<Self> {
         if let Ok(channels) = value.downcast::<PyInt>() {
             let channels = channels.extract()?;
-            Ok(Self(::libdaw::Stream::new(channels)))
+            Ok(Self(DawStream::new(channels)))
         } else {
             let values: Vec<f64> = value.extract()?;
-            let mut inner = ::libdaw::Stream::new(values.len());
+            let mut inner = DawStream::new(values.len());
             for (l, r) in inner.iter_mut().zip(values) {
                 *l = r;
             }
@@ -72,12 +72,8 @@ impl Stream {
         Ok(())
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
+    pub fn __getnewargs__(&self) -> (Vec<f64>,) {
+        (self.0.into_iter().collect(),)
     }
 
     pub fn __iter__(&self) -> StreamIterator {
@@ -87,7 +83,7 @@ impl Stream {
 
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw")]
-pub struct StreamIterator(pub <::libdaw::Stream as IntoIterator>::IntoIter);
+pub struct StreamIterator(pub <DawStream as IntoIterator>::IntoIter);
 
 #[pymethods]
 impl StreamIterator {

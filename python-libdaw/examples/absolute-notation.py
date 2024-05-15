@@ -37,10 +37,7 @@ def change_adjustments(item: _Item, amount: float = 0):
         case Note():
             item.pitch.pitch_class.adjustment += amount
 
-change_adjustments(sequence, 1)
-
-import copy
-copy.deepcopy(sequence)
+change_adjustments(sequence, 0)
 
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))

@@ -167,11 +167,8 @@ impl Sequence {
         self.inner.lock().expect("poisoned").0.remove(index);
         Ok(self.items.remove(index))
     }
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-            items: self.items.clone(),
-        }
+    pub fn __getnewargs__(&self) -> (Vec<Item>,) {
+        (self.items.clone(),)
     }
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         for item in &self.items {

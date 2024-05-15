@@ -64,9 +64,7 @@ impl Rest {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
 
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-        }
+    pub fn __getnewargs__(&self) -> (Option<Beat>,) {
+        (self.get_length_(),)
     }
 }
