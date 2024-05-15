@@ -1,7 +1,7 @@
 use libdaw::pitch::{Pitch as DawPitch, PitchClass as DawPitchClass, PitchName as DawPitchName};
 use pyo3::{
-    marker::Python, pyclass, pymethods, types::PyMapping, Bound, IntoPy, Py, PyTraverseError,
-    PyVisit,
+    exceptions::PyValueError, marker::Python, pyclass, pymethods, types::PyMapping, Bound, IntoPy,
+    Py, PyResult, PyTraverseError, PyVisit,
 };
 use std::{
     ops::Deref,
@@ -18,6 +18,35 @@ pub enum PitchName {
     G,
     A,
     B,
+}
+
+#[pymethods]
+impl PitchName {
+    #[new]
+    pub fn new(name: &str) -> PyResult<Self> {
+        match name {
+            "C" | "c" => Ok(Self::C),
+            "D" | "d" => Ok(Self::D),
+            "E" | "e" => Ok(Self::E),
+            "F" | "f" => Ok(Self::F),
+            "G" | "g" => Ok(Self::G),
+            "A" | "a" => Ok(Self::A),
+            "B" | "b" => Ok(Self::B),
+            name => Err(PyValueError::new_err(format!("Unknown name {name}"))),
+        }
+    }
+
+    pub fn __getnewargs__(&self) -> (&str,) {
+        match self {
+            PitchName::C => ("C",),
+            PitchName::D => ("D",),
+            PitchName::E => ("E",),
+            PitchName::F => ("F",),
+            PitchName::G => ("G",),
+            PitchName::A => ("A",),
+            PitchName::B => ("B",),
+        }
+    }
 }
 
 impl From<PitchName> for DawPitchName {
@@ -94,16 +123,9 @@ impl PitchClass {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-        }
-    }
-    #[allow(unused_variables)]
-    pub fn __deepcopy__(&self, memo: &Bound<'_, PyMapping>) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-        }
+    pub fn __getnewargs__(&self) -> (PitchName, f64) {
+        let lock = self.inner.lock().expect("poisoned");
+        (lock.name.into(), lock.adjustment)
     }
 }
 
@@ -143,8 +165,8 @@ impl Pitch {
         }
     }
     #[getter]
-    pub fn get_pitch_class(&self) -> Py<PitchClass> {
-        self.pitch_class.clone().expect("cleared")
+    pub fn get_pitch_class(&self) -> &Py<PitchClass> {
+        self.pitch_class.as_ref().expect("cleared")
     }
     #[setter]
     pub fn set_pitch_class(&mut self, value: &Bound<'_, PitchClass>) {
@@ -162,11 +184,9 @@ impl Pitch {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
-    pub fn __copy__(&self) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(self.inner.lock().expect("poisoned").clone())),
-            pitch_class: self.pitch_class.clone(),
-        }
+    pub fn __getnewargs__(&self) -> (&Py<PitchClass>, i8) {
+        let lock = self.inner.lock().expect("poisoned");
+        (self.pitch_class.as_ref().expect("cleared"), lock.octave)
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
