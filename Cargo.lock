@@ -671,6 +671,7 @@ name = "python-libdaw"
 version = "0.1.0"
 dependencies = [
  "libdaw",
+ "nohash-hasher",
  "pyo3",
  "rodio",
 ]

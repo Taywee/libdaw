@@ -1,10 +1,12 @@
 use crate::{Node, Result};
+use libdaw::nodes::graph::Index as DawIndex;
+use nohash_hasher::IntMap;
 use pyo3::{
     pyclass,
     pyclass::CompareOp,
     pymethods,
     types::{PyModule, PyModuleMethods as _},
-    Bound, PyClassInitializer, PyResult,
+    Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit,
 };
 use std::{
     hash::{DefaultHasher, Hash as _, Hasher as _},
@@ -13,7 +15,7 @@ use std::{
 
 #[pyclass(module = "libdaw.nodes")]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Index(libdaw::nodes::graph::Index);
+pub struct Index(DawIndex);
 
 #[pymethods]
 impl Index {
@@ -32,12 +34,12 @@ impl Index {
     }
 }
 
-impl From<libdaw::nodes::graph::Index> for Index {
-    fn from(value: libdaw::nodes::graph::Index) -> Self {
+impl From<DawIndex> for Index {
+    fn from(value: DawIndex) -> Self {
         Self(value)
     }
 }
-impl From<Index> for libdaw::nodes::graph::Index {
+impl From<Index> for DawIndex {
     fn from(value: Index) -> Self {
         value.0
     }
@@ -45,28 +47,37 @@ impl From<Index> for libdaw::nodes::graph::Index {
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
-pub struct Graph(pub Arc<::libdaw::nodes::Graph>);
+pub struct Graph {
+    inner: Arc<::libdaw::nodes::Graph>,
+    nodes: IntMap<DawIndex, Py<Node>>,
+}
 
 #[pymethods]
 impl Graph {
     #[new]
     pub fn new() -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::Graph::default());
-        PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
+        PyClassInitializer::from(Node(inner.clone())).add_subclass(Self {
+            inner,
+            nodes: Default::default(),
+        })
     }
 
-    pub fn add(&self, node: Bound<'_, Node>) -> Index {
-        self.0.add(node.borrow().0.clone()).into()
+    pub fn add(&mut self, node: Bound<'_, Node>) -> Index {
+        let index = self.inner.add(node.borrow().0.clone());
+        self.nodes.insert(index, node.unbind());
+        index.into()
     }
 
-    pub fn remove(&self, index: Index) -> Result<Option<Node>> {
-        Ok(self.0.remove(index.0)?.map(Node))
+    pub fn remove(&mut self, index: Index) -> Result<Option<Py<Node>>> {
+        self.inner.remove(index.0)?;
+        Ok(self.nodes.remove(&index.into()))
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
     pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
-        self.0
+        self.inner
             .connect(source.0, destination.0, stream)
             .map_err(Into::into)
     }
@@ -79,7 +90,7 @@ impl Graph {
         destination: Index,
         stream: Option<usize>,
     ) -> Result<()> {
-        self.0
+        self.inner
             .disconnect(source.0, destination.0, stream)
             .map_err(Into::into)
     }
@@ -88,26 +99,46 @@ impl Graph {
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.0.input(source.0, stream).map_err(Into::into)
+        self.inner.input(source.0, stream).map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.0.remove_input(source.0, stream).map_err(Into::into)
+        self.inner
+            .remove_input(source.0, stream)
+            .map_err(Into::into)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.0.output(source.0, stream).map_err(Into::into)
+        self.inner.output(source.0, stream).map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.0.remove_output(source.0, stream).map_err(Into::into)
+        self.inner
+            .remove_output(source.0, stream)
+            .map_err(Into::into)
+    }
+    fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {
+        for node in self.nodes.values() {
+            visit.call(node)?
+        }
+        Ok(())
+    }
+
+    pub fn __clear__(&mut self) {
+        for index in self.nodes.keys().copied() {
+            self.inner
+                .remove(index)
+                .expect("illegal index")
+                .expect("unfilled index");
+        }
+        self.nodes.clear();
     }
 }
 
