@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{Chord, Note, Overlapped, Rest};
+use super::{Chord, Note, Overlapped, Rest, Sequence};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -19,6 +19,7 @@ pub enum Item {
     Chord(Arc<Mutex<Chord>>),
     Rest(Arc<Mutex<Rest>>),
     Overlapped(Arc<Mutex<Overlapped>>),
+    Sequence(Arc<Mutex<Sequence>>),
 }
 
 impl Item {
@@ -54,6 +55,12 @@ impl Item {
                 pitch_standard,
                 previous_length,
             )),
+            Item::Sequence(sequence) => Box::new(sequence.lock().expect("poisoned").resolve(
+                offset,
+                metronome,
+                pitch_standard,
+                previous_length,
+            )),
         }
     }
 
@@ -65,6 +72,7 @@ impl Item {
             Item::Overlapped(overlapped) => {
                 overlapped.lock().expect("poisoned").length(previous_length)
             }
+            Item::Sequence(sequence) => sequence.lock().expect("poisoned").length(previous_length),
         }
     }
 
@@ -74,6 +82,7 @@ impl Item {
             Item::Chord(chord) => chord.lock().expect("poisoned").length(previous_length),
             Item::Rest(rest) => rest.lock().expect("poisoned").length(previous_length),
             Item::Overlapped(_) => previous_length,
+            Item::Sequence(_) => previous_length,
         }
     }
 
@@ -86,11 +95,34 @@ impl Item {
                 .lock()
                 .expect("poisoned")
                 .duration(previous_length),
+            Item::Sequence(sequence) => {
+                sequence.lock().expect("poisoned").duration(previous_length)
+            }
         }
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::item(input)
+    }
+
+    pub fn deep_clone(&self) -> Self {
+        match self {
+            Item::Note(note) => Item::Note(Arc::new(Mutex::new(
+                note.lock().expect("poisoned").deep_clone(),
+            ))),
+            Item::Chord(chord) => Item::Chord(Arc::new(Mutex::new(
+                chord.lock().expect("poisoned").deep_clone(),
+            ))),
+            Item::Rest(rest) => {
+                Item::Rest(Arc::new(Mutex::new(rest.lock().expect("poisoned").clone())))
+            }
+            Item::Overlapped(overlapped) => Item::Overlapped(Arc::new(Mutex::new(
+                overlapped.lock().expect("poisoned").deep_clone(),
+            ))),
+            Item::Sequence(sequence) => Item::Sequence(Arc::new(Mutex::new(
+                sequence.lock().expect("poisoned").deep_clone(),
+            ))),
+        }
     }
 }
 

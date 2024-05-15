@@ -1,5 +1,6 @@
+use crate::resolve_index;
+use libdaw::Stream as DawStream;
 use pyo3::{
-    exceptions::PyIndexError,
     pyclass, pymethods,
     types::{PyAnyMethods as _, PyInt},
     Bound, PyAny, PyResult,
@@ -7,17 +8,7 @@ use pyo3::{
 
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw")]
-pub struct Stream(pub ::libdaw::Stream);
-
-impl Stream {
-    /// Resolve a possibly-negative index into an adjusted one.
-    /// This is still signed to make dealing with things like insert easier.
-    fn resolve_index(&self, index: isize) -> PyResult<isize> {
-        let len = isize::try_from(self.__len__())
-            .map_err(|error| PyIndexError::new_err(error.to_string()))?;
-        Ok(if index < 0 { len + index } else { index })
-    }
-}
+pub struct Stream(pub DawStream);
 
 #[pymethods]
 impl Stream {
@@ -25,10 +16,10 @@ impl Stream {
     pub fn new(value: Bound<'_, PyAny>) -> PyResult<Self> {
         if let Ok(channels) = value.downcast::<PyInt>() {
             let channels = channels.extract()?;
-            Ok(Self(::libdaw::Stream::new(channels)))
+            Ok(Self(DawStream::new(channels)))
         } else {
             let values: Vec<f64> = value.extract()?;
-            let mut inner = ::libdaw::Stream::new(values.len());
+            let mut inner = DawStream::new(values.len());
             for (l, r) in inner.iter_mut().zip(values) {
                 *l = r;
             }
@@ -41,17 +32,12 @@ impl Stream {
     }
 
     pub fn __getitem__(&self, index: isize) -> PyResult<f64> {
-        usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| self.0.get(index).copied())
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))
+        let index = resolve_index(self.__len__(), index)?;
+        Ok(self.0[index])
     }
     pub fn __setitem__(&mut self, index: isize, value: f64) -> PyResult<()> {
-        let slot = usize::try_from(self.resolve_index(index)?)
-            .ok()
-            .and_then(|index| self.0.get_mut(index))
-            .ok_or_else(|| PyIndexError::new_err("Index out of range"))?;
-        *slot = value;
+        let index = resolve_index(self.__len__(), index)?;
+        self.0[index] = value;
         Ok(())
     }
     pub fn __repr__(&self) -> String {
@@ -86,12 +72,8 @@ impl Stream {
         Ok(())
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
+    pub fn __getnewargs__(&self) -> (Vec<f64>,) {
+        (self.0.into_iter().collect(),)
     }
 
     pub fn __iter__(&self) -> StreamIterator {
@@ -101,7 +83,7 @@ impl Stream {
 
 #[derive(Debug, Clone)]
 #[pyclass(sequence, module = "libdaw")]
-pub struct StreamIterator(pub <::libdaw::Stream as IntoIterator>::IntoIter);
+pub struct StreamIterator(pub <DawStream as IntoIterator>::IntoIter);
 
 #[pymethods]
 impl StreamIterator {

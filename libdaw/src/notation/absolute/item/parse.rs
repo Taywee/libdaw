@@ -1,5 +1,5 @@
 use crate::{
-    notation::absolute::{Chord, Item, Note, Overlapped, Rest},
+    notation::absolute::{Chord, Item, Note, Overlapped, Rest, Sequence},
     parse::IResult,
 };
 use nom::{branch::alt, combinator::map};
@@ -18,6 +18,9 @@ pub fn item(input: &str) -> IResult<&str, Item> {
         }),
         map(Overlapped::parse, move |overlapped| {
             Item::Overlapped(Arc::new(Mutex::new(overlapped)))
+        }),
+        map(Sequence::parse, move |sequence| {
+            Item::Sequence(Arc::new(Mutex::new(sequence)))
         }),
     ))(input)
 }

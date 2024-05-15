@@ -44,12 +44,8 @@ impl Beat {
         hasher.finish()
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
+    pub fn __getnewargs__(&self) -> (f64,) {
+        (self.0.get(),)
     }
 }
 
@@ -85,12 +81,8 @@ impl BeatsPerMinute {
         hasher.finish()
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
+    pub fn __getnewargs__(&self) -> (f64,) {
+        (self.0.get(),)
     }
 }
 
@@ -131,12 +123,8 @@ impl TempoInstruction {
         hasher.finish()
     }
 
-    pub fn __copy__(&self) -> Self {
-        self.clone()
-    }
-
-    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
-        self.clone()
+    pub fn __getnewargs__(&self) -> (Beat, BeatsPerMinute) {
+        (self.get_beat(), self.get_tempo())
     }
 }
 

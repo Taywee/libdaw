@@ -1,3 +1,3 @@
-class GraphIndex:
+class Index:
     pass
 

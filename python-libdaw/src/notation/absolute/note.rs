@@ -2,41 +2,64 @@ use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
     pitch::{MaybePitchStandard, Pitch},
-    Result,
 };
 use libdaw::metronome::Beat as DawBeat;
-use pyo3::{pyclass, pymethods};
+use libdaw::notation::absolute::Note as DawNote;
+use pyo3::{pyclass, pymethods, Bound, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass]
+#[pyclass(module = "libdaw.notation.absolute")]
 #[derive(Debug, Clone)]
-pub struct Note(pub Arc<Mutex<libdaw::notation::absolute::Note>>);
+pub struct Note {
+    pub inner: Arc<Mutex<DawNote>>,
+    pub pitch: Option<Py<Pitch>>,
+}
+
+impl Note {
+    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawNote>>) -> Py<Self> {
+        let pitch = Pitch::from_inner(py, inner.lock().expect("poisoned").pitch.clone());
+        Self {
+            inner,
+            pitch: Some(pitch),
+        }
+        .into_py(py)
+        .downcast_bound(py)
+        .unwrap()
+        .clone()
+        .unbind()
+    }
+}
 
 #[pymethods]
 impl Note {
     #[new]
-    pub fn new(pitch: Pitch, length: Option<Beat>, duration: Option<Beat>) -> Self {
-        Self(Arc::new(Mutex::new(libdaw::notation::absolute::Note {
-            pitch: pitch.0,
-            length: length.map(|beat| beat.0),
-            duration: duration.map(|beat| beat.0),
-        })))
+    pub fn new(pitch: Bound<'_, Pitch>, length: Option<Beat>, duration: Option<Beat>) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(DawNote {
+                pitch: pitch.borrow().inner.clone(),
+                length: length.map(|beat| beat.0),
+                duration: duration.map(|beat| beat.0),
+            })),
+            pitch: Some(pitch.unbind()),
+        }
     }
+
     #[staticmethod]
-    pub fn parse(source: String) -> Result<Self> {
-        Ok(Self(Arc::new(Mutex::new(source.parse()?))))
+    pub fn parse(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
+        Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 
     #[getter]
-    pub fn get_pitch(&self) -> Pitch {
-        Pitch(self.0.lock().expect("poisoned").pitch)
+    pub fn get_pitch(&self) -> Py<Pitch> {
+        self.pitch.clone().expect("cleared")
     }
     #[setter]
-    pub fn set_pitch(&mut self, value: Pitch) {
-        self.0.lock().expect("poisoned").pitch = value.0
+    pub fn set_pitch(&mut self, value: Bound<'_, Pitch>) {
+        self.inner.lock().expect("poisoned").pitch = value.borrow().inner.clone();
+        self.pitch = Some(value.unbind());
     }
 
     #[pyo3(
@@ -57,7 +80,7 @@ impl Note {
     ) -> Tone {
         let metronome = MaybeMetronome::from(metronome);
         let pitch_standard = MaybePitchStandard::from(pitch_standard);
-        Tone(self.0.lock().expect("poisoned").resolve(
+        Tone(self.inner.lock().expect("poisoned").resolve(
             offset.0,
             &metronome,
             pitch_standard.deref(),
@@ -65,30 +88,62 @@ impl Note {
         ))
     }
 
-    pub fn get_length(&self) -> Option<Beat> {
-        self.0.lock().expect("poisoned").length.map(Beat)
+    #[getter]
+    pub fn get_length_(&self) -> Option<Beat> {
+        self.inner.lock().expect("poisoned").length.map(Beat)
     }
-    pub fn get_duration(&self) -> Option<Beat> {
-        self.0.lock().expect("poisoned").duration.map(Beat)
+    #[getter]
+    pub fn get_duration_(&self) -> Option<Beat> {
+        self.inner.lock().expect("poisoned").duration.map(Beat)
     }
-    #[pyo3(signature = (value))]
-    pub fn set_length(&mut self, value: Option<Beat>) {
-        self.0.lock().expect("poisoned").length = value.map(|beat| beat.0);
+    #[setter]
+    pub fn set_length_(&mut self, value: Option<Beat>) {
+        self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
-    #[pyo3(signature = (value))]
-    pub fn set_duration(&mut self, value: Option<Beat>) {
-        self.0.lock().expect("poisoned").duration = value.map(|beat| beat.0);
+    #[setter]
+    pub fn set_duration_(&mut self, value: Option<Beat>) {
+        self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
     }
 
     pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").length(previous_length.0))
+        Beat(
+            self.inner
+                .lock()
+                .expect("poisoned")
+                .length(previous_length.0),
+        )
     }
 
     pub fn duration(&self, previous_length: Beat) -> Beat {
-        Beat(self.0.lock().expect("poisoned").duration(previous_length.0))
+        Beat(
+            self.inner
+                .lock()
+                .expect("poisoned")
+                .duration(previous_length.0),
+        )
     }
 
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self.0.lock().expect("poisoned").deref())
+        format!("{:?}", self.inner.lock().expect("poisoned").deref())
+    }
+
+    pub fn __getnewargs__(&self) -> (Py<Pitch>, Option<Beat>, Option<Beat>) {
+        let lock = self.inner.lock().expect("poisoned");
+        (
+            self.pitch.clone().expect("cleared"),
+            lock.length.map(Beat),
+            lock.duration.map(Beat),
+        )
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(pitch) = &self.pitch {
+            visit.call(pitch)?
+        }
+        Ok(())
+    }
+
+    pub fn __clear__(&mut self) {
+        self.pitch = None;
     }
 }

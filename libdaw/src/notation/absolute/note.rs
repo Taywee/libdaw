@@ -7,12 +7,15 @@ use crate::{
     pitch::{Pitch, PitchStandard},
 };
 use nom::{combinator::all_consuming, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 /// An absolute note, contextually relevant.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Note {
-    pub pitch: Pitch,
+    pub pitch: Arc<Mutex<Pitch>>,
 
     // Conceptual length of the note in beats
     pub length: Option<Beat>,
@@ -35,7 +38,7 @@ impl Note {
     where
         S: PitchStandard + ?Sized,
     {
-        let frequency = pitch_standard.resolve(self.pitch);
+        let frequency = pitch_standard.resolve(&self.pitch.lock().expect("poisoned"));
         let start = metronome.beat_to_time(offset);
         let duration = self.duration(previous_length);
         let end_beat = offset + duration;
@@ -58,6 +61,15 @@ impl Note {
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::note(input)
+    }
+    pub fn deep_clone(&self) -> Self {
+        Self {
+            pitch: Arc::new(Mutex::new(
+                self.pitch.lock().expect("poisoned").deep_clone(),
+            )),
+            length: self.length,
+            duration: self.duration,
+        }
     }
 }
 

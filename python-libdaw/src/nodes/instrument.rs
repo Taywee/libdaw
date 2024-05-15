@@ -12,7 +12,7 @@ use pyo3::{
 };
 use std::sync::Arc;
 
-#[pyclass]
+#[pyclass(module = "libdaw.nodes.instrument")]
 #[derive(Debug, Clone, Copy)]
 pub struct Tone(pub instrument::Tone);
 

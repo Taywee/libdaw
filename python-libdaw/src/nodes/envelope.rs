@@ -23,7 +23,7 @@ impl<'py> FromPyObject<'py> for Offset {
     }
 }
 
-#[pyclass]
+#[pyclass(module = "libdaw.nodes.envelope")]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Point(pub envelope::Point);
 

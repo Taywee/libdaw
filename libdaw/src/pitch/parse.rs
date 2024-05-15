@@ -1,12 +1,9 @@
-use crate::parse::{Error, IResult};
+use std::sync::{Arc, Mutex};
+
+use crate::parse::IResult;
 use crate::pitch::{Pitch, PitchClass, PitchName};
-use nom::{
-    bytes::complete::tag,
-    character::complete::{digit1, one_of},
-    combinator::{opt, recognize},
-    multi::fold_many0,
-    sequence::preceded,
-};
+use nom::character::complete::i8;
+use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, multi::fold_many0};
 
 pub fn pitch_name(input: &str) -> IResult<&str, PitchName> {
     let (input, note) = one_of("cdefgabCDEFGAB")(input)?;
@@ -63,14 +60,6 @@ fn adjustment(input: &str) -> IResult<&str, f64> {
     ))
 }
 
-fn octave(input: &str) -> IResult<&str, i8> {
-    let (input, octave_str) = recognize(preceded(opt(tag("-")), digit1))(input)?;
-    let octave = octave_str
-        .parse()
-        .map_err(|e| nom::Err::Error(Error::from(e)))?;
-    Ok((input, octave))
-}
-
 pub fn pitch_class(input: &str) -> IResult<&str, PitchClass> {
     let (input, note) = pitch_name(input)?;
     let (input, adjustment) = adjustment(input)?;
@@ -85,11 +74,11 @@ pub fn pitch_class(input: &str) -> IResult<&str, PitchClass> {
 
 pub fn pitch(input: &str) -> IResult<&str, Pitch> {
     let (input, pitch_class) = pitch_class(input)?;
-    let (input, octave) = octave(input)?;
+    let (input, octave) = i8(input)?;
     Ok((
         input,
         Pitch {
-            pitch_class,
+            pitch_class: Arc::new(Mutex::new(pitch_class)),
             octave,
         },
     ))
