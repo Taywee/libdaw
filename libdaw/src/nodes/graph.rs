@@ -414,7 +414,7 @@ impl InnerGraph {
                             .lock()
                             .expect("mutex poisoned")
                             .get(output)
-                            .copied()
+                            .cloned()
                         {
                             input_buffer.push(stream);
                         }

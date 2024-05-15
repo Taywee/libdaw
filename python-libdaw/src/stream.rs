@@ -19,11 +19,7 @@ impl Stream {
             Ok(Self(DawStream::new(channels)))
         } else {
             let values: Vec<f64> = value.extract()?;
-            let mut inner = DawStream::new(values.len());
-            for (l, r) in inner.iter_mut().zip(values) {
-                *l = r;
-            }
-            Ok(Self(inner))
+            Ok(Self(values.into()))
         }
     }
 
@@ -47,24 +43,24 @@ impl Stream {
         format!("{:?}", &*self.0)
     }
     pub fn __add__(&self, other: &Bound<'_, Self>) -> Self {
-        Stream(self.0 + other.borrow().0)
+        Stream(&self.0 + &other.borrow().0)
     }
 
     pub fn __iadd__(&mut self, other: &Bound<'_, Self>) {
-        self.0 += other.borrow().0;
+        self.0 += &other.borrow().0;
     }
     pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         if let Ok(other) = other.downcast::<Self>() {
-            Ok(Stream(self.0 * other.borrow().0))
+            Ok(Stream(&self.0 * &other.borrow().0))
         } else {
             let other: f64 = other.extract()?;
-            Ok(Stream(self.0 * other))
+            Ok(Stream(&self.0 * other))
         }
     }
 
     pub fn __imul__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(other) = other.downcast::<Self>() {
-            self.0 *= other.borrow().0;
+            self.0 *= &other.borrow().0;
         } else {
             let other: f64 = other.extract()?;
             self.0 *= other;
@@ -73,11 +69,11 @@ impl Stream {
     }
 
     pub fn __getnewargs__(&self) -> (Vec<f64>,) {
-        (self.0.into_iter().collect(),)
+        (self.0.iter().copied().collect(),)
     }
 
     pub fn __iter__(&self) -> StreamIterator {
-        StreamIterator(self.0.into_iter())
+        StreamIterator(self.0.clone().into_iter())
     }
 }
 

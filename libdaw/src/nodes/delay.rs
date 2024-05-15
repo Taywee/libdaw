@@ -63,7 +63,7 @@ impl Node for Delay {
             if play {
                 outputs.push(buffer.pop_front().expect("buffer will not be empty").stream);
             }
-            if let Some(stream) = inputs.get(i).copied() {
+            if let Some(stream) = inputs.get(i).cloned() {
                 buffer.push_back(Sample {
                     play_sample,
                     stream,

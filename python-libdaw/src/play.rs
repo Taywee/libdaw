@@ -2,10 +2,7 @@ use crate::Node;
 use libdaw::Stream;
 use pyo3::{pyfunction, Bound, Python};
 use rodio::{OutputStream, Sink};
-use std::{
-    ops::Add,
-    sync::mpsc::{sync_channel, Receiver},
-};
+use std::sync::mpsc::{sync_channel, Receiver};
 
 /// Rodio audio source
 #[derive(Debug)]
@@ -76,9 +73,14 @@ pub fn play(
         py.check_signals()?;
         outputs.clear();
         node.process(&[], &mut outputs)?;
-        let sample = outputs.iter().copied().reduce(Add::add);
+        let sample = outputs
+            .iter()
+            .fold(None, move |acc, stream| match acc {
+                Some(acc) => Some(acc + stream),
+                None => Some(stream.clone()),
+            })
+            .unwrap_or_else(move || Stream::new(channels as usize));
 
-        let sample = sample.unwrap_or_else(|| Stream::new(channels as usize));
         sender.send(sample)?;
     }
 }

@@ -1,7 +1,7 @@
 use libdaw::pitch::{Pitch as DawPitch, PitchClass as DawPitchClass, PitchName as DawPitchName};
 use pyo3::{
-    exceptions::PyValueError, marker::Python, pyclass, pymethods, types::PyMapping, Bound, IntoPy,
-    Py, PyResult, PyTraverseError, PyVisit,
+    exceptions::PyValueError, marker::Python, pyclass, pymethods, Bound, IntoPy, Py, PyResult,
+    PyTraverseError, PyVisit,
 };
 use std::{
     ops::Deref,

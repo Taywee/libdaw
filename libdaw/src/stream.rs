@@ -1,51 +1,71 @@
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign};
+mod iter;
 
-pub const MAX_CHANNELS: usize = 6;
+pub use iter::{IntoIter, Iter};
 
-pub type IntoIter = std::iter::Take<std::array::IntoIter<f64, MAX_CHANNELS>>;
+use std::{
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign},
+};
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Stream {
-    channels: usize,
+    samples: Vec<f64>,
+}
 
-    samples: [f64; MAX_CHANNELS],
+impl Stream {
+    pub fn new(channels: usize) -> Self {
+        Self {
+            samples: vec![0.0; channels],
+        }
+    }
+
+    pub fn channels(&self) -> usize {
+        self.samples.len()
+    }
+
+    pub fn resize(&mut self, new_len: usize, value: f64) {
+        self.samples.resize(new_len, value)
+    }
+
+    pub fn resize_with<F>(&mut self, new_len: usize, f: F)
+    where
+        F: FnMut() -> f64,
+    {
+        self.samples.resize_with(new_len, f)
+    }
+
+    pub fn iter(&self) -> iter::Iter<'_> {
+        iter::Iter(self.samples.iter())
+    }
 }
 
 impl IntoIterator for Stream {
     type Item = f64;
 
-    type IntoIter = IntoIter;
+    type IntoIter = iter::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.samples.into_iter().take(self.channels)
+        iter::IntoIter(self.samples.into_iter())
     }
 }
 impl<'a> IntoIterator for &'a Stream {
     type Item = &'a f64;
 
-    type IntoIter = std::slice::Iter<'a, f64>;
+    type IntoIter = iter::Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.samples[..self.channels]).into_iter()
+        self.iter()
     }
 }
 
-impl Stream {
-    pub fn new(channels: usize) -> Self {
-        assert!(channels <= MAX_CHANNELS);
-        Self {
-            channels,
-            samples: [0.0; MAX_CHANNELS],
-        }
+impl From<Vec<f64>> for Stream {
+    fn from(samples: Vec<f64>) -> Self {
+        Self { samples }
     }
-
-    pub fn from_raw_parts(samples: [f64; MAX_CHANNELS], channels: usize) -> Self {
-        assert!(channels <= MAX_CHANNELS);
-        Self { channels, samples }
-    }
-
-    pub fn channels(&self) -> usize {
-        self.channels
+}
+impl From<Stream> for Vec<f64> {
+    fn from(value: Stream) -> Self {
+        value.samples
     }
 }
 
@@ -53,19 +73,21 @@ impl Deref for Stream {
     type Target = [f64];
 
     fn deref(&self) -> &Self::Target {
-        &self.samples[..self.channels]
+        &self.samples
     }
 }
 
 impl DerefMut for Stream {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.samples[..self.channels]
+        &mut self.samples
     }
 }
 
 impl AddAssign<&Stream> for Stream {
     fn add_assign(&mut self, rhs: &Stream) {
-        assert_eq!(self.channels, rhs.channels);
+        if self.len() < rhs.len() {
+            self.resize(rhs.len(), 0.0);
+        }
         for (l, &r) in self.samples.iter_mut().zip(&rhs.samples) {
             *l += r;
         }
@@ -74,7 +96,9 @@ impl AddAssign<&Stream> for Stream {
 
 impl AddAssign for Stream {
     fn add_assign(&mut self, rhs: Self) {
-        assert_eq!(self.channels, rhs.channels);
+        if self.len() < rhs.len() {
+            self.resize(rhs.len(), 0.0);
+        }
         for (l, r) in self.samples.iter_mut().zip(rhs.samples) {
             *l += r;
         }
@@ -119,7 +143,9 @@ impl Add for Stream {
 
 impl MulAssign<&Stream> for Stream {
     fn mul_assign(&mut self, rhs: &Stream) {
-        assert_eq!(self.channels, rhs.channels);
+        if self.len() < rhs.len() {
+            self.resize(rhs.len(), 0.0);
+        }
         for (l, &r) in self.samples.iter_mut().zip(&rhs.samples) {
             *l *= r;
         }
@@ -128,7 +154,9 @@ impl MulAssign<&Stream> for Stream {
 
 impl MulAssign for Stream {
     fn mul_assign(&mut self, rhs: Self) {
-        assert_eq!(self.channels, rhs.channels);
+        if self.len() < rhs.len() {
+            self.resize(rhs.len(), 0.0);
+        }
         for (l, r) in self.samples.iter_mut().zip(rhs.samples) {
             *l *= r;
         }
@@ -212,5 +240,56 @@ impl Mul<&Stream> for f64 {
 
     fn mul(self, rhs: &Stream) -> Self::Output {
         rhs * self
+    }
+}
+
+impl Sum for Stream {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = Self>,
+    {
+        let mut output = Stream::new(0);
+        for item in iter {
+            output += item;
+        }
+        output
+    }
+}
+
+impl<'a> Sum<&'a Stream> for Stream {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Stream>,
+    {
+        let mut output = Stream::new(0);
+        for item in iter {
+            output += item;
+        }
+        output
+    }
+}
+impl Product for Stream {
+    fn product<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = Self>,
+    {
+        let mut output = Stream::new(0);
+        for item in iter {
+            output *= item;
+        }
+        output
+    }
+}
+
+impl<'a> Product<&'a Stream> for Stream {
+    fn product<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Stream>,
+    {
+        let mut output = Stream::new(0);
+        for item in iter {
+            output *= item;
+        }
+        output
     }
 }

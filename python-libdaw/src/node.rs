@@ -13,7 +13,7 @@ pub struct Node(pub Arc<dyn ::libdaw::Node>);
 impl Node {
     pub fn process(&self, inputs: Vec<Bound<'_, Stream>>) -> Result<Vec<Stream>> {
         let mut outputs = Vec::new();
-        let inputs: Vec<_> = inputs.into_iter().map(|i| i.borrow().0).collect();
+        let inputs: Vec<_> = inputs.into_iter().map(|i| i.borrow().0.clone()).collect();
         self.0.process(&inputs, &mut outputs)?;
         let outputs: Vec<_> = outputs.into_iter().map(Stream).collect();
         Ok(outputs)

@@ -1,7 +1,4 @@
-use crate::stream::Stream;
-use crate::{Node, Result};
-
-use std::ops::Mul as _;
+use crate::{stream::Stream, Node, Result};
 
 #[derive(Debug, Default)]
 pub struct Multiply {
@@ -22,13 +19,9 @@ impl Node for Multiply {
         inputs: &'b [Stream],
         outputs: &'c mut Vec<Stream>,
     ) -> Result<()> {
-        outputs.push(
-            inputs
-                .into_iter()
-                .copied()
-                .reduce(Stream::mul)
-                .unwrap_or_else(|| Stream::new(self.channels)),
-        );
+        let mut output: Stream = inputs.iter().product();
+        output.resize(self.channels, 0.0);
+        outputs.push(output);
         Ok(())
     }
 }
