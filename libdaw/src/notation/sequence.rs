@@ -1,6 +1,6 @@
 mod parse;
 
-use super::Item;
+use super::{resolve_state::ResolveState, Item};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -27,12 +27,12 @@ impl FromStr for Sequence {
 }
 
 impl Sequence {
-    pub fn resolve<S>(
+    pub(super) fn inner_tones<S>(
         &self,
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        mut previous_length: Beat,
+        mut state: ResolveState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -42,41 +42,59 @@ impl Sequence {
             .0
             .iter()
             .flat_map(move |item| {
-                let resolved = item.resolve(start, metronome, pitch_standard, previous_length);
-                start += item.length(previous_length);
-                previous_length = item.next_previous_length(previous_length);
+                let resolved = item.inner_tones(start, metronome, pitch_standard, &state);
+                start += item.inner_length(&state);
+                item.update_state(&mut state);
                 resolved
             })
             .collect();
         tones.into_iter()
     }
 
-    pub fn length(&self, mut previous_length: Beat) -> Beat {
+    pub fn tones<S>(
+        &self,
+        offset: Beat,
+        metronome: &Metronome,
+        pitch_standard: &S,
+    ) -> impl Iterator<Item = Tone> + 'static
+    where
+        S: PitchStandard + ?Sized,
+    {
+        self.inner_tones(offset, metronome, pitch_standard, Default::default())
+    }
+
+    pub fn length(&self) -> Beat {
+        self.inner_length(Default::default())
+    }
+    pub fn duration(&self) -> Beat {
+        self.inner_duration(Default::default())
+    }
+
+    pub(super) fn inner_length(&self, mut state: ResolveState) -> Beat {
         self.0
             .iter()
             .map(move |item| {
-                previous_length = item.length(previous_length);
-                previous_length
+                let length = item.inner_length(&state);
+                item.update_state(&mut state);
+                length
             })
             .sum()
     }
 
-    pub fn duration(&self, mut previous_length: Beat) -> Beat {
+    pub(super) fn inner_duration(&self, mut state: ResolveState) -> Beat {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
         for item in &self.0 {
-            let item_duration = item.duration(previous_length);
-            previous_length = item.length(previous_length);
+            let item_duration = item.inner_duration(&state);
+            let item_length = item.inner_length(&state);
+            item.update_state(&mut state);
             duration = duration.max(start + item_duration);
-            start += previous_length;
+            start += item_length;
         }
         duration
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::sequence(input)
-    }
-    pub fn deep_clone(&self) -> Self {
-        Self(self.0.iter().map(Item::deep_clone).collect())
     }
 }

@@ -6,20 +6,20 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation.absolute import Overlapped, Sequence, parse, Chord, Note
+from libdaw.notation import Overlapped, Sequence, parse, Chord, Note
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
 from functools import partial
 
 if TYPE_CHECKING:
-    from libdaw.notation.absolute import _Item
+    from libdaw.notation import _Item
 
-sequence = parse('''(
-[
-  (r g4 a4 b4 d5 c5 c5 e5 d5)
-  (r:3 g4:2 f#4:1 g4:2 a4:1)
-  ({g3 g2}:3 {d4 g3 g2} {e4 e3 e2})
-]
+sequence = parse('''+(
+*(
+  +(r g4 a b d c c e d)
+  +(r:3 g4:2 f#:1 g:2 a:1)
+  +(=(g3 g-1):3 =(d g-1 g-1) =(e e-1 e-1))
+)
 )''')
 assert isinstance(sequence, Sequence)
 
@@ -59,7 +59,7 @@ instrument = Instrument(
         Point(whence=1, volume=0),
     ),
 )
-for tone in sequence.resolve(metronome=metronome, pitch_standard=pitch_standard):
+for tone in sequence.tones(metronome=metronome, pitch_standard=pitch_standard):
   instrument.add_tone(tone)
 
 graph = Graph()

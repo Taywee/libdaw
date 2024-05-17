@@ -10,15 +10,14 @@ use std::sync::{Arc, Mutex};
 /// A relative pitch within an octave, corresponding to the western note names
 /// and a standard C major scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(u8)]
 pub enum PitchName {
-    C = 0,
-    D = 2,
-    E = 4,
-    F = 5,
-    G = 7,
-    A = 9,
-    B = 11,
+    C,
+    D,
+    E,
+    F,
+    G,
+    A,
+    B,
 }
 
 impl PitchName {
@@ -31,6 +30,44 @@ impl PitchName {
             PitchName::G => 'G',
             PitchName::A => 'A',
             PitchName::B => 'B',
+        }
+    }
+
+    pub fn semitone_shift(self) -> u8 {
+        match self {
+            Self::C => 0,
+            Self::D => 2,
+            Self::E => 4,
+            Self::F => 5,
+            Self::G => 7,
+            Self::A => 9,
+            Self::B => 11,
+        }
+    }
+
+    pub fn index(self) -> u8 {
+        match self {
+            Self::C => 0,
+            Self::D => 1,
+            Self::E => 2,
+            Self::F => 3,
+            Self::G => 4,
+            Self::A => 5,
+            Self::B => 6,
+        }
+    }
+
+    /// Gives a relative octave shift for two names that will keep them as close
+    /// as possible in Pitch distance, disregarding adjustments.
+    pub fn octave_shift_for_closest(self, other: Self) -> i8 {
+        let a = self.index();
+        let b = other.index();
+        if a + 3 < b {
+            -1
+        } else if b + 3 < a {
+            1
+        } else {
+            0
         }
     }
 
@@ -97,14 +134,6 @@ impl Pitch {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::pitch(input)
     }
-    pub fn deep_clone(&self) -> Self {
-        Self {
-            pitch_class: Arc::new(Mutex::new(
-                self.pitch_class.lock().expect("poisoned").clone(),
-            )),
-            octave: self.octave,
-        }
-    }
 }
 
 /// Can parse a string like C#4 into its absolute note.
@@ -158,8 +187,9 @@ where
 {
     fn resolve(&self, pitch: &Pitch) -> f64 {
         let pitch_class = pitch.pitch_class.lock().expect("poisoned");
-        let exponent_numerator =
-            pitch.octave as f64 * 12.0 + pitch_class.name as i8 as f64 + pitch_class.adjustment;
+        let exponent_numerator = pitch.octave as f64 * 12.0
+            + pitch_class.name.semitone_shift() as i8 as f64
+            + pitch_class.adjustment;
         Self::c0() * 2.0f64.powf(exponent_numerator / 12.0)
     }
 }

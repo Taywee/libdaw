@@ -1,6 +1,6 @@
 mod parse;
 
-use super::Item;
+use super::{resolve_state::ResolveState, Item};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -14,12 +14,12 @@ use std::str::FromStr;
 pub struct Overlapped(pub Vec<Item>);
 
 impl Overlapped {
-    pub fn resolve<S>(
+    pub(super) fn inner_tones<S>(
         &self,
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        previous_length: Beat,
+        state: &ResolveState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -27,31 +27,45 @@ impl Overlapped {
         let pitches: Vec<_> = self
             .0
             .iter()
-            .flat_map(move |item| item.resolve(offset, metronome, pitch_standard, previous_length))
+            .flat_map(move |item| item.inner_tones(offset, metronome, pitch_standard, state))
             .collect();
         pitches.into_iter()
     }
+    pub fn tones<S>(
+        &self,
+        offset: Beat,
+        metronome: &Metronome,
+        pitch_standard: &S,
+    ) -> impl Iterator<Item = Tone> + 'static
+    where
+        S: PitchStandard + ?Sized,
+    {
+        self.inner_tones(offset, metronome, pitch_standard, &Default::default())
+    }
 
-    pub fn length(&self, previous_length: Beat) -> Beat {
+    pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
         self.0
             .iter()
-            .map(|item| item.length(previous_length))
+            .map(|item| item.inner_length(state))
             .max()
             .unwrap_or(Beat::ZERO)
     }
 
-    pub fn duration(&self, previous_length: Beat) -> Beat {
+    pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
         self.0
             .iter()
-            .map(|item| item.duration(previous_length))
+            .map(|item| item.inner_duration(state))
             .max()
             .unwrap_or(Beat::ZERO)
+    }
+    pub fn length(&self) -> Beat {
+        self.inner_length(&Default::default())
+    }
+    pub fn duration(&self) -> Beat {
+        self.inner_duration(&Default::default())
     }
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::overlapped(input)
-    }
-    pub fn deep_clone(&self) -> Self {
-        Self(self.0.iter().map(Item::deep_clone).collect())
     }
 }
 

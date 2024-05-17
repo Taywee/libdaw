@@ -1,6 +1,6 @@
-use crate::notation::absolute::{Chord, Note, Overlapped, Rest, Sequence};
+use crate::notation::{Chord, Note, Overlapped, Rest, Sequence};
 use crate::Result;
-use libdaw::notation::absolute::Item as DawItem;
+use libdaw::notation::Item as DawItem;
 use pyo3::AsPyPointer;
 use pyo3::{
     pyfunction, types::PyAnyMethods as _, Bound, FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
