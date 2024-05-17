@@ -1,4 +1,4 @@
-use crate::{metronome::Beat, notation::absolute::Rest, parse::IResult};
+use crate::{metronome::Beat, notation::Rest, parse::IResult};
 use nom::{bytes::complete::tag, combinator::opt, sequence::preceded};
 
 pub fn rest(input: &str) -> IResult<&str, Rest> {

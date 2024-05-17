@@ -1,29 +1,29 @@
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
-    notation::absolute::Item,
+    notation::Item,
     pitch::MaybePitchStandard,
     resolve_index, resolve_index_for_insert,
 };
-use libdaw::{metronome::Beat as DawBeat, notation::absolute::Overlapped as DawOverlapped};
+use libdaw::{metronome::Beat as DawBeat, notation::Sequence as DawSequence};
 use pyo3::{
-    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy as _, Py, PyResult,
-    PyTraverseError, PyVisit, Python,
+    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy, Py, PyResult, PyTraverseError,
+    PyVisit, Python,
 };
 use std::{
-    ops::Deref as _,
+    ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation.absolute")]
+#[pyclass(module = "libdaw.notation")]
 #[derive(Debug, Clone)]
-pub struct Overlapped {
-    pub inner: Arc<Mutex<DawOverlapped>>,
+pub struct Sequence {
+    pub inner: Arc<Mutex<DawSequence>>,
     pub items: Vec<Item>,
 }
 
-impl Overlapped {
-    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawOverlapped>>) -> Py<Self> {
+impl Sequence {
+    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawSequence>>) -> Py<Self> {
         let items = inner
             .lock()
             .expect("poisoned")
@@ -42,12 +42,12 @@ impl Overlapped {
 }
 
 #[pymethods]
-impl Overlapped {
+impl Sequence {
     #[new]
     pub fn new(py: Python<'_>, items: Option<Vec<Item>>) -> Self {
         let items = items.unwrap_or_default();
         Self {
-            inner: Arc::new(Mutex::new(DawOverlapped(
+            inner: Arc::new(Mutex::new(DawSequence(
                 items.iter().map(move |item| item.as_inner(py)).collect(),
             ))),
             items,
@@ -65,61 +65,43 @@ impl Overlapped {
             offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
-            previous_length=Beat(DawBeat::ONE),
         )
     )]
-    pub fn resolve(
+    pub fn tones(
         &self,
         offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
-        previous_length: Beat,
     ) -> Vec<Tone> {
-        let metronome = MaybeMetronome::from(metronome);
-        let pitch_standard = MaybePitchStandard::from(pitch_standard);
         self.inner
             .lock()
             .expect("poisoned")
-            .resolve(
-                offset.0,
-                &metronome,
-                pitch_standard.deref(),
-                previous_length.0,
-            )
+            .tones(offset.0, &metronome, pitch_standard.deref())
             .map(Tone)
             .collect()
     }
 
-    pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .length(previous_length.0),
-        )
+    pub fn length(&self) -> Beat {
+        Beat(self.inner.lock().expect("poisoned").length())
     }
 
-    pub fn duration(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .duration(previous_length.0),
-        )
-    }
-
-    pub fn __repr__(&self) -> String {
-        format!("{:?}", self.inner.lock().expect("poisoned"))
+    pub fn duration(&self) -> Beat {
+        Beat(self.inner.lock().expect("poisoned").duration())
     }
 
     pub fn __len__(&self) -> usize {
         self.items.len()
     }
 
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self.inner.lock().expect("poisoned"))
+    }
+
     pub fn __getitem__(&self, index: isize) -> PyResult<Item> {
         let index = resolve_index(self.items.len(), index)?;
         Ok(self.items[index].clone())
     }
+
     pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: Item) -> PyResult<()> {
         let index = resolve_index(self.items.len(), index)?;
         self.inner.lock().expect("poisoned").0[index] = value.as_inner(py);
@@ -130,8 +112,8 @@ impl Overlapped {
         self.pop(Some(index)).map(|_| ())
     }
 
-    pub fn __iter__(&self) -> OverlappedIterator {
-        OverlappedIterator(self.items.clone().into_iter())
+    pub fn __iter__(&self) -> SequenceIterator {
+        SequenceIterator(self.items.clone().into_iter())
     }
 
     pub fn append(&mut self, py: Python<'_>, value: Item) -> PyResult<()> {
@@ -168,11 +150,9 @@ impl Overlapped {
         self.inner.lock().expect("poisoned").0.remove(index);
         Ok(self.items.remove(index))
     }
-
     pub fn __getnewargs__(&self) -> (Vec<Item>,) {
         (self.items.clone(),)
     }
-
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         for item in &self.items {
             visit.call(item)?
@@ -187,16 +167,16 @@ impl Overlapped {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation.absolute")]
-pub struct OverlappedIterator(pub std::vec::IntoIter<Item>);
+#[pyclass(sequence, module = "libdaw.notation")]
+pub struct SequenceIterator(pub std::vec::IntoIter<Item>);
 
 #[pymethods]
-impl OverlappedIterator {
+impl SequenceIterator {
     pub fn __iter__(self_: Bound<'_, Self>) -> Bound<'_, Self> {
         self_
     }
     pub fn __repr__(&self) -> String {
-        format!("OverlappedIterator<{:?}>", self.0)
+        format!("SequenceIterator<{:?}>", self.0)
     }
     pub fn __next__(&mut self) -> Option<Item> {
         self.0.next()

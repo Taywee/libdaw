@@ -1,5 +1,5 @@
 use crate::{
-    notation::absolute::{Chord, Item, Note, Overlapped, Rest, Sequence},
+    notation::{Chord, Item, Note, Overlapped, Rest, Sequence},
     parse::IResult,
 };
 use nom::{branch::alt, combinator::map};

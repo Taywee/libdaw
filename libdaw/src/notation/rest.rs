@@ -1,5 +1,6 @@
 mod parse;
 
+use super::resolve_state::ResolveState;
 use crate::{
     metronome::Beat,
     parse::{Error, IResult},
@@ -14,11 +15,14 @@ pub struct Rest {
 }
 
 impl Rest {
-    pub fn length(&self, previous_length: Beat) -> Beat {
-        self.length.unwrap_or(previous_length)
+    pub fn inner_length(&self, state: &ResolveState) -> Beat {
+        self.length.unwrap_or(state.length)
     }
     pub const fn duration(&self) -> Beat {
         Beat::ZERO
+    }
+    pub fn length(&self) -> Beat {
+        self.inner_length(&Default::default())
     }
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::rest(input)

@@ -1,12 +1,12 @@
 use crate::metronome::Beat;
-use libdaw::notation::absolute::Rest as DawRest;
+use libdaw::notation::Rest as DawRest;
 use pyo3::{pyclass, pymethods, IntoPy as _, Py, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation.absolute")]
+#[pyclass(module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Rest {
     pub inner: Arc<Mutex<DawRest>>,
@@ -39,25 +39,12 @@ impl Rest {
     }
 
     #[getter]
-    pub fn get_length_(&self) -> Option<Beat> {
+    pub fn get_length(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").length.map(Beat)
     }
     #[setter]
-    pub fn set_length_(&mut self, value: Option<Beat>) {
+    pub fn set_length(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
-    }
-
-    pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .length(previous_length.0),
-        )
-    }
-
-    pub fn duration_(&self) -> Beat {
-        Beat(self.inner.lock().expect("poisoned").duration())
     }
 
     pub fn __repr__(&self) -> String {
@@ -65,6 +52,6 @@ impl Rest {
     }
 
     pub fn __getnewargs__(&self) -> (Option<Beat>,) {
-        (self.get_length_(),)
+        (self.get_length(),)
     }
 }

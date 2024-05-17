@@ -1,4 +1,5 @@
-use crate::{metronome::Beat, notation::absolute::Note, parse::IResult, pitch::Pitch};
+use super::Pitch;
+use crate::{metronome::Beat, notation::Note, parse::IResult};
 use nom::{bytes::complete::tag, combinator::opt, sequence::preceded};
 use std::sync::{Arc, Mutex};
 

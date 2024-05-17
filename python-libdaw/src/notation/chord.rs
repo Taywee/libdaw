@@ -1,10 +1,11 @@
+use super::Pitch;
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
-    pitch::{MaybePitchStandard, Pitch},
+    pitch::MaybePitchStandard,
     resolve_index, resolve_index_for_insert,
 };
-use libdaw::{metronome::Beat as DawBeat, notation::absolute::Chord as DawChord};
+use libdaw::{metronome::Beat as DawBeat, notation::Chord as DawChord};
 use pyo3::{
     exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy as _, Py, PyResult,
     PyTraverseError, PyVisit, Python,
@@ -14,7 +15,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation.absolute")]
+#[pyclass(module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Chord {
     pub inner: Arc<Mutex<DawChord>>,
@@ -71,64 +72,39 @@ impl Chord {
             offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
-            previous_length=Beat(DawBeat::ONE),
         )
     )]
-    pub fn resolve(
+    pub fn tones(
         &self,
         offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
-        previous_length: Beat,
     ) -> Vec<Tone> {
         let metronome = MaybeMetronome::from(metronome);
         let pitch_standard = MaybePitchStandard::from(pitch_standard);
         self.inner
             .lock()
             .expect("poisoned")
-            .resolve(
-                offset.0,
-                &metronome,
-                pitch_standard.deref(),
-                previous_length.0,
-            )
+            .tones(offset.0, &metronome, pitch_standard.deref())
             .map(Tone)
             .collect()
     }
 
     #[getter]
-    pub fn get_length_(&self) -> Option<Beat> {
+    pub fn get_length(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").length.map(Beat)
     }
     #[getter]
-    pub fn get_duration_(&self) -> Option<Beat> {
+    pub fn get_duration(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").duration.map(Beat)
     }
     #[setter]
-    pub fn set_length_(&mut self, value: Option<Beat>) {
+    pub fn set_length(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
     #[setter]
-    pub fn set_duration_(&mut self, value: Option<Beat>) {
+    pub fn set_duration(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
-    }
-
-    pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .length(previous_length.0),
-        )
-    }
-
-    pub fn duration(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .duration(previous_length.0),
-        )
     }
 
     pub fn __repr__(&self) -> String {
@@ -212,7 +188,7 @@ impl Chord {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation.absolute")]
+#[pyclass(sequence, module = "libdaw.notation")]
 pub struct ChordIterator(pub std::vec::IntoIter<Py<Pitch>>);
 
 #[pymethods]

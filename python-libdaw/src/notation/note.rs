@@ -1,17 +1,18 @@
+use super::Pitch;
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
-    pitch::{MaybePitchStandard, Pitch},
+    pitch::MaybePitchStandard,
 };
 use libdaw::metronome::Beat as DawBeat;
-use libdaw::notation::absolute::Note as DawNote;
+use libdaw::notation::Note as DawNote;
 use pyo3::{pyclass, pymethods, Bound, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation.absolute")]
+#[pyclass(module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Note {
     pub inner: Arc<Mutex<DawNote>>,
@@ -68,59 +69,38 @@ impl Note {
             offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
-            previous_length=Beat(DawBeat::ONE),
         )
     )]
-    pub fn resolve(
+    pub fn tone(
         &self,
         offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
-        previous_length: Beat,
     ) -> Tone {
         let metronome = MaybeMetronome::from(metronome);
         let pitch_standard = MaybePitchStandard::from(pitch_standard);
-        Tone(self.inner.lock().expect("poisoned").resolve(
+        Tone(self.inner.lock().expect("poisoned").tone(
             offset.0,
             &metronome,
             pitch_standard.deref(),
-            previous_length.0,
         ))
     }
 
     #[getter]
-    pub fn get_length_(&self) -> Option<Beat> {
+    pub fn get_length(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").length.map(Beat)
     }
     #[getter]
-    pub fn get_duration_(&self) -> Option<Beat> {
+    pub fn get_duration(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").duration.map(Beat)
     }
     #[setter]
-    pub fn set_length_(&mut self, value: Option<Beat>) {
+    pub fn set_length(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
     #[setter]
-    pub fn set_duration_(&mut self, value: Option<Beat>) {
+    pub fn set_duration(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
-    }
-
-    pub fn length(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .length(previous_length.0),
-        )
-    }
-
-    pub fn duration(&self, previous_length: Beat) -> Beat {
-        Beat(
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .duration(previous_length.0),
-        )
     }
 
     pub fn __repr__(&self) -> String {
