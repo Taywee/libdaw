@@ -1,12 +1,14 @@
-use super::Pitch;
+mod note_pitch;
+
+pub use note_pitch::NotePitch;
+
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
     pitch::MaybePitchStandard,
 };
-use libdaw::metronome::Beat as DawBeat;
-use libdaw::notation::Note as DawNote;
-use pyo3::{pyclass, pymethods, Bound, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
+use libdaw::{metronome::Beat as DawBeat, notation::Note as DawNote};
+use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
@@ -16,12 +18,14 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Note {
     pub inner: Arc<Mutex<DawNote>>,
-    pub pitch: Option<Py<Pitch>>,
+
+    /// Either the Pitch or the Step
+    pub pitch: Option<NotePitch>,
 }
 
 impl Note {
     pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawNote>>) -> Py<Self> {
-        let pitch = Pitch::from_inner(py, inner.lock().expect("poisoned").pitch.clone());
+        let pitch = NotePitch::from_inner(py, inner.lock().expect("poisoned").pitch.clone());
         Self {
             inner,
             pitch: Some(pitch),
@@ -37,15 +41,20 @@ impl Note {
 #[pymethods]
 impl Note {
     #[new]
-    pub fn new(pitch: Bound<'_, Pitch>, length: Option<Beat>, duration: Option<Beat>) -> Self {
-        Self {
+    pub fn new(
+        py: Python<'_>,
+        pitch: NotePitch,
+        length: Option<Beat>,
+        duration: Option<Beat>,
+    ) -> PyResult<Self> {
+        Ok(Self {
             inner: Arc::new(Mutex::new(DawNote {
-                pitch: pitch.borrow().inner.clone(),
+                pitch: pitch.as_inner(py),
                 length: length.map(|beat| beat.0),
                 duration: duration.map(|beat| beat.0),
             })),
-            pitch: Some(pitch.unbind()),
-        }
+            pitch: Some(pitch),
+        })
     }
 
     #[staticmethod]
@@ -54,13 +63,13 @@ impl Note {
     }
 
     #[getter]
-    pub fn get_pitch(&self) -> Py<Pitch> {
+    pub fn get_pitch(&self) -> NotePitch {
         self.pitch.clone().expect("cleared")
     }
     #[setter]
-    pub fn set_pitch(&mut self, value: Bound<'_, Pitch>) {
-        self.inner.lock().expect("poisoned").pitch = value.borrow().inner.clone();
-        self.pitch = Some(value.unbind());
+    pub fn set_pitch(&mut self, py: Python<'_>, value: NotePitch) {
+        self.inner.lock().expect("poisoned").pitch = value.as_inner(py);
+        self.pitch = Some(value);
     }
 
     #[pyo3(
@@ -107,7 +116,7 @@ impl Note {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
 
-    pub fn __getnewargs__(&self) -> (Py<Pitch>, Option<Beat>, Option<Beat>) {
+    pub fn __getnewargs__(&self) -> (NotePitch, Option<Beat>, Option<Beat>) {
         let lock = self.inner.lock().expect("poisoned");
         (
             self.pitch.clone().expect("cleared"),

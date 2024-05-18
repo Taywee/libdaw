@@ -1,6 +1,7 @@
 mod parse;
 
-use crate::parse::{Error, IResult};
+use crate::parse::IResult;
+use nom::error::convert_error;
 use nom::{combinator::all_consuming, Finish};
 use std::fmt;
 use std::fmt::Debug;
@@ -82,12 +83,12 @@ impl fmt::Display for PitchName {
 }
 
 impl FromStr for PitchName {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::pitch_name)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }
@@ -111,12 +112,12 @@ impl PitchClass {
 /// and ratios of these, along with symbolic ones.
 /// B𝄫𝄪###[14/12e8]-12 is a valid (but completely inaudible) absolute note.
 impl FromStr for PitchClass {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::pitch_class)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }
@@ -142,12 +143,12 @@ impl Pitch {
 /// and ratios of these, along with symbolic ones.
 /// B𝄫𝄪###[14/12e8]-12 is a valid (but completely inaudible) absolute note.
 impl FromStr for Pitch {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::pitch)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }

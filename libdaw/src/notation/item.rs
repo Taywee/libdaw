@@ -1,13 +1,15 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Chord, Note, Overlapped, Rest, Sequence};
+use super::{
+    resolve_state::ResolveState, Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence,
+};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{Error, IResult},
+    parse::IResult,
     pitch::PitchStandard,
 };
-use nom::{combinator::all_consuming, Finish as _};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
@@ -20,6 +22,8 @@ pub enum Item {
     Rest(Arc<Mutex<Rest>>),
     Overlapped(Arc<Mutex<Overlapped>>),
     Sequence(Arc<Mutex<Sequence>>),
+    Scale(Arc<Mutex<Scale>>),
+    Inversion(Arc<Mutex<Inversion>>),
 }
 
 impl Item {
@@ -45,9 +49,8 @@ impl Item {
                 offset,
                 metronome,
                 pitch_standard,
-                state,
+                state.clone(),
             )),
-            Item::Rest(_) => Box::new(std::iter::empty()),
             Item::Overlapped(overlapped) => {
                 Box::new(overlapped.lock().expect("poisoned").inner_tones(
                     offset,
@@ -62,6 +65,7 @@ impl Item {
                 pitch_standard,
                 state.clone(),
             )),
+            Item::Scale(_) | Item::Inversion(_) | Item::Rest(_) => Box::new(std::iter::empty()),
         }
     }
     pub fn tones<S>(
@@ -88,23 +92,18 @@ impl Item {
                 .lock()
                 .expect("poisoned")
                 .inner_length(state.clone()),
+            Item::Scale(_) | Item::Inversion(_) => Beat::ZERO,
         }
     }
 
     pub(super) fn update_state(&self, state: &mut ResolveState) {
         match self {
-            Item::Note(note) => {
-                let pitch = note.lock().expect("poisoned").absolute_pitch(state);
-                let length = note.lock().expect("poisoned").inner_length(state);
-                state.pitch = pitch;
-                state.length = length;
-            }
-            Item::Chord(chord) => {
-                state.length = chord.lock().expect("poisoned").inner_length(state)
-            }
-            Item::Rest(rest) => state.length = rest.lock().expect("poisoned").inner_length(state),
-            Item::Overlapped(_) => (),
-            Item::Sequence(_) => (),
+            Item::Note(note) => note.lock().expect("poisoned").update_state(state),
+            Item::Chord(chord) => chord.lock().expect("poisoned").update_state(state),
+            Item::Rest(rest) => rest.lock().expect("poisoned").update_state(state),
+            Item::Scale(scale) => scale.lock().expect("poisoned").update_state(state),
+            Item::Inversion(inversion) => inversion.lock().expect("poisoned").update_state(state),
+            Item::Overlapped(_) | Item::Sequence(_) => (),
         }
     }
 
@@ -120,6 +119,7 @@ impl Item {
                 .lock()
                 .expect("poisoned")
                 .inner_duration(state.clone()),
+            Item::Scale(_) | Item::Inversion(_) => Beat::ZERO,
         }
     }
     pub fn length(&self) -> Beat {
@@ -135,12 +135,12 @@ impl Item {
 }
 
 impl FromStr for Item {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::item)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }

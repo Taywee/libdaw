@@ -1,11 +1,8 @@
 mod parse;
 
 use super::resolve_state::ResolveState;
-use crate::{
-    metronome::Beat,
-    parse::{Error, IResult},
-};
-use nom::{combinator::all_consuming, Finish as _};
+use crate::{metronome::Beat, parse::IResult};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -27,15 +24,18 @@ impl Rest {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::rest(input)
     }
+    pub(super) fn update_state(&self, state: &mut ResolveState) {
+        state.length = self.inner_length(state);
+    }
 }
 
 impl FromStr for Rest {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::rest)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }

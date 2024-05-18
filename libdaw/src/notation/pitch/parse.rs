@@ -1,22 +1,18 @@
 use super::Pitch;
-use crate::{parse::IResult, pitch::PitchClass};
+use crate::{
+    parse::{octave_shift, IResult},
+    pitch::PitchClass,
+};
 use nom::{
-    character::complete::{digit1, i8, one_of},
+    character::complete::{digit1, i8},
     combinator::opt,
 };
 use std::sync::{Arc, Mutex};
 
 /// Parse the octave, which must be digits without a sign.
-pub fn octave(input: &str) -> IResult<&str, i8> {
+fn octave(input: &str) -> IResult<&str, i8> {
     // Ensure that it starts with digits.
     let _ = digit1(input)?;
-    i8(input)
-}
-
-/// Parse the octave shift, which must be digits with a sign.
-pub fn octave_shift(input: &str) -> IResult<&str, i8> {
-    // Ensure that it starts with a sign.
-    let _ = one_of("+-")(input)?;
     i8(input)
 }
 

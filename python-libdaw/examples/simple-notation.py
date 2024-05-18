@@ -16,9 +16,7 @@ if TYPE_CHECKING:
 
 sequence = parse('''+(
 *(
-  +(r g4 a b d c c e d)
-  +(r:3 g4:2 f#:1 g:2 a:1)
-  +(=(g3 g-1):3 =(d g-1 g-1) =(e e-1 e-1))
+  +(=(g3 g-):3 =(d g- g-) =(e e- e-))
 )
 )''')
 assert isinstance(sequence, Sequence)

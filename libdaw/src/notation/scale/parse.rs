@@ -1,7 +1,5 @@
-use crate::{
-    notation::{Item, Sequence},
-    parse::IResult,
-};
+use super::Scale;
+use crate::{notation::NotePitch, parse::IResult};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -10,13 +8,13 @@ use nom::{
     multi::separated_list1,
 };
 
-pub fn sequence(input: &str) -> IResult<&str, Sequence> {
-    let (input, _) = alt((tag("+"), tag("sequence")))(input)?;
+pub fn scale(input: &str) -> IResult<&str, Scale> {
+    let (input, _) = alt((tag("@"), tag("scale")))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(tag("("))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, items) = cut(separated_list1(multispace1, Item::parse))(input)?;
+    let (input, pitches) = cut(separated_list1(multispace1, NotePitch::parse))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(tag(")"))(input)?;
-    Ok((input, Sequence(items)))
+    Ok((input, Scale { pitches }))
 }

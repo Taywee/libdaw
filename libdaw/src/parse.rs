@@ -1,11 +1,16 @@
 //! Common parsers and types for parsers.
 
-pub mod error;
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::char,
+    combinator::{map_res, opt},
+    error::VerboseError,
+    multi::many1_count,
+    number::complete::double,
+};
 
-pub use error::Error;
-use nom::{bytes::complete::tag, combinator::opt, number::complete::double};
-
-pub type IResult<I, O> = nom::IResult<I, O, Error<I>>;
+pub type IResult<I, O> = nom::IResult<I, O, VerboseError<I>>;
 
 pub fn denominator(input: &str) -> IResult<&str, f64> {
     let (input, _) = tag("/")(input)?;
@@ -22,4 +27,27 @@ pub fn number(input: &str) -> IResult<&str, f64> {
         None => numerator,
     };
     Ok((input, number))
+}
+
+fn plus_signs(input: &str) -> IResult<&str, i8> {
+    map_res(many1_count(char('+')), i8::try_from)(input)
+}
+fn minus_signs(input: &str) -> IResult<&str, i8> {
+    map_res(many1_count(char('-')), |count| {
+        let count: i16 = count.try_into()?;
+        (-count).try_into()
+    })(input)
+}
+
+/// Parse the octave shift, which must be a series of plus signes or minus
+/// signs.
+pub fn octave_shift(input: &str) -> IResult<&str, i8> {
+    alt((plus_signs, minus_signs))(input)
+}
+
+pub fn numeric_adjustment(input: &str) -> IResult<&str, f64> {
+    let (input, _) = tag("[")(input)?;
+    let (input, adjustment) = number(input)?;
+    let (input, _) = tag("]")(input)?;
+    Ok((input, adjustment))
 }
