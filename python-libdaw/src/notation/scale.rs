@@ -49,12 +49,15 @@ impl Scale {
         }
     }
     #[staticmethod]
-    pub fn parse(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
+    pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
         Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned"))
+    }
+    pub fn __str__(&self) -> String {
+        format!("{:#?}", self.inner.lock().expect("poisoned"))
     }
 
     pub fn __len__(&self) -> usize {

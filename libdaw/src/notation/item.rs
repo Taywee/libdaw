@@ -11,11 +11,12 @@ use crate::{
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
+    fmt,
     str::FromStr,
     sync::{Arc, Mutex},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Item {
     Note(Arc<Mutex<Note>>),
     Chord(Arc<Mutex<Chord>>),
@@ -24,6 +25,22 @@ pub enum Item {
     Sequence(Arc<Mutex<Sequence>>),
     Scale(Arc<Mutex<Scale>>),
     Inversion(Arc<Mutex<Inversion>>),
+}
+
+impl fmt::Debug for Item {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Item::Note(note) => fmt::Debug::fmt(&note.lock().expect("poisoned"), f),
+            Item::Chord(chord) => fmt::Debug::fmt(&chord.lock().expect("poisoned"), f),
+            Item::Rest(rest) => fmt::Debug::fmt(&rest.lock().expect("poisoned"), f),
+            Item::Overlapped(overlapped) => {
+                fmt::Debug::fmt(&overlapped.lock().expect("poisoned"), f)
+            }
+            Item::Sequence(sequence) => fmt::Debug::fmt(&sequence.lock().expect("poisoned"), f),
+            Item::Scale(scale) => fmt::Debug::fmt(&scale.lock().expect("poisoned"), f),
+            Item::Inversion(inversion) => fmt::Debug::fmt(&inversion.lock().expect("poisoned"), f),
+        }
+    }
 }
 
 impl Item {

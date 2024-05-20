@@ -102,7 +102,7 @@ unsafe impl AsPyPointer for Item {
 }
 
 #[pyfunction]
-pub fn parse(py: Python<'_>, source: &str) -> Result<Item> {
+pub fn loads(py: Python<'_>, source: &str) -> Result<Item> {
     let item: DawItem = source.parse()?;
     Ok(Item::from_inner(py, item))
 }

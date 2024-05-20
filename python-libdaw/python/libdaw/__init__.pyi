@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 class Stream:
-    def __init__(self, value: int | Sequence[float]) -> None:
+    def __new__(cls: type, value: int | Sequence[float]) -> None:
         '''Create a new stream with either the number of channels or the given starting values.
         '''
     def __getitem__(self, index: int) -> float: ...

@@ -6,7 +6,7 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation import Overlapped, Sequence, parse, Chord, Note
+from libdaw.notation import Overlapped, Sequence, loads, Chord, Note
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
 from functools import partial
@@ -14,7 +14,7 @@ from functools import partial
 if TYPE_CHECKING:
     from libdaw.notation import _Item
 
-sequence = parse('''+(
+sequence = loads('''+(
 *(
   +(=(g3 g-):3 =(d g- g-) =(e e- e-))
 )
