@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use crate::parse::IResult;
+use crate::parse::{numeric_adjustment, IResult};
 use crate::pitch::{Pitch, PitchClass, PitchName};
 use nom::character::complete::i8;
-use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, multi::fold_many0};
+use nom::{character::complete::one_of, combinator::opt, multi::fold_many0};
 
 pub fn pitch_name(input: &str) -> IResult<&str, PitchName> {
     let (input, note) = one_of("cdefgabCDEFGAB")(input)?;
@@ -42,13 +42,6 @@ fn adjustment_symbol(input: &str) -> IResult<&str, f64> {
 
 fn symbol_adjustments(input: &str) -> IResult<&str, f64> {
     fold_many0(adjustment_symbol, || 0.0f64, |acc, item| acc + item)(input)
-}
-
-fn numeric_adjustment(input: &str) -> IResult<&str, f64> {
-    let (input, _) = tag("[")(input)?;
-    let (input, adjustment) = crate::parse::number(input)?;
-    let (input, _) = tag("]")(input)?;
-    Ok((input, adjustment))
 }
 
 fn adjustment(input: &str) -> IResult<&str, f64> {

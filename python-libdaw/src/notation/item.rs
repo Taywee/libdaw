@@ -1,9 +1,9 @@
-use crate::notation::{Chord, Note, Overlapped, Rest, Sequence};
+use super::{Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence};
 use crate::Result;
 use libdaw::notation::Item as DawItem;
-use pyo3::AsPyPointer;
 use pyo3::{
-    pyfunction, types::PyAnyMethods as _, Bound, FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
+    exceptions::PyTypeError, pyfunction, types::PyAnyMethods as _, AsPyPointer, Bound,
+    FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
 };
 
 /// A wrapper enum for converting between Rust Items and the Python classes.
@@ -14,6 +14,8 @@ pub enum Item {
     Rest(Py<Rest>),
     Overlapped(Py<Overlapped>),
     Sequence(Py<Sequence>),
+    Scale(Py<Scale>),
+    Inversion(Py<Inversion>),
 }
 
 impl Item {
@@ -26,6 +28,8 @@ impl Item {
                 Self::Overlapped(Overlapped::from_inner(py, overlapped))
             }
             DawItem::Sequence(sequence) => Self::Sequence(Sequence::from_inner(py, sequence)),
+            DawItem::Scale(scale) => Self::Scale(Scale::from_inner(py, scale)),
+            DawItem::Inversion(inversion) => Self::Inversion(Inversion::from_inner(py, inversion)),
         }
     }
     pub fn as_inner(&self, py: Python<'_>) -> DawItem {
@@ -38,6 +42,10 @@ impl Item {
             }
             Item::Sequence(sequence) => {
                 DawItem::Sequence(sequence.bind_borrowed(py).borrow().inner.clone())
+            }
+            Item::Scale(scale) => DawItem::Scale(scale.bind_borrowed(py).borrow().inner.clone()),
+            Item::Inversion(inversion) => {
+                DawItem::Inversion(inversion.bind_borrowed(py).borrow().inner.clone())
             }
         }
     }
@@ -53,9 +61,14 @@ impl<'py> FromPyObject<'py> for Item {
             Self::Rest(rest.clone().unbind())
         } else if let Ok(overlapped) = value.downcast::<Overlapped>() {
             Self::Overlapped(overlapped.clone().unbind())
-        } else {
-            let sequence: Bound<'_, Sequence> = value.extract()?;
+        } else if let Ok(sequence) = value.downcast::<Sequence>() {
             Self::Sequence(sequence.clone().unbind())
+        } else if let Ok(scale) = value.downcast::<Scale>() {
+            Self::Scale(scale.clone().unbind())
+        } else if let Ok(inversion) = value.downcast::<Inversion>() {
+            Self::Inversion(inversion.clone().unbind())
+        } else {
+            return Err(PyTypeError::new_err("Item was invalid type"));
         })
     }
 }
@@ -68,6 +81,8 @@ impl IntoPy<Py<PyAny>> for Item {
             Item::Rest(rest) => rest.into_py(py),
             Item::Overlapped(overlapped) => overlapped.into_py(py),
             Item::Sequence(sequence) => sequence.into_py(py),
+            Item::Scale(scale) => scale.into_py(py),
+            Item::Inversion(inversion) => inversion.into_py(py),
         }
     }
 }
@@ -80,6 +95,8 @@ unsafe impl AsPyPointer for Item {
             Item::Rest(rest) => rest.as_ptr(),
             Item::Overlapped(overlapped) => overlapped.as_ptr(),
             Item::Sequence(sequence) => sequence.as_ptr(),
+            Item::Scale(scale) => scale.as_ptr(),
+            Item::Inversion(inversion) => inversion.as_ptr(),
         }
     }
 }

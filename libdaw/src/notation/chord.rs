@@ -1,22 +1,19 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Pitch};
+use super::{resolve_state::ResolveState, NotePitch};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{Error, IResult},
+    parse::IResult,
     pitch::PitchStandard,
 };
-use nom::{combinator::all_consuming, Finish as _};
-use std::{
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
+use std::str::FromStr;
 
 /// An absolute chord, contextually relevant.
 #[derive(Debug, Clone)]
 pub struct Chord {
-    pub pitches: Vec<Arc<Mutex<Pitch>>>,
+    pub pitches: Vec<NotePitch>,
 
     // Conceptual length of the chord in beats
     pub length: Option<Beat>,
@@ -34,12 +31,11 @@ impl Chord {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        state: &ResolveState,
+        mut state: ResolveState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
-        let mut state = state.clone();
         let start = metronome.beat_to_time(offset);
         let duration = self.inner_duration(&state);
         let end_beat = offset + duration;
@@ -49,9 +45,8 @@ impl Chord {
             .pitches
             .iter()
             .map(move |pitch| {
-                let pitch = pitch.lock().expect("poisoned").absolute(&state);
-                let frequency = pitch_standard.resolve(&pitch);
-                state.pitch = pitch;
+                let frequency = pitch_standard.resolve(&pitch.absolute(&state));
+                pitch.update_state(&mut state);
                 Tone {
                     start,
                     length,
@@ -73,7 +68,7 @@ impl Chord {
     where
         S: PitchStandard + ?Sized,
     {
-        self.inner_tones(offset, metronome, pitch_standard, &Default::default())
+        self.inner_tones(offset, metronome, pitch_standard, Default::default())
     }
 
     pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
@@ -93,15 +88,18 @@ impl Chord {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::chord(input)
     }
+    pub(super) fn update_state(&self, state: &mut ResolveState) {
+        state.length = self.inner_length(state);
+    }
 }
 
 impl FromStr for Chord {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let chord = all_consuming(parse::chord)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(chord)
     }

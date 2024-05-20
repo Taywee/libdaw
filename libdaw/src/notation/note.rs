@@ -1,22 +1,60 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Pitch};
+use super::{resolve_state::ResolveState, Pitch, Step};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{Error, IResult},
+    parse::IResult,
     pitch::{Pitch as AbsolutePitch, PitchStandard},
 };
-use nom::{combinator::all_consuming, Finish as _};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
 
+#[derive(Debug, Clone)]
+pub enum NotePitch {
+    Pitch(Arc<Mutex<Pitch>>),
+    Step(Arc<Mutex<Step>>),
+}
+
+impl NotePitch {
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::note_pitch(input)
+    }
+    /// Resolve to an absolute pitch
+    pub(super) fn absolute(&self, state: &ResolveState) -> AbsolutePitch {
+        match self {
+            NotePitch::Pitch(pitch) => pitch.lock().expect("poisoned").absolute(state),
+            NotePitch::Step(step) => step.lock().expect("poisoned").absolute(state),
+        }
+    }
+    pub(super) fn update_state(&self, state: &mut ResolveState) {
+        let pitch = self.absolute(state);
+        state.pitch = pitch;
+        if let Self::Step(step) = self {
+            step.lock().expect("poisoned").update_state(state);
+        }
+    }
+}
+
+impl FromStr for NotePitch {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let note = all_consuming(Self::parse)(s)
+            .finish()
+            .map_err(move |e| convert_error(s, e))?
+            .1;
+        Ok(note)
+    }
+}
+
 /// An absolute note, contextually relevant.
 #[derive(Debug, Clone)]
 pub struct Note {
-    pub pitch: Arc<Mutex<Pitch>>,
+    pub pitch: NotePitch,
 
     // Conceptual length of the note in beats
     pub length: Option<Beat>,
@@ -29,12 +67,6 @@ pub struct Note {
 impl Note {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
-    pub fn absolute_pitch(&self, state: &ResolveState) -> AbsolutePitch {
-        self.pitch.lock().expect("poisoned").absolute(state)
-    }
-
-    /// Resolve all the section's notes to playable instrument tones.
-    /// The offset is the beat offset.
     pub(super) fn inner_tone<S>(
         &self,
         offset: Beat,
@@ -45,7 +77,7 @@ impl Note {
     where
         S: PitchStandard + ?Sized,
     {
-        let frequency = pitch_standard.resolve(&self.absolute_pitch(state));
+        let frequency = pitch_standard.resolve(&self.pitch.absolute(state));
         let start = metronome.beat_to_time(offset);
         let duration = self.inner_duration(state);
         let end_beat = offset + duration;
@@ -85,15 +117,21 @@ impl Note {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::note(input)
     }
+
+    pub(super) fn update_state(&self, state: &mut ResolveState) {
+        let length = self.inner_length(state);
+        self.pitch.update_state(state);
+        state.length = length;
+    }
 }
 
 impl FromStr for Note {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(Self::parse)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }

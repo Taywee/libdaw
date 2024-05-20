@@ -4,10 +4,10 @@ use super::{resolve_state::ResolveState, Item};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
-    parse::{Error, IResult},
+    parse::IResult,
     pitch::PitchStandard,
 };
-use nom::{combinator::all_consuming, Finish as _};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -70,12 +70,12 @@ impl Overlapped {
 }
 
 impl FromStr for Overlapped {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let note = all_consuming(parse::overlapped)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(note)
     }

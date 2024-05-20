@@ -1,10 +1,10 @@
 mod parse;
 
 use crate::{
-    parse::{Error, IResult},
+    parse::IResult,
     pitch::{Pitch as AbsolutePitch, PitchClass},
 };
-use nom::{combinator::all_consuming, Finish as _};
+use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
@@ -12,8 +12,7 @@ use std::{
 
 use super::resolve_state::ResolveState;
 
-/// A notation-specific pitch specification, which may be relative or even a
-/// scale-mode representition (TODO)
+/// A notation-specific pitch specification, which may be absolute or relative.
 #[derive(Debug, Clone)]
 pub struct Pitch {
     pub pitch_class: Arc<Mutex<PitchClass>>,
@@ -26,7 +25,7 @@ impl Pitch {
         parse::pitch(input)
     }
     /// Resolve to an absolute pitch
-    pub fn absolute(&self, state: &ResolveState) -> AbsolutePitch {
+    pub(super) fn absolute(&self, state: &ResolveState) -> AbsolutePitch {
         let unshifted_octave = self.octave.unwrap_or_else(|| {
             let a = state.pitch.pitch_class.lock().expect("poisoned");
             let b = self.pitch_class.lock().expect("poisoned");
@@ -41,12 +40,12 @@ impl Pitch {
     }
 }
 impl FromStr for Pitch {
-    type Err = Error<String>;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let pitch = all_consuming(Self::parse)(s)
             .finish()
-            .map_err(|e| e.to_owned())?
+            .map_err(move |e| convert_error(s, e))?
             .1;
         Ok(pitch)
     }

@@ -1,18 +1,24 @@
 mod chord;
+mod inversion;
 mod item;
 mod note;
 mod overlapped;
 mod pitch;
 mod rest;
+mod scale;
 mod sequence;
+mod step;
 
 pub use chord::Chord;
+pub use inversion::Inversion;
 pub use item::Item;
-pub use note::Note;
+pub use note::{Note, NotePitch};
 pub use overlapped::Overlapped;
 pub use pitch::Pitch;
 pub use rest::Rest;
+pub use scale::Scale;
 pub use sequence::Sequence;
+pub use step::Step;
 
 use pyo3::{
     types::{PyModule, PyModuleMethods as _},
@@ -22,10 +28,13 @@ use pyo3::{
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(item::parse, module)?)?;
     module.add_class::<Chord>()?;
-    module.add_class::<Sequence>()?;
+    module.add_class::<Inversion>()?;
+    module.add_class::<Note>()?;
     module.add_class::<Overlapped>()?;
     module.add_class::<Pitch>()?;
-    module.add_class::<Note>()?;
     module.add_class::<Rest>()?;
+    module.add_class::<Scale>()?;
+    module.add_class::<Sequence>()?;
+    module.add_class::<Step>()?;
     Ok(())
 }
