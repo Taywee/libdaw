@@ -6,7 +6,7 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation import parse
+from libdaw.notation import loads
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
 from functools import partial
@@ -15,7 +15,7 @@ from functools import partial
 if TYPE_CHECKING:
     pass
 
-sequence = parse('''+(
+sequence = loads('''+(
 @(g4 a b c d e f#)
 *(
   +(r 0 1 2 4 3 3 5 4)
@@ -29,6 +29,7 @@ sequence = parse('''+(
   +(=(0- 0-):3 =(4 0- 0-) =(5 5- 5-))
 )
 )''')
+print(sequence)
 
 # minor_sequence = copy.deepcopy(sequence)
 # # Take the scale and make it minor by shifting two to the right

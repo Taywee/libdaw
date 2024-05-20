@@ -71,6 +71,9 @@ impl Pitch {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
+    pub fn __str__(&self) -> String {
+        format!("{:#?}", self.inner.lock().expect("poisoned").deref())
+    }
     pub fn __getnewargs__(&self) -> (&Py<PitchClass>, Option<i8>, i8) {
         let lock = self.inner.lock().expect("poisoned");
         (

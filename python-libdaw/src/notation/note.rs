@@ -58,7 +58,7 @@ impl Note {
     }
 
     #[staticmethod]
-    pub fn parse(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
+    pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
         Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 
@@ -114,6 +114,9 @@ impl Note {
 
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
+    }
+    pub fn __str__(&self) -> String {
+        format!("{:#?}", self.inner.lock().expect("poisoned").deref())
     }
 
     pub fn __getnewargs__(&self) -> (NotePitch, Option<Beat>, Option<Beat>) {

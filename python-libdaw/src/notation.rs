@@ -26,7 +26,7 @@ use pyo3::{
 };
 
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(item::parse, module)?)?;
+    module.add_function(wrap_pyfunction!(item::loads, module)?)?;
     module.add_class::<Chord>()?;
     module.add_class::<Inversion>()?;
     module.add_class::<Note>()?;

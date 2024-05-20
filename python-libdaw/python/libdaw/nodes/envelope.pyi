@@ -2,8 +2,8 @@ from libdaw.time import Time
 
 
 class Point:
-    def __init__(
-        self,
+    def __new__(
+        cls: type,
         whence: float,
         volume: float,
         offset: Time | None = None,

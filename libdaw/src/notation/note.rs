@@ -9,14 +9,24 @@ use crate::{
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
+    fmt,
     str::FromStr,
     sync::{Arc, Mutex},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum NotePitch {
     Pitch(Arc<Mutex<Pitch>>),
     Step(Arc<Mutex<Step>>),
+}
+
+impl fmt::Debug for NotePitch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NotePitch::Pitch(pitch) => fmt::Debug::fmt(&pitch.lock().expect("poisoned"), f),
+            NotePitch::Step(step) => fmt::Debug::fmt(&step.lock().expect("poisoned"), f),
+        }
+    }
 }
 
 impl NotePitch {

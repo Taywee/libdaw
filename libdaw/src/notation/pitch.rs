@@ -6,6 +6,7 @@ use crate::{
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
+    fmt,
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -13,11 +14,23 @@ use std::{
 use super::resolve_state::ResolveState;
 
 /// A notation-specific pitch specification, which may be absolute or relative.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Pitch {
     pub pitch_class: Arc<Mutex<PitchClass>>,
     pub octave: Option<i8>,
     pub octave_shift: i8,
+}
+
+impl fmt::Debug for Pitch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let pitch_class = self.pitch_class.lock().expect("poisoned");
+        let pitch_class = &*pitch_class;
+        f.debug_struct("Pitch")
+            .field("pitch_class", pitch_class)
+            .field("octave", &self.octave)
+            .field("octave_shift", &self.octave_shift)
+            .finish()
+    }
 }
 
 impl Pitch {

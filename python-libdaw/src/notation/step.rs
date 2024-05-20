@@ -62,6 +62,9 @@ impl Step {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned").deref())
     }
+    pub fn __str__(&self) -> String {
+        format!("{:#?}", self.inner.lock().expect("poisoned").deref())
+    }
     pub fn __getnewargs__(&self) -> (usize, i8) {
         let lock = self.inner.lock().expect("poisoned");
         (lock.step, lock.octave_shift)

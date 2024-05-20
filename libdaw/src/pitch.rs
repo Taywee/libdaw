@@ -4,7 +4,6 @@ use crate::parse::IResult;
 use nom::error::convert_error;
 use nom::{combinator::all_consuming, Finish};
 use std::fmt;
-use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -125,10 +124,21 @@ impl FromStr for PitchClass {
 
 /// An absolute pitch, with the octave and any adjustments specified.  This lets
 /// you get any frequency, subject to the PitchStandard used.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Pitch {
     pub pitch_class: Arc<Mutex<PitchClass>>,
     pub octave: i8,
+}
+
+impl fmt::Debug for Pitch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let pitch_class = self.pitch_class.lock().expect("poisoned");
+        let pitch_class = &*pitch_class;
+        f.debug_struct("Pitch")
+            .field("pitch_class", pitch_class)
+            .field("octave", &self.octave)
+            .finish()
+    }
 }
 
 impl Pitch {
@@ -154,7 +164,7 @@ impl FromStr for Pitch {
     }
 }
 
-pub trait PitchStandard: Debug + Send + Sync {
+pub trait PitchStandard: fmt::Debug + Send + Sync {
     /// Resolve a pitch to a frequency.
     fn resolve(&self, pitch: &Pitch) -> f64;
 }
@@ -184,7 +194,7 @@ impl TwelveToneEqualTemperament for A440 {
 
 impl<T> PitchStandard for T
 where
-    T: TwelveToneEqualTemperament + Debug + Send + Sync,
+    T: TwelveToneEqualTemperament + fmt::Debug + Send + Sync,
 {
     fn resolve(&self, pitch: &Pitch) -> f64 {
         let pitch_class = pitch.pitch_class.lock().expect("poisoned");
