@@ -26,7 +26,7 @@ impl Step {
 impl Step {
     #[new]
     #[pyo3(signature = (step, octave_shift = 0, adjustment = 0.0))]
-    pub fn new(step: usize, octave_shift: i8, adjustment: f64) -> Self {
+    pub fn new(step: i64, octave_shift: i8, adjustment: f64) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawStep {
                 step,
@@ -36,11 +36,11 @@ impl Step {
         }
     }
     #[getter]
-    pub fn get_step(&self) -> usize {
+    pub fn get_step(&self) -> i64 {
         self.inner.lock().expect("poisoned").step
     }
     #[setter]
-    pub fn set_step(&self, value: usize) {
+    pub fn set_step(&self, value: i64) {
         self.inner.lock().expect("poisoned").step = value;
     }
     #[getter]
@@ -65,7 +65,7 @@ impl Step {
     pub fn __str__(&self) -> String {
         format!("{:#?}", self.inner.lock().expect("poisoned").deref())
     }
-    pub fn __getnewargs__(&self) -> (usize, i8) {
+    pub fn __getnewargs__(&self) -> (i64, i8) {
         let lock = self.inner.lock().expect("poisoned");
         (lock.step, lock.octave_shift)
     }

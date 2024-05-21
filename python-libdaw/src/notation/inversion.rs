@@ -25,7 +25,7 @@ impl Inversion {
 #[pymethods]
 impl Inversion {
     #[new]
-    pub fn new(inversion: usize) -> Self {
+    pub fn new(inversion: i64) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawInversion { inversion })),
         }
@@ -36,11 +36,11 @@ impl Inversion {
     }
 
     #[getter]
-    pub fn get_inversion(&self) -> usize {
+    pub fn get_inversion(&self) -> i64 {
         self.inner.lock().expect("poisoned").inversion
     }
     #[setter]
-    pub fn set_inversion(&mut self, value: usize) {
+    pub fn set_inversion(&mut self, value: i64) {
         self.inner.lock().expect("poisoned").inversion = value
     }
 
@@ -51,7 +51,7 @@ impl Inversion {
         format!("{:#?}", self.inner.lock().expect("poisoned").deref())
     }
 
-    pub fn __getnewargs__(&self) -> (usize,) {
+    pub fn __getnewargs__(&self) -> (i64,) {
         (self.get_inversion(),)
     }
 }

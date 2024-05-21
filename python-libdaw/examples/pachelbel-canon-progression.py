@@ -14,7 +14,7 @@ from libdaw.time import Time
 if TYPE_CHECKING:
     pass
 
-chord = Chord.loads('=(0 2 4),1')
+chord = Chord.loads('=(1 3 5),1')
 sequence = Sequence()
 
 for progression_chord in [1, 5, 6, 3, 4, 1, 4, 5]:

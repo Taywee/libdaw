@@ -1,12 +1,12 @@
 use super::Step;
 use crate::parse::{numeric_adjustment, octave_shift, IResult};
 use nom::{
-    character::complete::u64,
+    character::complete::i64,
     combinator::{map_res, opt},
 };
 
 pub fn step(input: &str) -> IResult<&str, Step> {
-    let (input, step) = map_res(u64, usize::try_from)(input)?;
+    let (input, step) = i64(input)?;
     let (input, numeric_adjustment) = opt(numeric_adjustment)(input)?;
     let (input, octave_shift) = opt(octave_shift)(input)?;
     Ok((

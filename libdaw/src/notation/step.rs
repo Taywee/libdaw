@@ -9,7 +9,7 @@ use super::resolve_state::ResolveState;
 /// A notation-specific scale step specification
 #[derive(Debug, Clone)]
 pub struct Step {
-    pub step: usize,
+    pub step: i64,
     pub octave_shift: i8,
     pub adjustment: f64,
 }
@@ -22,7 +22,7 @@ impl Step {
     /// Resolve to an absolute pitch
     pub(super) fn absolute(&self, state: &ResolveState) -> Pitch {
         let scale_octave = self.scale_octave(state);
-        let index = (self.step + state.inversion) % state.scale.len();
+        let index = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let scale_pitch = &state.scale[index];
         let pitch_class = scale_pitch.pitch_class.clone();
         pitch_class.lock().expect("poisoned").adjustment += self.adjustment;
@@ -34,7 +34,7 @@ impl Step {
 
     pub(super) fn scale_octave(&self, state: &ResolveState) -> i8 {
         let half_scale = state.scale.len() / 2;
-        let step = (self.step + state.inversion) % state.scale.len();
+        let step = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let state_step = state.scale_step % state.scale.len();
         let relative_shift = if state_step + half_scale < step {
             -1
@@ -46,7 +46,8 @@ impl Step {
         relative_shift + self.octave_shift + state.scale_octave
     }
     pub(super) fn update_state(&self, state: &mut ResolveState) {
-        let scale_step = (self.step + state.inversion) % state.scale.len();
+        let scale_step =
+            (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let scale_octave = self.scale_octave(state);
         state.scale_step = scale_step;
         state.scale_octave = scale_octave;

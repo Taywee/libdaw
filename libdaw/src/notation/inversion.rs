@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct Inversion {
-    pub inversion: usize,
+    pub inversion: i64,
 }
 
 impl Inversion {

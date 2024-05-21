@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     pass
 
 sequence = loads('''+(
-  c d e f g a b
+  1 2 3 4 5 6 7
 )''')
 assert isinstance(sequence, Sequence)
 

@@ -18,9 +18,9 @@ pub struct ResolveState {
     pub scale: Vec<Pitch>,
 
     /// The current scale inversion.
-    pub inversion: usize,
+    pub inversion: i64,
 
-    /// Previous used scale step, post-inversion.
+    /// Previous used scale step, post-inversion and zero-basing.
     pub scale_step: usize,
 
     /// Previous used scale octave.
