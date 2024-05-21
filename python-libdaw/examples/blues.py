@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 sequence = loads('''+(
 @(c eb f f# g bb)
-0+:2 2 1 3:1 5 4 3 2 1 2
+0+,2 2 1 3,1 5 4 3 2 1 2
 0 1
 )''')
 assert isinstance(sequence, Sequence)

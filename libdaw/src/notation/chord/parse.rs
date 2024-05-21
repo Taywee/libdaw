@@ -20,8 +20,8 @@ pub fn chord(input: &str) -> IResult<&str, Chord> {
     let (input, pitches) = cut(separated_list1(multispace1, NotePitch::parse))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(tag(")"))(input)?;
-    let (input, length) = opt(preceded(tag(":"), Beat::parse))(input)?;
-    let (input, duration) = opt(preceded(tag(":"), Beat::parse))(input)?;
+    let (input, length) = opt(preceded(tag(","), Beat::parse))(input)?;
+    let (input, duration) = opt(preceded(tag(","), Beat::parse))(input)?;
     Ok((
         input,
         Chord {
