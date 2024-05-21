@@ -6,7 +6,7 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, TriangleOscillator
-from libdaw.notation import Overlapped, Rest, Sequence, loads
+from libdaw.notation import Sequence, loads
 from libdaw.time import Time
 
 #import copy
@@ -15,28 +15,20 @@ if TYPE_CHECKING:
     pass
 
 sequence = loads('''+(
-@(ab4 bb c db eb f g)
-0:1 0 0 1 0 0 4:2
-5:1 4 5 6 0:2 0
-0:1 0 0 1 0 0 4:2
-5:1 4 5 6 0:2 0
-4+:1 3 2 1 2 1 0:2
-5:1 4 5 6 0:2 0
-4:1 4 5 6 0 0 1:2
-4:1 3 2 1 0:2 3 0:4
+@(c eb f f# g bb)
+0+:2 2 1 3:1 5 4 3 2 1 2
+0 1
 )''')
+assert isinstance(sequence, Sequence)
 
-overlapped = Overlapped()
-
-for offset in range(4):
-    inner = Sequence(items=[
-        Rest(length=Beat(offset * 8)),
-        sequence
-    ])
-    overlapped.append(inner)
     
 metronome = Metronome()
-metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
+for beat in range(0, 100, 2):
+    metronome.add_tempo_instruction(TempoInstruction(beat=Beat(beat), tempo=BeatsPerMinute(300)))
+    metronome.add_tempo_instruction(TempoInstruction(beat=Beat(beat), tempo=BeatsPerMinute(150)))
+for beat in range(1, 100, 2):
+    metronome.add_tempo_instruction(TempoInstruction(beat=Beat(beat), tempo=BeatsPerMinute(150)))
+    metronome.add_tempo_instruction(TempoInstruction(beat=Beat(beat), tempo=BeatsPerMinute(300)))
 
 instrument = Instrument(
     factory=TriangleOscillator,
@@ -53,7 +45,7 @@ instrument = Instrument(
         Point(whence=1, volume=0),
     ),
 )
-for tone in overlapped.tones(metronome=metronome):
+for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()

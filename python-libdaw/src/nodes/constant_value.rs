@@ -9,7 +9,8 @@ pub struct ConstantValue(pub Arc<::libdaw::nodes::ConstantValue>);
 #[pymethods]
 impl ConstantValue {
     #[new]
-    pub fn new(channels: u16, value: f64) -> PyClassInitializer<Self> {
+    #[pyo3(signature = (value, channels = 2))]
+    pub fn new(value: f64, channels: u16) -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::ConstantValue::new(channels, value));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
