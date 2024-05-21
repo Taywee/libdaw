@@ -55,7 +55,7 @@ impl Sequence {
     }
 
     #[staticmethod]
-    pub fn loadse(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
+    pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
         Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 

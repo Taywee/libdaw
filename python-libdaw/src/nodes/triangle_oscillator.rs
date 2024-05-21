@@ -9,6 +9,7 @@ pub struct TriangleOscillator(pub Arc<::libdaw::nodes::TriangleOscillator>);
 #[pymethods]
 impl TriangleOscillator {
     #[new]
+    #[pyo3(signature = (sample_rate = 48000, channels = 2))]
     pub fn new(sample_rate: u32, channels: u16) -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::TriangleOscillator::new(
             sample_rate,

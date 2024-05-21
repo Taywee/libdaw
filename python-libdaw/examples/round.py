@@ -7,9 +7,7 @@ from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, TriangleOscillator
 from libdaw.notation import Overlapped, Rest, Sequence, loads
-from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
-from functools import partial
 
 #import copy
 
@@ -39,11 +37,9 @@ for offset in range(4):
     
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
-pitch_standard = ScientificPitch()
 
 instrument = Instrument(
-    factory=partial(TriangleOscillator, channels=2, sample_rate=48000),
-    sample_rate=48000,
+    factory=TriangleOscillator,
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -57,7 +53,7 @@ instrument = Instrument(
         Point(whence=1, volume=0),
     ),
 )
-for tone in overlapped.tones(metronome=metronome, pitch_standard=pitch_standard):
+for tone in overlapped.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()
@@ -66,5 +62,5 @@ instrument_index = graph.add(instrument)
 graph.connect(instrument_index, gain_index)
 graph.output(gain_index)
 
-play(graph, channels=2, sample_rate=48000)
+play(graph)
 

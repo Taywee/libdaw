@@ -6,16 +6,15 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation import loads
+from libdaw.notation import Sequence
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
-from functools import partial
 #import copy
 
 if TYPE_CHECKING:
     pass
 
-sequence = loads('''+(
+sequence = Sequence.loads('''+(
 @(g4 a b c d e f#)
 *(
   +(r 0 1 2 4 3 3 5 4)
@@ -29,7 +28,6 @@ sequence = loads('''+(
   +(=(0- 0-):3 =(4 0- 0-) =(5 5- 5-))
 )
 )''')
-print(sequence)
 
 # minor_sequence = copy.deepcopy(sequence)
 # # Take the scale and make it minor by shifting two to the right
@@ -42,8 +40,7 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 pitch_standard = ScientificPitch()
 
 instrument = Instrument(
-    factory=partial(SquareOscillator, channels=2, sample_rate=48000),
-    sample_rate=48000,
+    factory=SquareOscillator,
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -66,5 +63,5 @@ instrument_index = graph.add(instrument)
 graph.connect(instrument_index, gain_index)
 graph.output(gain_index)
 
-play(graph, channels=2, sample_rate=48000)
+play(graph)
 

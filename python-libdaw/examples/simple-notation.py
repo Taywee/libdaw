@@ -6,44 +6,24 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation import Overlapped, Sequence, loads, Chord, Note
+from libdaw.notation import Sequence, loads
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
-from functools import partial
 
 if TYPE_CHECKING:
-    from libdaw.notation import _Item
+    pass
 
 sequence = loads('''+(
-*(
-  +(=(g3 g-):3 =(d g- g-) =(e e- e-))
-)
+  c d e g f f a g g c b c
 )''')
 assert isinstance(sequence, Sequence)
-
-def change_adjustments(item: _Item, amount: float = 0):
-    match item:
-        case Overlapped():
-            for subitem in item:
-                change_adjustments(subitem, amount)
-        case Sequence():
-            for subitem in item:
-                change_adjustments(subitem, amount)
-        case Chord():
-            for pitch in item:
-                pitch.pitch_class.adjustment += amount
-        case Note():
-            item.pitch.pitch_class.adjustment += amount
-
-change_adjustments(sequence, 0)
 
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
 pitch_standard = ScientificPitch()
 
 instrument = Instrument(
-    factory=partial(SquareOscillator, channels=2, sample_rate=48000),
-    sample_rate=48000,
+    factory=SquareOscillator,
     envelope=(
         # start
         Point(whence=0, volume=0),

@@ -51,6 +51,7 @@ impl Iterator for Source {
 
 /// Play a node to the default speakers of the system.
 #[pyfunction]
+#[pyo3(signature = (node, sample_rate = 48000, channels=2))]
 pub fn play(
     py: Python,
     node: &Bound<'_, Node>,

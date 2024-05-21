@@ -42,10 +42,11 @@ pub struct Instrument {
 #[pymethods]
 impl Instrument {
     #[new]
+    #[pyo3(signature = (factory, envelope, sample_rate = 48000))]
     pub fn new(
-        sample_rate: u32,
         factory: Bound<'_, PyAny>,
         envelope: Vec<Point>,
+        sample_rate: u32,
     ) -> Result<PyClassInitializer<Self>> {
         if !factory.is_callable() {
             return Err("factory must be a callable".into());

@@ -9,7 +9,8 @@ pub struct Delay(pub Arc<::libdaw::nodes::Delay>);
 #[pymethods]
 impl Delay {
     #[new]
-    pub fn new(sample_rate: u32, delay: Duration) -> PyClassInitializer<Self> {
+    #[pyo3(signature = (delay, sample_rate = 48000))]
+    pub fn new(delay: Duration, sample_rate: u32) -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::Delay::new(sample_rate, delay.0));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }

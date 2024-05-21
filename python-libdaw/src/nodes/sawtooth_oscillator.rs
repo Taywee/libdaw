@@ -9,6 +9,7 @@ pub struct SawtoothOscillator(pub Arc<::libdaw::nodes::SawtoothOscillator>);
 #[pymethods]
 impl SawtoothOscillator {
     #[new]
+    #[pyo3(signature = (sample_rate = 48000, channels = 2))]
     pub fn new(sample_rate: u32, channels: u16) -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::SawtoothOscillator::new(
             sample_rate,

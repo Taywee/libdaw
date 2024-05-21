@@ -50,10 +50,11 @@ pub struct Envelope(pub Arc<envelope::Envelope>);
 #[pymethods]
 impl Envelope {
     #[new]
+    #[pyo3(signature = (length, envelope, sample_rate = 48000))]
     pub fn new(
-        sample_rate: u32,
         length: Duration,
         envelope: Vec<Point>,
+        sample_rate: u32,
     ) -> PyClassInitializer<Self> {
         let inner = Arc::new(libdaw::nodes::Envelope::new(
             sample_rate,

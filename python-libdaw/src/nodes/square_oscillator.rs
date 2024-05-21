@@ -9,6 +9,7 @@ pub struct SquareOscillator(pub Arc<::libdaw::nodes::SquareOscillator>);
 #[pymethods]
 impl SquareOscillator {
     #[new]
+    #[pyo3(signature = (sample_rate = 48000, channels = 2))]
     pub fn new(sample_rate: u32, channels: u16) -> PyClassInitializer<Self> {
         let inner = Arc::new(::libdaw::nodes::SquareOscillator::new(
             sample_rate,
