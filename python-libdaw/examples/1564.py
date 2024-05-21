@@ -81,7 +81,7 @@ for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.15))
+gain_index = graph.add(Gain(0.05))
 instrument_index = graph.add(instrument)
 graph.connect(instrument_index, gain_index)
 graph.output(gain_index)

@@ -14,12 +14,13 @@ if TYPE_CHECKING:
     pass
 
 sequence = loads('''+(
-  c d e f g a b
+  c d e f g a b c
 )''')
 assert isinstance(sequence, Sequence)
 
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
+metronome.add_tempo_instruction(TempoInstruction(beat=Beat(8), tempo=BeatsPerMinute(100)))
 pitch_standard = ScientificPitch()
 
 instrument = Instrument(
@@ -41,7 +42,7 @@ for tone in sequence.tones(metronome=metronome, pitch_standard=pitch_standard):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.3))
+gain_index = graph.add(Gain(0.2))
 instrument_index = graph.add(instrument)
 graph.connect(instrument_index, gain_index)
 graph.output(gain_index)

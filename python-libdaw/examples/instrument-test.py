@@ -57,7 +57,7 @@ instrument.add_tone(Tone(
   frequency = 256 * 2 ** (7 / 12),
 ))
 
-gain = graph.add(Gain(0.3))
+gain = graph.add(Gain(0.1))
 graph.connect(graph.add(instrument), gain)
 graph.output(gain)
 
