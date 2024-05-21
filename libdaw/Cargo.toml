@@ -1,6 +1,6 @@
 [package]
 name = "libdaw"
-version = "0.2.0"
+version.workspace = true
 edition = "2021"
 authors.workspace = true
 license-file.workspace = true
