@@ -6,6 +6,9 @@ sphinx:
 
 build:
   os: ubuntu-lts-latest
+  apt_packages:
+    - build-essential
+    - libasound2-dev
   tools:
     python: latest
     rust: latest
