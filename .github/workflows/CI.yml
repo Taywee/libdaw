@@ -48,11 +48,11 @@ jobs:
             (
               set -exfv
               if [ -n "${TARGET_SYSROOT:-}" ]; then
-                yum install -y alsa-lib-devel
-              else
                 export DEBIAN_FRONTEND=noninteractive
                 apt update
                 apt install -y pkg-config libasound2-dev
+              else
+                yum install -y pkgconfig alsa-lib-devel
               fi
             )
           target: ${{ matrix.platform.target }}
