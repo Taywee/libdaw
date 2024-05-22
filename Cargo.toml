@@ -12,7 +12,4 @@ authors = ["Taylor C. Richberger"]
 repository = 'https://codeberg.org/Taywee/libdaw'
 license-file = 'LICENSE'
 readme = 'README.md'
-version = '0.2.1'
-
-[profile.dev]
-opt-level = 1
+version = '0.2.2'

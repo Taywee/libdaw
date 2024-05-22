@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 sequence = loads('''+(
 @(ab4 bb c db eb f g)
-% 5
 1,1 1 1 2 1 1 5,2
 6,1 5 6 7 1,2 1
 1,1 1 1 2 1 1 5,2

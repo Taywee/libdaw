@@ -47,33 +47,13 @@ jobs:
           before-script-linux: |
             (
               set -exfv
-              mkdir -p alsabuild
-              cd alsabuild
-              curl -Lo alsa-lib.tar.bz2 http://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.11.tar.bz2
-              tar -xf alsa-lib.tar.bz2
-              cd alsa-lib-1.2.11
-              CFLAGS="${CFLAGS:-} -O2"
-              if [ -n "${TARGET_CC:-}" ]; then
-                export CC="$TARGET_CC"
-                export CXX="$TARGET_CXX"
-                export AR="$TARGET_AR"
-                ./configure --with-pic --enable-shared=yes --enable-static=no "--prefix=$TARGET_SYSROOT" "--host=$CARGO_BUILD_TARGET"
-              else
-                ./configure --with-pic --enable-shared=yes --enable-static=no --prefix=/usr/local
-              fi
-              make -j$(nproc)
-              make install
-            )
-            if [ -n "${TARGET_SYSROOT:-}" ]; then
               apt update
-              apt install -y pkg-config
-              export "PKG_CONFIG_SYSROOT_DIR=$TARGET_SYSROOT"
-              export "PKG_CONFIG_PATH=$TARGET_SYSROOT/lib/pkgconfig"
-            fi
+              apt install -y pkg-config libasound2-dev
+            )
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter -m ./python-libdaw/Cargo.toml
           sccache: 'true'
-          manylinux: auto
+          manylinux: '2014'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
