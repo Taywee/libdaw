@@ -8,7 +8,7 @@ use crate::{
     pitch::MaybePitchStandard,
 };
 use libdaw::{metronome::Beat as DawBeat, notation::Note as DawNote};
-use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python};
+use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
@@ -46,15 +46,15 @@ impl Note {
         pitch: NotePitch,
         length: Option<Beat>,
         duration: Option<Beat>,
-    ) -> PyResult<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             inner: Arc::new(Mutex::new(DawNote {
                 pitch: pitch.as_inner(py),
                 length: length.map(|beat| beat.0),
                 duration: duration.map(|beat| beat.0),
             })),
             pitch: Some(pitch),
-        })
+        }
     }
 
     #[staticmethod]

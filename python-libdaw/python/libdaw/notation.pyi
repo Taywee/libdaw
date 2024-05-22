@@ -4,7 +4,7 @@ from libdaw.metronome import Beat, Metronome
 from libdaw.nodes.instrument import Tone
 from libdaw.pitch import A440, PitchStandard, PitchClass
 
-type _Item = Chord | Note | Rest | Overlapped | Sequence | Inversion | Scale
+type _Item = Chord | Note | Rest | Overlapped | Sequence | Inversion | Scale | Set
 type _NotePitch = Step | Pitch
 
 class _ChordIterator:
@@ -204,5 +204,23 @@ class Inversion:
     def inversion(self) -> int: ...
     @inversion.setter
     def inversion(self, value: int): ...
+
+class Set:
+    def __new__(
+        cls: type,
+        pitch: _NotePitch | None = None,
+        length: Beat | None = None,
+    ): ...
+    @staticmethod
+    def loads(source: str) -> Set: ...
+
+    @property
+    def pitch(self) -> _NotePitch | None: ...
+    @pitch.setter
+    def pitch(self, value: _NotePitch | None): ...
+    @property
+    def length(self) -> Beat | None: ...
+    @length.setter
+    def length(self, value: Beat | None): ...
 
 def loads(source: str) -> _Item: ...

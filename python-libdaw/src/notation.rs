@@ -7,6 +7,7 @@ mod pitch;
 mod rest;
 mod scale;
 mod sequence;
+mod set;
 mod step;
 
 pub use chord::Chord;
@@ -18,6 +19,7 @@ pub use pitch::Pitch;
 pub use rest::Rest;
 pub use scale::Scale;
 pub use sequence::Sequence;
+pub use set::Set;
 pub use step::Step;
 
 use pyo3::{
@@ -35,6 +37,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Rest>()?;
     module.add_class::<Scale>()?;
     module.add_class::<Sequence>()?;
+    module.add_class::<Set>()?;
     module.add_class::<Step>()?;
     Ok(())
 }

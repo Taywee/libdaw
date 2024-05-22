@@ -23,7 +23,7 @@ impl Scale {
             running_state.pitch = absolute;
         }
         state.scale = scale;
-        state.scale_step = 0;
+        state.step = 0;
         state.inversion = 0;
         state.scale_octave = 0;
     }

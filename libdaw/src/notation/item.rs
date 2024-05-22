@@ -1,7 +1,7 @@
 mod parse;
 
 use super::{
-    resolve_state::ResolveState, Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence,
+    resolve_state::ResolveState, Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence, Set,
 };
 use crate::{
     metronome::{Beat, Metronome},
@@ -25,6 +25,7 @@ pub enum Item {
     Sequence(Arc<Mutex<Sequence>>),
     Scale(Arc<Mutex<Scale>>),
     Inversion(Arc<Mutex<Inversion>>),
+    Set(Arc<Mutex<Set>>),
 }
 
 impl fmt::Debug for Item {
@@ -39,6 +40,7 @@ impl fmt::Debug for Item {
             Item::Sequence(sequence) => fmt::Debug::fmt(&sequence.lock().expect("poisoned"), f),
             Item::Scale(scale) => fmt::Debug::fmt(&scale.lock().expect("poisoned"), f),
             Item::Inversion(inversion) => fmt::Debug::fmt(&inversion.lock().expect("poisoned"), f),
+            Item::Set(set) => fmt::Debug::fmt(&set.lock().expect("poisoned"), f),
         }
     }
 }
@@ -82,7 +84,9 @@ impl Item {
                 pitch_standard,
                 state.clone(),
             )),
-            Item::Scale(_) | Item::Inversion(_) | Item::Rest(_) => Box::new(std::iter::empty()),
+            Item::Scale(_) | Item::Inversion(_) | Item::Rest(_) | Item::Set(_) => {
+                Box::new(std::iter::empty())
+            }
         }
     }
     pub fn tones<S>(
@@ -109,7 +113,7 @@ impl Item {
                 .lock()
                 .expect("poisoned")
                 .inner_length(state.clone()),
-            Item::Scale(_) | Item::Inversion(_) => Beat::ZERO,
+            Item::Scale(_) | Item::Inversion(_) | Item::Set(_) => Beat::ZERO,
         }
     }
 
@@ -120,6 +124,7 @@ impl Item {
             Item::Rest(rest) => rest.lock().expect("poisoned").update_state(state),
             Item::Scale(scale) => scale.lock().expect("poisoned").update_state(state),
             Item::Inversion(inversion) => inversion.lock().expect("poisoned").update_state(state),
+            Item::Set(set) => set.lock().expect("poisoned").update_state(state),
             Item::Overlapped(_) | Item::Sequence(_) => (),
         }
     }
@@ -136,7 +141,7 @@ impl Item {
                 .lock()
                 .expect("poisoned")
                 .inner_duration(state.clone()),
-            Item::Scale(_) | Item::Inversion(_) => Beat::ZERO,
+            Item::Scale(_) | Item::Inversion(_) | Item::Set(_) => Beat::ZERO,
         }
     }
     pub fn length(&self) -> Beat {
