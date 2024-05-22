@@ -9,5 +9,4 @@ libdaw.metronome
 .. automodule:: libdaw.metronome
 	:members:
 	:undoc-members:
-	:special-members:
 

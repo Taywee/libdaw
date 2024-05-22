@@ -12,4 +12,3 @@ libdaw.nodes
 .. automodule:: libdaw.nodes
 	:members:
 	:undoc-members:
-	:special-members:

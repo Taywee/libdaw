@@ -28,6 +28,17 @@ pub trait Node: Debug + Send + Sync {
     ) -> Result<()>;
 }
 
+impl Iterator for &dyn Node {
+    type Item = Result<Vec<Stream>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut outputs = Vec::new();
+        Some(match self.process(&[], &mut outputs) {
+            Err(e) => Err(e),
+            Ok(()) => Ok(outputs),
+        })
+    }
+}
 /// A node with a settable frequency.
 pub trait FrequencyNode: Node + DynNode {
     fn get_frequency(&self) -> Result<f64>;

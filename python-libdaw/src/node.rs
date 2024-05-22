@@ -19,4 +19,15 @@ impl Node {
     pub fn __repr__(&self) -> String {
         format!("{:?}", (&*self.0))
     }
+
+    pub fn __iter__(self_: Bound<'_, Node>) -> Bound<'_, Node> {
+        self_
+    }
+
+    pub fn __next__(&self) -> Result<Option<Vec<Stream>>> {
+        match (&*self.0).next() {
+            Some(outputs) => Ok(Some(outputs?.into_iter().map(Stream).collect())),
+            None => Ok(None),
+        }
+    }
 }

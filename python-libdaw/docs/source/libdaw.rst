@@ -14,4 +14,3 @@ libdaw
 .. automodule:: libdaw
 	:members:
 	:undoc-members:
-	:special-members:
