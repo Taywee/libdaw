@@ -50,11 +50,14 @@ jobs:
               if [ -n "${TARGET_SYSROOT:-}" ]; then
                 export DEBIAN_FRONTEND=noninteractive
                 apt update
-                apt install -y pkg-config libasound2-dev
+                apt install -y pkg-config
               else
                 yum install -y pkgconfig alsa-lib-devel
               fi
             )
+            if [ -n "${TARGET_SYSROOT:-}" ]; then
+              export "PKG_CONFIG_SYSROOT_DIR=$TARGET_SYSROOT"
+            fi
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter -m ./python-libdaw/Cargo.toml
           sccache: 'true'
