@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::char,
-    combinator::{map_res, opt},
+    combinator::{cut, map_res, opt},
     error::VerboseError,
     multi::many1_count,
     number::complete::double,
@@ -14,7 +14,7 @@ pub type IResult<I, O> = nom::IResult<I, O, VerboseError<I>>;
 
 pub fn denominator(input: &str) -> IResult<&str, f64> {
     let (input, _) = tag("/")(input)?;
-    let (input, denominator) = double(input)?;
+    let (input, denominator) = cut(double)(input)?;
     Ok((input, denominator))
 }
 

@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{i64, multispace0},
-    combinator::{cut, map_res},
+    combinator::cut,
 };
 
 pub fn inversion(input: &str) -> IResult<&str, Inversion> {

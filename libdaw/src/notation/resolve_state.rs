@@ -20,8 +20,8 @@ pub struct ResolveState {
     /// The current scale inversion.
     pub inversion: i64,
 
-    /// Previous used scale step, post-inversion and zero-basing.
-    pub scale_step: usize,
+    /// Previous used scale step, post-inversion.
+    pub step: i64,
 
     /// Previous used scale octave.
     pub scale_octave: i8,
@@ -57,7 +57,7 @@ impl Default for ResolveState {
             })
             .collect(),
             inversion: 0,
-            scale_step: 0,
+            step: 1,
             scale_octave: 0,
         }
     }

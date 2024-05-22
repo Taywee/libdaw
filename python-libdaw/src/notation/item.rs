@@ -1,4 +1,4 @@
-use super::{Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence};
+use super::{Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::Result;
 use libdaw::notation::Item as DawItem;
 use pyo3::{
@@ -16,6 +16,7 @@ pub enum Item {
     Sequence(Py<Sequence>),
     Scale(Py<Scale>),
     Inversion(Py<Inversion>),
+    Set(Py<Set>),
 }
 
 impl Item {
@@ -30,6 +31,7 @@ impl Item {
             DawItem::Sequence(sequence) => Self::Sequence(Sequence::from_inner(py, sequence)),
             DawItem::Scale(scale) => Self::Scale(Scale::from_inner(py, scale)),
             DawItem::Inversion(inversion) => Self::Inversion(Inversion::from_inner(py, inversion)),
+            DawItem::Set(set) => Self::Set(Set::from_inner(py, set)),
         }
     }
     pub fn as_inner(&self, py: Python<'_>) -> DawItem {
@@ -47,6 +49,7 @@ impl Item {
             Item::Inversion(inversion) => {
                 DawItem::Inversion(inversion.bind_borrowed(py).borrow().inner.clone())
             }
+            Item::Set(set) => DawItem::Set(set.bind_borrowed(py).borrow().inner.clone()),
         }
     }
 }
@@ -67,6 +70,8 @@ impl<'py> FromPyObject<'py> for Item {
             Self::Scale(scale.clone().unbind())
         } else if let Ok(inversion) = value.downcast::<Inversion>() {
             Self::Inversion(inversion.clone().unbind())
+        } else if let Ok(set) = value.downcast::<Set>() {
+            Self::Set(set.clone().unbind())
         } else {
             return Err(PyTypeError::new_err("Item was invalid type"));
         })
@@ -83,6 +88,7 @@ impl IntoPy<Py<PyAny>> for Item {
             Item::Sequence(sequence) => sequence.into_py(py),
             Item::Scale(scale) => scale.into_py(py),
             Item::Inversion(inversion) => inversion.into_py(py),
+            Item::Set(set) => set.into_py(py),
         }
     }
 }
@@ -97,6 +103,7 @@ unsafe impl AsPyPointer for Item {
             Item::Sequence(sequence) => sequence.as_ptr(),
             Item::Scale(scale) => scale.as_ptr(),
             Item::Inversion(inversion) => inversion.as_ptr(),
+            Item::Set(set) => set.as_ptr(),
         }
     }
 }

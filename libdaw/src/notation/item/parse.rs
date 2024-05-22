@@ -1,10 +1,13 @@
-use super::{Chord, Inversion, Item, Note, Overlapped, Rest, Scale, Sequence};
+use super::{Chord, Inversion, Item, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::parse::IResult;
 use nom::{branch::alt, combinator::map, error::context};
 use std::sync::{Arc, Mutex};
 
 pub fn item(input: &str) -> IResult<&str, Item> {
     alt((
+        map(context("Set", Set::parse), move |chord| {
+            Item::Set(Arc::new(Mutex::new(chord)))
+        }),
         map(context("Chord", Chord::parse), move |chord| {
             Item::Chord(Arc::new(Mutex::new(chord)))
         }),

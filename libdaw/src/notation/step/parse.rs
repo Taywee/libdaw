@@ -1,9 +1,6 @@
 use super::Step;
 use crate::parse::{numeric_adjustment, octave_shift, IResult};
-use nom::{
-    character::complete::i64,
-    combinator::{map_res, opt},
-};
+use nom::{character::complete::i64, combinator::opt};
 
 pub fn step(input: &str) -> IResult<&str, Step> {
     let (input, step) = i64(input)?;

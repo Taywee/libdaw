@@ -8,6 +8,7 @@ mod resolve_state;
 mod rest;
 mod scale;
 mod sequence;
+mod set;
 mod step;
 
 pub use chord::Chord;
@@ -19,4 +20,5 @@ pub use pitch::Pitch;
 pub use rest::Rest;
 pub use scale::Scale;
 pub use sequence::Sequence;
+pub use set::Set;
 pub use step::Step;
