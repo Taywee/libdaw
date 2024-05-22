@@ -47,8 +47,13 @@ jobs:
           before-script-linux: |
             (
               set -exfv
-              apt update
-              apt install -y pkg-config libasound2-dev
+              if [ -n "${TARGET_SYSROOT:-}" ]; then
+                yum install -y alsa-lib-devel
+              else
+                export DEBIAN_FRONTEND=noninteractive
+                apt update
+                apt install -y pkg-config libasound2-dev
+              fi
             )
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter -m ./python-libdaw/Cargo.toml
