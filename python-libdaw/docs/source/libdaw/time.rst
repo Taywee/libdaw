@@ -9,6 +9,5 @@ libdaw.time
 .. automodule:: libdaw.time
 	:members:
 	:undoc-members:
-	:special-members:
 
 

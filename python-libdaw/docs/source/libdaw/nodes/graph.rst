@@ -9,6 +9,5 @@ libdaw.nodes.graph
 .. automodule:: libdaw.nodes.graph
 	:members:
 	:undoc-members:
-	:special-members:
 
 

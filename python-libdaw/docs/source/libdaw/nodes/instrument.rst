@@ -9,5 +9,4 @@ libdaw.nodes.instrument
 .. automodule:: libdaw.nodes.instrument
 	:members:
 	:undoc-members:
-	:special-members:
 

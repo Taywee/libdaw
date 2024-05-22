@@ -9,4 +9,3 @@ libdaw.pitch
 .. automodule:: libdaw.pitch
 	:members:
 	:undoc-members:
-	:special-members:

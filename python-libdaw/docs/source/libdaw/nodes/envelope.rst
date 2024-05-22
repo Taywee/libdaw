@@ -9,4 +9,3 @@ libdaw.nodes.envelope
 .. automodule:: libdaw.nodes.envelope
 	:members:
 	:undoc-members:
-	:special-members:
