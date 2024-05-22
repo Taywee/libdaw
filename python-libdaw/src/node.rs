@@ -1,9 +1,6 @@
 use crate::{Result, Stream};
 use pyo3::{pyclass, pymethods, Bound};
-use std::{
-    hash::{DefaultHasher, Hasher},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 #[pyclass(subclass, module = "libdaw")]
@@ -21,15 +18,5 @@ impl Node {
 
     pub fn __repr__(&self) -> String {
         format!("{:?}", (&*self.0))
-    }
-
-    pub fn __eq__(&self, other: Bound<'_, Self>) -> bool {
-        std::ptr::addr_eq(Arc::as_ptr(&self.0), Arc::as_ptr(&other.borrow().0))
-    }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        std::ptr::hash(Arc::as_ptr(&self.0), &mut hasher);
-        hasher.finish()
     }
 }

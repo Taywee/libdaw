@@ -8,7 +8,8 @@ use pyo3::{
     Bound, FromPyObject, PyAny, PyRef, PyResult,
 };
 use std::{
-    hash::{DefaultHasher, Hash as _, Hasher as _},
+    collections::hash_map::DefaultHasher,
+    hash::{Hash as _, Hasher as _},
     ops::Deref,
 };
 

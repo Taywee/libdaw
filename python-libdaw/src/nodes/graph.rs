@@ -9,7 +9,8 @@ use pyo3::{
     Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit,
 };
 use std::{
-    hash::{DefaultHasher, Hash as _, Hasher as _},
+    collections::hash_map::DefaultHasher,
+    hash::{Hash as _, Hasher as _},
     sync::Arc,
 };
 

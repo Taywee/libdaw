@@ -7,7 +7,8 @@ use pyo3::{
     types::{PyAnyMethods as _, PyDelta, PyDeltaAccess as _, PyModule, PyModuleMethods as _},
     Bound, PyAny, PyResult, Python,
 };
-use std::hash::{DefaultHasher, Hash as _, Hasher as _};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash as _, Hasher as _};
 
 #[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

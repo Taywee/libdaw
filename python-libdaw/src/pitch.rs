@@ -9,11 +9,7 @@ use pyo3::{
     types::{PyAnyMethods as _, PyModule, PyModuleMethods as _},
     Bound, FromPyObject, PyAny, PyClassInitializer, PyRef, PyResult,
 };
-use std::{
-    hash::{DefaultHasher, Hasher},
-    ops::Deref,
-    sync::Arc,
-};
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Debug, Clone)]
 #[pyclass(subclass, module = "libdaw.pitch")]
@@ -28,16 +24,6 @@ impl PitchStandard {
 
     pub fn __repr__(&self) -> String {
         format!("{:?}", (&*self.0))
-    }
-
-    pub fn __eq__(&self, other: &Bound<'_, Self>) -> bool {
-        std::ptr::addr_eq(Arc::as_ptr(&self.0), Arc::as_ptr(&other.borrow().0))
-    }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        std::ptr::hash(Arc::as_ptr(&self.0), &mut hasher);
-        hasher.finish()
     }
 }
 

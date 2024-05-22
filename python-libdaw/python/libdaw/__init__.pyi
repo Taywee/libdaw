@@ -15,7 +15,6 @@ class Stream:
 
 class Node:
     def process(self, inputs: Sequence[Stream]) -> Sequence[Stream]: ...
-    def __eq__(self, other: Node) -> bool: ...
 
 class FrequencyNode(Node):
     @property
