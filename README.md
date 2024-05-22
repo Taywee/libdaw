@@ -1,3 +1,3 @@
 # libdaw
 
-A Rust and C library for creating programmable digital audio workstation environments
+A Rust and python library for creating programmable digital audio workstation environments

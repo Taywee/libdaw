@@ -5,10 +5,13 @@ build-backend = "maturin"
 [project]
 name = "libdaw"
 requires-python = ">=3.8"
+license = {text = "MPL 2.0"}
+readme = "README.md"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
 ]
 dynamic = ["version"]
 
