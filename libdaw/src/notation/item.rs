@@ -75,7 +75,7 @@ impl Item {
                     offset,
                     metronome,
                     pitch_standard,
-                    state,
+                    state.clone(),
                 ))
             }
             Item::Sequence(sequence) => Box::new(sequence.lock().expect("poisoned").inner_tones(

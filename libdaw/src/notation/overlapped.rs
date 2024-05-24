@@ -19,7 +19,7 @@ impl Overlapped {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        state: &ResolveState,
+        mut state: ResolveState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -27,7 +27,11 @@ impl Overlapped {
         let pitches: Vec<_> = self
             .0
             .iter()
-            .flat_map(move |item| item.inner_tones(offset, metronome, pitch_standard, state))
+            .flat_map(move |item| {
+                let resolved = item.inner_tones(offset, metronome, pitch_standard, &state);
+                item.update_state(&mut state);
+                resolved
+            })
             .collect();
         pitches.into_iter()
     }
@@ -40,7 +44,7 @@ impl Overlapped {
     where
         S: PitchStandard + ?Sized,
     {
-        self.inner_tones(offset, metronome, pitch_standard, &Default::default())
+        self.inner_tones(offset, metronome, pitch_standard, Default::default())
     }
 
     pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
