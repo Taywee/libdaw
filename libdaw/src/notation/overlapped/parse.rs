@@ -18,5 +18,5 @@ pub fn overlapped(input: &str) -> IResult<&str, Overlapped> {
     let (input, items) = cut(separated_list1(multispace1, Item::parse))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(tag(")"))(input)?;
-    Ok((input, Overlapped(items)))
+    Ok((input, Overlapped { items }))
 }

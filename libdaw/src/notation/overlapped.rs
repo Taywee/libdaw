@@ -11,7 +11,9 @@ use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
-pub struct Overlapped(pub Vec<Item>);
+pub struct Overlapped {
+    pub items: Vec<Item>,
+}
 
 impl Overlapped {
     pub(super) fn inner_tones<S>(
@@ -25,7 +27,7 @@ impl Overlapped {
         S: PitchStandard + ?Sized,
     {
         let pitches: Vec<_> = self
-            .0
+            .items
             .iter()
             .flat_map(move |item| {
                 let resolved = item.inner_tones(offset, metronome, pitch_standard, &state);
@@ -48,7 +50,7 @@ impl Overlapped {
     }
 
     pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
-        self.0
+        self.items
             .iter()
             .map(|item| item.inner_length(state))
             .max()
@@ -56,7 +58,7 @@ impl Overlapped {
     }
 
     pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
-        self.0
+        self.items
             .iter()
             .map(|item| item.inner_duration(state))
             .max()

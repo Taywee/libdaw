@@ -18,5 +18,5 @@ pub fn sequence(input: &str) -> IResult<&str, Sequence> {
     let (input, items) = cut(separated_list1(multispace1, Item::parse))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(tag(")"))(input)?;
-    Ok((input, Sequence(items)))
+    Ok((input, Sequence { items }))
 }

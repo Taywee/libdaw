@@ -12,7 +12,9 @@ use std::str::FromStr;
 
 /// A linear sequence of items.
 #[derive(Default, Debug, Clone)]
-pub struct Sequence(pub Vec<Item>);
+pub struct Sequence {
+    pub items: Vec<Item>,
+}
 
 impl FromStr for Sequence {
     type Err = String;
@@ -39,7 +41,7 @@ impl Sequence {
     {
         let mut start = offset;
         let tones: Vec<_> = self
-            .0
+            .items
             .iter()
             .flat_map(move |item| {
                 let resolved = item.inner_tones(start, metronome, pitch_standard, &state);
@@ -71,7 +73,7 @@ impl Sequence {
     }
 
     pub(super) fn inner_length(&self, mut state: ResolveState) -> Beat {
-        self.0
+        self.items
             .iter()
             .map(move |item| {
                 let length = item.inner_length(&state);
@@ -84,7 +86,7 @@ impl Sequence {
     pub(super) fn inner_duration(&self, mut state: ResolveState) -> Beat {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
-        for item in &self.0 {
+        for item in &self.items {
             let item_duration = item.inner_duration(&state);
             let item_length = item.inner_length(&state);
             item.update_state(&mut state);

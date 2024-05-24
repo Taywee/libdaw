@@ -27,7 +27,7 @@ impl Overlapped {
         let items = inner
             .lock()
             .expect("poisoned")
-            .0
+            .items
             .iter()
             .cloned()
             .map(move |item| Item::from_inner(py, item))
@@ -47,9 +47,9 @@ impl Overlapped {
     pub fn new(py: Python<'_>, items: Option<Vec<Item>>) -> Self {
         let items = items.unwrap_or_default();
         Self {
-            inner: Arc::new(Mutex::new(DawOverlapped(
-                items.iter().map(move |item| item.as_inner(py)).collect(),
-            ))),
+            inner: Arc::new(Mutex::new(DawOverlapped {
+                items: items.iter().map(move |item| item.as_inner(py)).collect(),
+            })),
             items,
         }
     }
@@ -108,7 +108,7 @@ impl Overlapped {
     }
     pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: Item) -> PyResult<()> {
         let index = resolve_index(self.items.len(), index)?;
-        self.inner.lock().expect("poisoned").0[index] = value.as_inner(py);
+        self.inner.lock().expect("poisoned").items[index] = value.as_inner(py);
         self.items[index] = value;
         Ok(())
     }
@@ -124,7 +124,7 @@ impl Overlapped {
         self.inner
             .lock()
             .expect("poisoned")
-            .0
+            .items
             .push(value.as_inner(py));
         self.items.push(value);
         Ok(())
@@ -135,7 +135,7 @@ impl Overlapped {
         self.inner
             .lock()
             .expect("poisoned")
-            .0
+            .items
             .insert(index, value.as_inner(py));
         self.items.insert(index, value);
         Ok(())
@@ -151,7 +151,7 @@ impl Overlapped {
             None => len - 1,
         };
 
-        self.inner.lock().expect("poisoned").0.remove(index);
+        self.inner.lock().expect("poisoned").items.remove(index);
         Ok(self.items.remove(index))
     }
 
@@ -167,7 +167,7 @@ impl Overlapped {
     }
 
     pub fn __clear__(&mut self) {
-        self.inner.lock().expect("poisoned").0.clear();
+        self.inner.lock().expect("poisoned").items.clear();
         self.items.clear();
     }
 }
