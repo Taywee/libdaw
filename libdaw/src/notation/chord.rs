@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, NotePitch};
+use super::{tone_generation_state::ToneGenerationState, NotePitch, StateMember};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -21,6 +21,8 @@ pub struct Chord {
     // Actual playtime of the chord in beats, which will default to the length
     // usually.
     pub duration: Option<Beat>,
+
+    pub state_member: Option<StateMember>,
 }
 
 impl Chord {
@@ -31,7 +33,7 @@ impl Chord {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        mut state: ResolveState,
+        mut state: ToneGenerationState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -71,11 +73,11 @@ impl Chord {
         self.inner_tones(offset, metronome, pitch_standard, Default::default())
     }
 
-    pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         self.length.unwrap_or(state.length)
     }
 
-    pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         self.duration.or(self.length).unwrap_or(state.length)
     }
     pub fn length(&self) -> Beat {
@@ -88,8 +90,17 @@ impl Chord {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::chord(input)
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         state.length = self.inner_length(state);
+        match self.state_member {
+            Some(StateMember::First) => self.pitches[0].update_state(state),
+            Some(StateMember::Last) => {
+                for pitch in &self.pitches {
+                    pitch.update_state(state);
+                }
+            }
+            None => (),
+        }
     }
 }
 

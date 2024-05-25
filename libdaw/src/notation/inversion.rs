@@ -1,6 +1,6 @@
 mod parse;
 
-use super::resolve_state::ResolveState;
+use super::tone_generation_state::ToneGenerationState;
 use crate::parse::IResult;
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
@@ -14,7 +14,7 @@ impl Inversion {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::inversion(input)
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         state.inversion = self.inversion;
     }
 }

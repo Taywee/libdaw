@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, NotePitch};
+use super::{tone_generation_state::ToneGenerationState, NotePitch};
 use crate::{metronome::Beat, parse::IResult};
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
@@ -33,7 +33,7 @@ impl Set {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::set(input)
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         if let Some(pitch) = &self.pitch {
             pitch.update_state(state);
         }

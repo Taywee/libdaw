@@ -1,7 +1,8 @@
 mod parse;
 
 use super::{
-    resolve_state::ResolveState, Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence, Set,
+    tone_generation_state::ToneGenerationState, Chord, Inversion, Note, Overlapped, Rest, Scale,
+    Sequence, Set,
 };
 use crate::{
     metronome::{Beat, Metronome},
@@ -53,7 +54,7 @@ impl Item {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        state: &ResolveState,
+        state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static>
     where
         S: PitchStandard + ?Sized,
@@ -101,7 +102,7 @@ impl Item {
         self.inner_tones(offset, metronome, pitch_standard, &Default::default())
     }
 
-    pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         match self {
             Item::Note(note) => note.lock().expect("poisoned").inner_length(state),
             Item::Chord(chord) => chord.lock().expect("poisoned").inner_length(state),
@@ -117,7 +118,7 @@ impl Item {
         }
     }
 
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         match self {
             Item::Note(note) => note.lock().expect("poisoned").update_state(state),
             Item::Chord(chord) => chord.lock().expect("poisoned").update_state(state),
@@ -125,11 +126,14 @@ impl Item {
             Item::Scale(scale) => scale.lock().expect("poisoned").update_state(state),
             Item::Inversion(inversion) => inversion.lock().expect("poisoned").update_state(state),
             Item::Set(set) => set.lock().expect("poisoned").update_state(state),
-            Item::Overlapped(_) | Item::Sequence(_) => (),
+            Item::Sequence(sequence) => sequence.lock().expect("poisoned").update_state(state),
+            Item::Overlapped(overlapped) => {
+                overlapped.lock().expect("poisoned").update_state(state)
+            }
         }
     }
 
-    pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         match self {
             Item::Note(note) => note.lock().expect("poisoned").inner_duration(state),
             Item::Chord(chord) => chord.lock().expect("poisoned").inner_duration(state),

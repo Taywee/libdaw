@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Item};
+use super::{tone_generation_state::ToneGenerationState, Item, StateMember};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -13,6 +13,7 @@ use std::str::FromStr;
 #[derive(Debug, Clone)]
 pub struct Overlapped {
     pub items: Vec<Item>,
+    pub state_member: Option<StateMember>,
 }
 
 impl Overlapped {
@@ -21,7 +22,7 @@ impl Overlapped {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        mut state: ResolveState,
+        mut state: ToneGenerationState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -49,7 +50,7 @@ impl Overlapped {
         self.inner_tones(offset, metronome, pitch_standard, Default::default())
     }
 
-    pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
             .map(|item| item.inner_length(state))
@@ -57,7 +58,7 @@ impl Overlapped {
             .unwrap_or(Beat::ZERO)
     }
 
-    pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
             .map(|item| item.inner_duration(state))
@@ -72,6 +73,18 @@ impl Overlapped {
     }
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::overlapped(input)
+    }
+
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+        match self.state_member {
+            Some(StateMember::First) => self.items[0].update_state(state),
+            Some(StateMember::Last) => {
+                for item in &self.items {
+                    item.update_state(state);
+                }
+            }
+            None => (),
+        }
     }
 }
 
