@@ -4,7 +4,7 @@ use crate::{parse::IResult, pitch::Pitch};
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
 
-use super::resolve_state::ResolveState;
+use super::tone_generation_state::ToneGenerationState;
 
 /// A notation-specific scale step specification
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ impl Step {
     }
 
     /// Resolve to an absolute pitch
-    pub(super) fn absolute(&self, state: &ResolveState) -> Pitch {
+    pub(super) fn absolute(&self, state: &ToneGenerationState) -> Pitch {
         let scale_octave = self.scale_octave(state);
         let index = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let scale_pitch = &state.scale[index];
@@ -32,7 +32,7 @@ impl Step {
         }
     }
 
-    pub(super) fn scale_octave(&self, state: &ResolveState) -> i8 {
+    pub(super) fn scale_octave(&self, state: &ToneGenerationState) -> i8 {
         let half_scale = state.scale.len() / 2;
         let step = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let state_step = (state.step - 1).rem_euclid(state.scale.len() as i64) as usize;
@@ -45,7 +45,7 @@ impl Step {
         };
         relative_shift + self.octave_shift + state.scale_octave
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         let scale_step = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) + 1;
         let scale_octave = self.scale_octave(state);
         state.step = scale_step;

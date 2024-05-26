@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Pitch, Step};
+use super::{tone_generation_state::ToneGenerationState, Pitch, Step};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -34,13 +34,13 @@ impl NotePitch {
         parse::note_pitch(input)
     }
     /// Resolve to an absolute pitch
-    pub(super) fn absolute(&self, state: &ResolveState) -> AbsolutePitch {
+    pub(super) fn absolute(&self, state: &ToneGenerationState) -> AbsolutePitch {
         match self {
             NotePitch::Pitch(pitch) => pitch.lock().expect("poisoned").absolute(state),
             NotePitch::Step(step) => step.lock().expect("poisoned").absolute(state),
         }
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         let pitch = self.absolute(state);
         state.pitch = pitch;
         if let Self::Step(step) = self {
@@ -82,7 +82,7 @@ impl Note {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        state: &ResolveState,
+        state: &ToneGenerationState,
     ) -> Tone
     where
         S: PitchStandard + ?Sized,
@@ -109,11 +109,11 @@ impl Note {
         self.inner_tone(offset, metronome, pitch_standard, &Default::default())
     }
 
-    pub(super) fn inner_length(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         self.length.unwrap_or(state.length)
     }
 
-    pub(super) fn inner_duration(&self, state: &ResolveState) -> Beat {
+    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         self.duration.or(self.length).unwrap_or(state.length)
     }
 
@@ -128,7 +128,7 @@ impl Note {
         parse::note(input)
     }
 
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         let length = self.inner_length(state);
         self.pitch.update_state(state);
         state.length = length;

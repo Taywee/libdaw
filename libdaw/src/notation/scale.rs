@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, NotePitch};
+use super::{tone_generation_state::ToneGenerationState, NotePitch};
 use crate::parse::IResult;
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
@@ -14,7 +14,7 @@ impl Scale {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::scale(input)
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         let mut scale = Vec::new();
         let mut running_state = state.clone();
         for pitch in &self.pitches {

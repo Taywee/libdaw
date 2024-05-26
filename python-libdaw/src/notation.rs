@@ -8,6 +8,7 @@ mod rest;
 mod scale;
 mod sequence;
 mod set;
+mod state_member;
 mod step;
 
 pub use chord::Chord;
@@ -20,6 +21,7 @@ pub use rest::Rest;
 pub use scale::Scale;
 pub use sequence::Sequence;
 pub use set::Set;
+pub use state_member::StateMember;
 pub use step::Step;
 
 use pyo3::{
@@ -38,6 +40,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Scale>()?;
     module.add_class::<Sequence>()?;
     module.add_class::<Set>()?;
+    module.add_class::<StateMember>()?;
     module.add_class::<Step>()?;
     Ok(())
 }

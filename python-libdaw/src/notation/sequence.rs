@@ -1,7 +1,7 @@
+use super::{Item, StateMember};
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
-    notation::Item,
     pitch::MaybePitchStandard,
     resolve_index, resolve_index_for_insert,
 };
@@ -44,11 +44,16 @@ impl Sequence {
 #[pymethods]
 impl Sequence {
     #[new]
-    pub fn new(py: Python<'_>, items: Option<Vec<Item>>) -> Self {
+    pub fn new(
+        py: Python<'_>,
+        items: Option<Vec<Item>>,
+        state_member: Option<StateMember>,
+    ) -> Self {
         let items = items.unwrap_or_default();
         Self {
             inner: Arc::new(Mutex::new(DawSequence {
                 items: items.iter().map(move |item| item.as_inner(py)).collect(),
+                state_member: state_member.map(Into::into),
             })),
             items,
         }
@@ -79,6 +84,18 @@ impl Sequence {
             .tones(offset.0, &metronome, pitch_standard.deref())
             .map(Tone)
             .collect()
+    }
+    #[getter]
+    pub fn get_state_member(&self) -> Option<StateMember> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .state_member
+            .map(Into::into)
+    }
+    #[setter]
+    pub fn set_state_member(&mut self, value: Option<StateMember>) {
+        self.inner.lock().expect("poisoned").state_member = value.map(Into::into);
     }
 
     pub fn length(&self) -> Beat {
@@ -153,8 +170,15 @@ impl Sequence {
         self.inner.lock().expect("poisoned").items.remove(index);
         Ok(self.items.remove(index))
     }
-    pub fn __getnewargs__(&self) -> (Vec<Item>,) {
-        (self.items.clone(),)
+    pub fn __getnewargs__(&self) -> (Vec<Item>, Option<StateMember>) {
+        (
+            self.items.clone(),
+            self.inner
+                .lock()
+                .expect("poisoned")
+                .state_member
+                .map(Into::into),
+        )
     }
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         for item in &self.items {

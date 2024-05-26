@@ -11,7 +11,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::resolve_state::ResolveState;
+use super::tone_generation_state::ToneGenerationState;
 
 /// A notation-specific pitch specification, which may be absolute or relative.
 #[derive(Clone)]
@@ -38,7 +38,7 @@ impl Pitch {
         parse::pitch(input)
     }
     /// Resolve to an absolute pitch
-    pub(super) fn absolute(&self, state: &ResolveState) -> AbsolutePitch {
+    pub(super) fn absolute(&self, state: &ToneGenerationState) -> AbsolutePitch {
         let unshifted_octave = self.octave.unwrap_or_else(|| {
             let a = state.pitch.pitch_class.lock().expect("poisoned");
             let b = self.pitch_class.lock().expect("poisoned");

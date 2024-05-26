@@ -6,7 +6,7 @@ from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
-from libdaw.notation import Chord, Sequence, Inversion, Set, Step
+from libdaw.notation import Chord, Sequence, Inversion
 from libdaw.time import Time
 
 #import copy
@@ -14,12 +14,11 @@ from libdaw.time import Time
 if TYPE_CHECKING:
     pass
 
-chord = Chord.loads('=(1 3 5)')
+chord = Chord.loads('=<(1 3 5)')
 sequence = Sequence()
 
 for progression_chord in [1, 5, 6, 3, 4, 1, 4, 5]:
     sequence.append(Inversion(progression_chord - 1))
-    sequence.append(Set(pitch=Step(1)))
     sequence.append(chord)
 
 assert isinstance(sequence, Sequence)

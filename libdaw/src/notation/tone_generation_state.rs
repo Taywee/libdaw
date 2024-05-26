@@ -5,9 +5,10 @@ use crate::{
     pitch::{Pitch, PitchClass, PitchName},
 };
 
-/// A running state that is used to manage a resolve operation.
+/// A running state that is used to manage context-aware bits of tone
+/// generatian.
 #[derive(Debug, Clone)]
-pub struct ResolveState {
+pub struct ToneGenerationState {
     /// Previous resolved pitch.
     pub pitch: Pitch,
 
@@ -27,7 +28,7 @@ pub struct ResolveState {
     pub scale_octave: i8,
 }
 
-impl Default for ResolveState {
+impl Default for ToneGenerationState {
     fn default() -> Self {
         Self {
             pitch: Pitch {

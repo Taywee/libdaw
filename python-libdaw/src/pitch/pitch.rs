@@ -9,7 +9,7 @@ use std::{
 };
 
 #[pyclass(module = "libdaw.pitch")]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PitchName {
     C,
     D,
