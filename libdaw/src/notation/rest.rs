@@ -1,6 +1,6 @@
 mod parse;
 
-use super::resolve_state::ResolveState;
+use super::tone_generation_state::ToneGenerationState;
 use crate::{metronome::Beat, parse::IResult};
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
@@ -12,7 +12,7 @@ pub struct Rest {
 }
 
 impl Rest {
-    pub fn inner_length(&self, state: &ResolveState) -> Beat {
+    pub fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         self.length.unwrap_or(state.length)
     }
     pub const fn duration(&self) -> Beat {
@@ -24,7 +24,7 @@ impl Rest {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::rest(input)
     }
-    pub(super) fn update_state(&self, state: &mut ResolveState) {
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         state.length = self.inner_length(state);
     }
 }

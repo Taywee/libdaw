@@ -1,4 +1,4 @@
-use super::NotePitch;
+use super::{NotePitch, StateMember};
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
@@ -49,6 +49,7 @@ impl Chord {
         pitches: Option<Vec<NotePitch>>,
         length: Option<Beat>,
         duration: Option<Beat>,
+        state_member: Option<StateMember>,
     ) -> Self {
         let pitches = pitches.unwrap_or_default();
         Self {
@@ -59,6 +60,7 @@ impl Chord {
                     .collect(),
                 length: length.map(|beat| beat.0),
                 duration: duration.map(|beat| beat.0),
+                state_member: state_member.map(Into::into),
             })),
             pitches,
         }
@@ -96,17 +98,29 @@ impl Chord {
     pub fn get_length(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").length.map(Beat)
     }
+    #[setter]
+    pub fn set_length(&mut self, value: Option<Beat>) {
+        self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
+    }
     #[getter]
     pub fn get_duration(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").duration.map(Beat)
     }
     #[setter]
-    pub fn set_length(&mut self, value: Option<Beat>) {
-        self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
-    }
-    #[setter]
     pub fn set_duration(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
+    }
+    #[getter]
+    pub fn get_state_member(&self) -> Option<StateMember> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .state_member
+            .map(Into::into)
+    }
+    #[setter]
+    pub fn set_state_member(&mut self, value: Option<StateMember>) {
+        self.inner.lock().expect("poisoned").state_member = value.map(Into::into);
     }
 
     pub fn __repr__(&self) -> String {
@@ -170,12 +184,20 @@ impl Chord {
         self.inner.lock().expect("poisoned").pitches.remove(index);
         Ok(self.pitches.remove(index))
     }
-    pub fn __getnewargs__(&self) -> (Vec<NotePitch>, Option<Beat>, Option<Beat>) {
+    pub fn __getnewargs__(
+        &self,
+    ) -> (
+        Vec<NotePitch>,
+        Option<Beat>,
+        Option<Beat>,
+        Option<StateMember>,
+    ) {
         let lock = self.inner.lock().expect("poisoned");
         (
             self.pitches.clone(),
             lock.length.map(Beat),
             lock.duration.map(Beat),
+            lock.state_member.map(Into::into),
         )
     }
 

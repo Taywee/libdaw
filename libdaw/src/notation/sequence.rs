@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{resolve_state::ResolveState, Item};
+use super::{tone_generation_state::ToneGenerationState, Item, StateMember};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -14,6 +14,7 @@ use std::str::FromStr;
 #[derive(Default, Debug, Clone)]
 pub struct Sequence {
     pub items: Vec<Item>,
+    pub state_member: Option<StateMember>,
 }
 
 impl FromStr for Sequence {
@@ -34,7 +35,7 @@ impl Sequence {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        mut state: ResolveState,
+        mut state: ToneGenerationState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
@@ -72,7 +73,7 @@ impl Sequence {
         self.inner_duration(Default::default())
     }
 
-    pub(super) fn inner_length(&self, mut state: ResolveState) -> Beat {
+    pub(super) fn inner_length(&self, mut state: ToneGenerationState) -> Beat {
         self.items
             .iter()
             .map(move |item| {
@@ -83,7 +84,7 @@ impl Sequence {
             .sum()
     }
 
-    pub(super) fn inner_duration(&self, mut state: ResolveState) -> Beat {
+    pub(super) fn inner_duration(&self, mut state: ToneGenerationState) -> Beat {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
         for item in &self.items {
@@ -98,5 +99,17 @@ impl Sequence {
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::sequence(input)
+    }
+
+    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+        match self.state_member {
+            Some(StateMember::First) => self.items[0].update_state(state),
+            Some(StateMember::Last) => {
+                for item in &self.items {
+                    item.update_state(state);
+                }
+            }
+            None => (),
+        }
     }
 }
