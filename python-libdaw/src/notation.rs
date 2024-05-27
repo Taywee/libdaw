@@ -1,4 +1,5 @@
 mod chord;
+pub mod duration;
 mod inversion;
 mod item;
 mod note;
@@ -24,6 +25,7 @@ pub use set::Set;
 pub use state_member::StateMember;
 pub use step::Step;
 
+use crate::submodule;
 use pyo3::{
     types::{PyModule, PyModuleMethods as _},
     wrap_pyfunction, Bound, PyResult,
@@ -42,5 +44,6 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Set>()?;
     module.add_class::<StateMember>()?;
     module.add_class::<Step>()?;
+    duration::register(&submodule!(module, "libdaw.notation", "duration"))?;
     Ok(())
 }

@@ -1,4 +1,5 @@
 mod chord;
+mod duration;
 mod inversion;
 mod item;
 mod note;
@@ -13,6 +14,7 @@ mod step;
 mod tone_generation_state;
 
 pub use chord::Chord;
+pub use duration::Duration;
 pub use inversion::Inversion;
 pub use item::Item;
 pub use note::{Note, NotePitch};

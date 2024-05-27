@@ -1,4 +1,4 @@
-use super::{NotePitch, Pitch, Step};
+use super::{Duration, NotePitch, Pitch, Step};
 use crate::{metronome::Beat, notation::Note, parse::IResult};
 use nom::{
     branch::alt,
@@ -22,7 +22,7 @@ pub fn note_pitch(input: &str) -> IResult<&str, NotePitch> {
 pub fn note(input: &str) -> IResult<&str, Note> {
     let (input, pitch) = note_pitch(input)?;
     let (input, length) = opt(preceded(tag(","), Beat::parse))(input)?;
-    let (input, duration) = opt(preceded(tag(","), Beat::parse))(input)?;
+    let (input, duration) = opt(preceded(tag(","), Duration::parse))(input)?;
     Ok((
         input,
         Note {

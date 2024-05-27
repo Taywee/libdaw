@@ -2,6 +2,7 @@ mod note_pitch;
 
 pub use note_pitch::NotePitch;
 
+use super::duration::Duration;
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
@@ -45,13 +46,13 @@ impl Note {
         py: Python<'_>,
         pitch: NotePitch,
         length: Option<Beat>,
-        duration: Option<Beat>,
+        duration: Option<Duration>,
     ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawNote {
                 pitch: pitch.as_inner(py),
                 length: length.map(|beat| beat.0),
-                duration: duration.map(|beat| beat.0),
+                duration: duration.map(move |duration| duration.inner),
             })),
             pitch: Some(pitch),
         }
@@ -99,17 +100,21 @@ impl Note {
     pub fn get_length(&self) -> Option<Beat> {
         self.inner.lock().expect("poisoned").length.map(Beat)
     }
-    #[getter]
-    pub fn get_duration(&self) -> Option<Beat> {
-        self.inner.lock().expect("poisoned").duration.map(Beat)
-    }
     #[setter]
     pub fn set_length(&mut self, value: Option<Beat>) {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
+    #[getter]
+    pub fn get_duration(&self) -> Option<Duration> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .duration
+            .map(|inner| Duration { inner })
+    }
     #[setter]
-    pub fn set_duration(&mut self, value: Option<Beat>) {
-        self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
+    pub fn set_duration(&mut self, value: Option<Duration>) {
+        self.inner.lock().expect("poisoned").duration = value.map(|duration| duration.inner);
     }
 
     pub fn __repr__(&self) -> String {
@@ -119,12 +124,12 @@ impl Note {
         format!("{:#?}", self.inner.lock().expect("poisoned").deref())
     }
 
-    pub fn __getnewargs__(&self) -> (NotePitch, Option<Beat>, Option<Beat>) {
+    pub fn __getnewargs__(&self) -> (NotePitch, Option<Beat>, Option<Duration>) {
         let lock = self.inner.lock().expect("poisoned");
         (
             self.pitch.clone().expect("cleared"),
             lock.length.map(Beat),
-            lock.duration.map(Beat),
+            lock.duration.map(|inner| Duration { inner }),
         )
     }
 

@@ -85,7 +85,7 @@ impl FromStr for PitchName {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::pitch_name)(s)
+        let note = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;
@@ -114,7 +114,7 @@ impl FromStr for PitchClass {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::pitch_class)(s)
+        let note = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;
@@ -156,7 +156,7 @@ impl FromStr for Pitch {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::pitch)(s)
+        let note = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;

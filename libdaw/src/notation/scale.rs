@@ -33,7 +33,7 @@ impl FromStr for Scale {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let scale = all_consuming(parse::scale)(s)
+        let scale = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;

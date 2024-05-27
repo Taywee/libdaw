@@ -23,7 +23,7 @@ impl FromStr for Inversion {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let inversion = all_consuming(parse::inversion)(s)
+        let inversion = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;

@@ -33,7 +33,7 @@ impl FromStr for Rest {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let note = all_consuming(parse::rest)(s)
+        let note = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;

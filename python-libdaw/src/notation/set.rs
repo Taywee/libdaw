@@ -1,4 +1,4 @@
-use super::NotePitch;
+use super::{duration::Duration, NotePitch};
 use crate::metronome::Beat;
 use libdaw::notation::Set as DawSet;
 use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
@@ -31,11 +31,17 @@ impl Set {
 #[pymethods]
 impl Set {
     #[new]
-    pub fn new(py: Python<'_>, pitch: Option<NotePitch>, length: Option<Beat>) -> Self {
+    pub fn new(
+        py: Python<'_>,
+        pitch: Option<NotePitch>,
+        length: Option<Beat>,
+        duration: Option<Duration>,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawSet {
                 pitch: pitch.as_ref().map(move |pitch| pitch.as_inner(py)),
                 length: length.map(|beat| beat.0),
+                duration: duration.map(|duration| duration.inner),
             })),
             pitch,
         }
@@ -63,6 +69,19 @@ impl Set {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
 
+    #[getter]
+    pub fn get_duration(&self) -> Option<Duration> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .duration
+            .map(|inner| Duration { inner })
+    }
+    #[setter]
+    pub fn set_duration(&mut self, value: Option<Duration>) {
+        self.inner.lock().expect("poisoned").duration = value.map(|duration| duration.inner);
+    }
+
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.inner.lock().expect("poisoned"))
     }
@@ -70,9 +89,13 @@ impl Set {
         format!("{:#?}", self.inner.lock().expect("poisoned"))
     }
 
-    pub fn __getnewargs__(&self) -> (Option<NotePitch>, Option<Beat>) {
+    pub fn __getnewargs__(&self) -> (Option<NotePitch>, Option<Beat>, Option<Duration>) {
         let lock = self.inner.lock().expect("poisoned");
-        (self.pitch.clone(), lock.length.map(Beat))
+        (
+            self.pitch.clone(),
+            lock.length.map(Beat),
+            lock.duration.map(|inner| Duration { inner }),
+        )
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
