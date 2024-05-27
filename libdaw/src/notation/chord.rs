@@ -13,6 +13,7 @@ use std::str::FromStr;
 /// An absolute chord, contextually relevant.
 #[derive(Debug, Clone)]
 pub struct Chord {
+    // An empty chord is just a rest.
     pub pitches: Vec<NotePitch>,
 
     // Conceptual length of the chord in beats
