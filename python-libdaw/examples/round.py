@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 sequence = loads('''+(
 @(ab4 bb c db eb f g)
-1,1,1 1 1 2 1 1 5,2
+1,1 1 1 2 1 1 5,2
 6,1 5 6 7 1,2 1
 1,1 1 1 2 1 1 5,2
 6,1 5 6 7 1,2 1
@@ -28,7 +28,7 @@ sequence = loads('''+(
 
 overlapped = Overlapped()
 
-for offset in range(1):
+for offset in range(4):
     inner = Sequence(items=[
         Rest(length=Beat(offset * 8)),
         sequence
