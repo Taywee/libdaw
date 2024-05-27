@@ -12,4 +12,4 @@ authors = ["Taylor C. Richberger"]
 repository = 'https://forge.axfive.net/Taylor/libdaw'
 license-file = 'LICENSE'
 readme = 'README.md'
-version = '0.7.0'
+version = '0.8.0'
