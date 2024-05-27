@@ -75,11 +75,16 @@ impl Envelope {
         length: Duration,
         envelope: impl IntoIterator<Item = Point>,
     ) -> Self {
+        let sample_time = 1.0 / sample_rate as f64;
+        let sample_length = (sample_rate as f64 * length.seconds()) as u64;
         let mut envelope: Vec<CalculatedPoint> = envelope
             .into_iter()
             .flat_map(move |point| {
                 let length = length.seconds();
-                let whence = length * point.whence;
+                // The end point for whence, so a whence of 1 ends up at the
+                // last sample, rather than one past the end.
+                let end = length - sample_time;
+                let whence = end * point.whence;
                 let time = match point.offset {
                     Offset::Time(offset) => whence + offset.seconds(),
                     Offset::Ratio(offset) => {
@@ -87,16 +92,37 @@ impl Envelope {
                         whence + offset
                     }
                 };
-                if time.is_nan() {
+                if !(0.0..=length).contains(&time) {
                     return None;
                 }
-                Some(CalculatedPoint {
-                    sample: (time * sample_rate as f64) as u64,
-                    volume: point.volume,
-                })
+                let sample = (time * (sample_rate) as f64) as u64;
+                if sample < sample_length {
+                    Some(CalculatedPoint {
+                        sample,
+                        volume: point.volume,
+                    })
+                } else {
+                    None
+                }
             })
             .collect();
-        envelope.sort();
+
+        // Filter points such that all points placed at the same time or later
+        // than a later-in-order point will be removed.
+        let mut min_sample = u64::MAX;
+        envelope.reverse();
+        envelope.retain(move |point| {
+            if point.sample < min_sample {
+                min_sample = point.sample;
+                true
+            } else {
+                false
+            }
+        });
+
+        envelope.reverse();
+        envelope.shrink_to_fit();
+
         Self {
             envelope: envelope.into(),
             sample: 0.into(),
