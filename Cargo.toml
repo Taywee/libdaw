@@ -9,7 +9,7 @@ members = [
 
 [workspace.package]
 authors = ["Taylor C. Richberger"]
-repository = 'https://codeberg.org/Taywee/libdaw'
+repository = 'https://forge.axfive.net/Taylor/libdaw'
 license-file = 'LICENSE'
 readme = 'README.md'
-version = '0.6.0'
+version = '0.7.0'
