@@ -2,8 +2,10 @@ use super::{Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::Result;
 use libdaw::notation::Item as DawItem;
 use pyo3::{
-    exceptions::PyTypeError, pyfunction, types::PyAnyMethods as _, AsPyPointer, Bound,
-    FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
+    exceptions::PyTypeError,
+    pyfunction,
+    types::{PyAnyMethods as _, PyTypeMethods as _},
+    AsPyPointer, Bound, FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
 };
 
 /// A wrapper enum for converting between Rust Items and the Python classes.
@@ -73,7 +75,11 @@ impl<'py> FromPyObject<'py> for Item {
         } else if let Ok(set) = value.downcast::<Set>() {
             Self::Set(set.clone().unbind())
         } else {
-            return Err(PyTypeError::new_err("Item was invalid type"));
+            let type_ = value.get_type();
+            let type_name = type_.name()?;
+            return Err(PyTypeError::new_err(format!(
+                "Item was invalid type: {type_name}"
+            )));
         })
     }
 }

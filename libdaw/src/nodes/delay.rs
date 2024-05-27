@@ -1,4 +1,4 @@
-use crate::{stream::Stream, time::Duration, Node, Result};
+use crate::{sample::Sample, time::Duration, Node, Result};
 use std::{
     collections::VecDeque,
     sync::{
@@ -8,12 +8,12 @@ use std::{
 };
 
 #[derive(Debug)]
-struct Sample {
+struct DelaySample {
     play_sample: u64,
-    stream: Stream,
+    stream: Sample,
 }
 
-type Buffer = VecDeque<Sample>;
+type Buffer = VecDeque<DelaySample>;
 
 #[derive(Debug)]
 pub struct Delay {
@@ -36,8 +36,8 @@ impl Delay {
 impl Node for Delay {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
         if self.delay == 0 {
             outputs.extend_from_slice(inputs);
@@ -64,7 +64,7 @@ impl Node for Delay {
                 outputs.push(buffer.pop_front().expect("buffer will not be empty").stream);
             }
             if let Some(stream) = inputs.get(i).cloned() {
-                buffer.push_back(Sample {
+                buffer.push_back(DelaySample {
                     play_sample,
                     stream,
                 });

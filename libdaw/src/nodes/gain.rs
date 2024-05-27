@@ -1,4 +1,4 @@
-use crate::{stream::Stream, sync::AtomicF64, Node, Result};
+use crate::{sample::Sample, sync::AtomicF64, Node, Result};
 use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
@@ -25,8 +25,8 @@ impl Gain {
 impl Node for Gain {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
         outputs.extend_from_slice(inputs);
         let gain = self.gain.load(Ordering::Relaxed);

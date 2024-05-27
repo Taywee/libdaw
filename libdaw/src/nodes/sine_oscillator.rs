@@ -1,4 +1,4 @@
-use crate::{stream::Stream, sync::AtomicF64, FrequencyNode, Node, Result};
+use crate::{sample::Sample, sync::AtomicF64, FrequencyNode, Node, Result};
 use std::{f64, sync::atomic::Ordering};
 
 #[derive(Debug)]
@@ -44,13 +44,13 @@ impl FrequencyNode for SineOscillator {
 }
 
 impl Node for SineOscillator {
-    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) -> Result<()> {
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Sample], outputs: &'c mut Vec<Sample>) -> Result<()> {
         let ramp = self.ramp.swap(
             (self.ramp.load(Ordering::Relaxed) + self.delta.load(Ordering::Relaxed))
                 % f64::consts::TAU,
             Ordering::Relaxed,
         );
-        let mut output = Stream::new(self.channels);
+        let mut output = Sample::zeroed(self.channels);
         output.fill(ramp.sin());
         outputs.push(output);
         Ok(())

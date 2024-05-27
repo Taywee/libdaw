@@ -151,8 +151,8 @@ impl Instrument {
 impl Node for Instrument {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [crate::stream::Stream],
-        outputs: &'c mut Vec<crate::stream::Stream>,
+        inputs: &'b [crate::sample::Sample],
+        outputs: &'c mut Vec<crate::sample::Sample>,
     ) -> Result<()> {
         let sample = self
             .sample

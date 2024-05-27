@@ -1,4 +1,4 @@
-use crate::{stream::Stream, Node, Result};
+use crate::{sample::Sample, Node, Result};
 
 #[derive(Debug)]
 pub struct Add {
@@ -16,11 +16,11 @@ impl Add {
 impl Node for Add {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        let mut output: Stream = inputs.iter().sum();
-        output.resize(self.channels, 0.0);
+        let mut output: Sample = inputs.iter().sum();
+        output.channels.resize(self.channels, 0.0);
         outputs.push(output);
         Ok(())
     }

@@ -7,8 +7,10 @@ use crate::{
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
+    ops::RangeBounds,
     str::FromStr,
     sync::{Arc, Mutex},
+    vec::Drain,
 };
 
 #[derive(Debug, Clone)]
@@ -75,6 +77,16 @@ impl Scale {
             octave_shift: 0,
         })));
         self.pitches = vec![pitch];
+    }
+
+    pub fn drain<R>(&mut self, range: R) -> crate::Result<Drain<'_, NotePitch>>
+    where
+        R: RangeBounds<usize>,
+    {
+        if range.contains(&0) && range.contains(&(self.pitches.len() - 1)) {
+            return Err("Can not empty scale".into());
+        }
+        Ok(self.pitches.drain(range))
     }
 }
 
