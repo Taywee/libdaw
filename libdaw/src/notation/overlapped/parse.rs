@@ -5,7 +5,7 @@ use nom::{
     bytes::complete::tag,
     character::complete::{char, multispace0, multispace1},
     combinator::{cut, opt},
-    multi::separated_list1,
+    multi::separated_list0,
 };
 
 pub fn overlapped(input: &str) -> IResult<&str, Overlapped> {
@@ -15,7 +15,7 @@ pub fn overlapped(input: &str) -> IResult<&str, Overlapped> {
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(char('('))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, items) = cut(separated_list1(multispace1, Item::parse))(input)?;
+    let (input, items) = cut(separated_list0(multispace1, Item::parse))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(char(')'))(input)?;
     Ok((

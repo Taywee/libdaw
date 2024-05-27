@@ -103,7 +103,11 @@ impl Sequence {
 
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         match self.state_member {
-            Some(StateMember::First) => self.items[0].update_state(state),
+            Some(StateMember::First) => {
+                if let Some(item) = self.items.get(0) {
+                    item.update_state(state);
+                }
+            }
             Some(StateMember::Last) => {
                 for item in &self.items {
                     item.update_state(state);

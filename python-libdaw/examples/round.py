@@ -26,6 +26,9 @@ sequence = loads('''+(
 5,1 4 3 2 1,2 4 1,4
 )''')
 
+assert isinstance(sequence, Sequence)
+
+print(sequence[0])
 overlapped = Overlapped()
 
 for offset in range(4):

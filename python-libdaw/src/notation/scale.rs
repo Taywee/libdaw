@@ -2,8 +2,8 @@ use super::NotePitch;
 use crate::{resolve_index, resolve_index_for_insert};
 use libdaw::notation::Scale as DawScale;
 use pyo3::{
-    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy as _, Py, PyResult,
-    PyTraverseError, PyVisit, Python,
+    exceptions::{PyIndexError, PyRuntimeError},
+    pyclass, pymethods, Bound, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +19,7 @@ impl Scale {
         let pitches = inner
             .lock()
             .expect("poisoned")
-            .pitches
+            .pitches()
             .iter()
             .cloned()
             .map(move |pitch| NotePitch::from_inner(py, pitch))
@@ -36,17 +36,16 @@ impl Scale {
 #[pymethods]
 impl Scale {
     #[new]
-    pub fn new(py: Python<'_>, pitches: Option<Vec<NotePitch>>) -> Self {
-        let pitches = pitches.unwrap_or_default();
-        Self {
-            inner: Arc::new(Mutex::new(DawScale {
-                pitches: pitches
+    pub fn new(py: Python<'_>, pitches: Vec<NotePitch>) -> crate::Result<Self> {
+        Ok(Self {
+            inner: Arc::new(Mutex::new(DawScale::new(
+                pitches
                     .iter()
                     .map(move |pitch| pitch.as_inner(py))
                     .collect(),
-            })),
+            )?)),
             pitches,
-        }
+        })
     }
     #[staticmethod]
     pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
@@ -69,7 +68,7 @@ impl Scale {
     }
     pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: NotePitch) -> PyResult<()> {
         let index = resolve_index(self.pitches.len(), index)?;
-        self.inner.lock().expect("poisoned").pitches[index] = value.as_inner(py);
+        self.inner.lock().expect("poisoned").pitches_mut()[index] = value.as_inner(py);
         self.pitches[index] = value;
         Ok(())
     }
@@ -85,7 +84,6 @@ impl Scale {
         self.inner
             .lock()
             .expect("poisoned")
-            .pitches
             .push(value.as_inner(py));
         self.pitches.push(value);
         Ok(())
@@ -96,7 +94,6 @@ impl Scale {
         self.inner
             .lock()
             .expect("poisoned")
-            .pitches
             .insert(index, value.as_inner(py));
         self.pitches.insert(index, value);
         Ok(())
@@ -111,7 +108,12 @@ impl Scale {
             Some(index) => resolve_index(len, index)?,
             None => len - 1,
         };
-        self.inner.lock().expect("poisoned").pitches.remove(index);
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .remove(index)
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
         Ok(self.pitches.remove(index))
     }
     pub fn __getnewargs__(&self) -> (Vec<NotePitch>,) {
@@ -126,7 +128,7 @@ impl Scale {
     }
 
     pub fn __clear__(&mut self) {
-        self.inner.lock().expect("poisoned").pitches.clear();
+        self.inner.lock().expect("poisoned").clear();
         self.pitches.clear();
     }
 }

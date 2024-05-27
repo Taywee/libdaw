@@ -2,7 +2,6 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::tag,
     character::complete::char,
     combinator::{cut, map_res, opt},
     error::VerboseError,
@@ -13,7 +12,7 @@ use nom::{
 pub type IResult<I, O> = nom::IResult<I, O, VerboseError<I>>;
 
 pub fn denominator(input: &str) -> IResult<&str, f64> {
-    let (input, _) = tag("/")(input)?;
+    let (input, _) = char('/')(input)?;
     let (input, denominator) = cut(double)(input)?;
     Ok((input, denominator))
 }
@@ -46,8 +45,8 @@ pub fn octave_shift(input: &str) -> IResult<&str, i8> {
 }
 
 pub fn numeric_adjustment(input: &str) -> IResult<&str, f64> {
-    let (input, _) = tag("[")(input)?;
+    let (input, _) = char('[')(input)?;
     let (input, adjustment) = number(input)?;
-    let (input, _) = tag("]")(input)?;
+    let (input, _) = char(']')(input)?;
     Ok((input, adjustment))
 }

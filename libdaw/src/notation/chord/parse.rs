@@ -3,9 +3,9 @@ use crate::{metronome::Beat, parse::IResult};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{multispace0, multispace1},
+    character::complete::{char, multispace0, multispace1},
     combinator::{cut, opt},
-    multi::separated_list1,
+    multi::separated_list0,
     sequence::preceded,
 };
 
@@ -14,13 +14,13 @@ pub fn chord(input: &str) -> IResult<&str, Chord> {
     let (input, _) = multispace0(input)?;
     let (input, state_member) = opt(StateMember::parse)(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, _) = cut(tag("("))(input)?;
+    let (input, _) = cut(char('('))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, pitches) = cut(separated_list1(multispace1, NotePitch::parse))(input)?;
+    let (input, pitches) = cut(separated_list0(multispace1, NotePitch::parse))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, _) = cut(tag(")"))(input)?;
-    let (input, length) = opt(preceded(tag(","), Beat::parse))(input)?;
-    let (input, duration) = opt(preceded(tag(","), Duration::parse))(input)?;
+    let (input, _) = cut(char(')'))(input)?;
+    let (input, length) = opt(preceded(char(','), Beat::parse))(input)?;
+    let (input, duration) = opt(preceded(char(','), Duration::parse))(input)?;
     Ok((
         input,
         Chord {
