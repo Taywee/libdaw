@@ -6,7 +6,7 @@ use std::{
     fmt,
     hash::{Hash, Hasher},
     iter::Sum,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +74,14 @@ impl Beat {
         Self::new(self.0 + other.0)
     }
 
+    pub fn checked_sub(self, other: Self) -> Result<Self, IllegalBeat> {
+        Self::new(self.0 - other.0)
+    }
+
+    pub fn checked_mul(self, other: f64) -> Result<Self, IllegalBeat> {
+        Self::new(self.0 * other)
+    }
+
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::beat(input)
     }
@@ -93,9 +101,41 @@ impl AddAssign for Beat {
     }
 }
 
+impl Sub for Beat {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.checked_sub(rhs).expect("subtracted to illegal beat")
+    }
+}
+
+impl SubAssign for Beat {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 = self.checked_sub(rhs).expect("subtracted to illegal beat").0;
+    }
+}
+
 impl Sum for Beat {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::new(iter.map(|each| each.0).sum()).expect("summed to illegal beat")
+    }
+}
+
+impl Mul<f64> for Beat {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        self.checked_mul(rhs)
+            .expect("multiplied with illegal value")
+    }
+}
+
+impl MulAssign<f64> for Beat {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.0 = self
+            .checked_mul(rhs)
+            .expect("multiplied with illegal value")
+            .0;
     }
 }
 

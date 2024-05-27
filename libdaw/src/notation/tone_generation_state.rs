@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex};
-
+use super::Duration;
 use crate::{
     metronome::Beat,
     pitch::{Pitch, PitchClass, PitchName},
 };
+use std::sync::{Arc, Mutex};
 
 /// A running state that is used to manage context-aware bits of tone
 /// generatian.
@@ -14,6 +14,9 @@ pub struct ToneGenerationState {
 
     /// Previous resolved length.
     pub length: Beat,
+
+    /// Previous set duration.
+    pub duration: Duration,
 
     /// The scale for scale-inversion notation.
     pub scale: Vec<Pitch>,
@@ -39,6 +42,7 @@ impl Default for ToneGenerationState {
                 octave: 4,
             },
             length: Beat::ONE,
+            duration: Duration::default(),
             scale: [
                 PitchName::C,
                 PitchName::D,

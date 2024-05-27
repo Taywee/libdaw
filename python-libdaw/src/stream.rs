@@ -78,7 +78,7 @@ impl Stream {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw")]
+#[pyclass(module = "libdaw")]
 pub struct StreamIterator(pub <DawStream as IntoIterator>::IntoIter);
 
 #[pymethods]

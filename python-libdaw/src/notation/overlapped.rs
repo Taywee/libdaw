@@ -197,7 +197,7 @@ impl Overlapped {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation")]
 pub struct OverlappedIterator(pub std::vec::IntoIter<Item>);
 
 #[pymethods]

@@ -132,7 +132,7 @@ impl Scale {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation")]
 pub struct ScaleIterator(pub std::vec::IntoIter<NotePitch>);
 
 #[pymethods]

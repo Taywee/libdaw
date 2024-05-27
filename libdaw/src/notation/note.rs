@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{tone_generation_state::ToneGenerationState, Pitch, Step};
+use super::{tone_generation_state::ToneGenerationState, Duration, Pitch, Step};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -71,7 +71,7 @@ pub struct Note {
 
     // Actual playtime of the note in beats, which will default to the length
     // usually.
-    pub duration: Option<Beat>,
+    pub duration: Option<Duration>,
 }
 
 impl Note {
@@ -114,7 +114,9 @@ impl Note {
     }
 
     pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
-        self.duration.or(self.length).unwrap_or(state.length)
+        let length = self.inner_length(state);
+        let duration = self.duration.unwrap_or(state.duration);
+        duration.resolve(length)
     }
 
     pub fn length(&self) -> Beat {
@@ -129,9 +131,13 @@ impl Note {
     }
 
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        let length = self.inner_length(state);
         self.pitch.update_state(state);
-        state.length = length;
+        if let Some(length) = self.length {
+            state.length = length;
+        }
+        if let Some(duration) = self.duration {
+            state.duration = duration;
+        }
     }
 }
 

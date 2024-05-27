@@ -1,4 +1,4 @@
-use super::{NotePitch, StateMember};
+use super::{duration::Duration, NotePitch, StateMember};
 use crate::{
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
@@ -48,7 +48,7 @@ impl Chord {
         py: Python<'_>,
         pitches: Option<Vec<NotePitch>>,
         length: Option<Beat>,
-        duration: Option<Beat>,
+        duration: Option<Duration>,
         state_member: Option<StateMember>,
     ) -> Self {
         let pitches = pitches.unwrap_or_default();
@@ -59,7 +59,7 @@ impl Chord {
                     .map(move |pitch| pitch.as_inner(py))
                     .collect(),
                 length: length.map(|beat| beat.0),
-                duration: duration.map(|beat| beat.0),
+                duration: duration.map(|duration| duration.inner),
                 state_member: state_member.map(Into::into),
             })),
             pitches,
@@ -103,12 +103,16 @@ impl Chord {
         self.inner.lock().expect("poisoned").length = value.map(|beat| beat.0);
     }
     #[getter]
-    pub fn get_duration(&self) -> Option<Beat> {
-        self.inner.lock().expect("poisoned").duration.map(Beat)
+    pub fn get_duration(&self) -> Option<Duration> {
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .duration
+            .map(|inner| Duration { inner })
     }
     #[setter]
-    pub fn set_duration(&mut self, value: Option<Beat>) {
-        self.inner.lock().expect("poisoned").duration = value.map(|beat| beat.0);
+    pub fn set_duration(&mut self, value: Option<Duration>) {
+        self.inner.lock().expect("poisoned").duration = value.map(|duration| duration.inner);
     }
     #[getter]
     pub fn get_state_member(&self) -> Option<StateMember> {
@@ -189,14 +193,14 @@ impl Chord {
     ) -> (
         Vec<NotePitch>,
         Option<Beat>,
-        Option<Beat>,
+        Option<Duration>,
         Option<StateMember>,
     ) {
         let lock = self.inner.lock().expect("poisoned");
         (
             self.pitches.clone(),
             lock.length.map(Beat),
-            lock.duration.map(Beat),
+            lock.duration.map(|inner| Duration { inner }),
             lock.state_member.map(Into::into),
         )
     }
@@ -215,7 +219,7 @@ impl Chord {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation")]
 pub struct ChordIterator(pub std::vec::IntoIter<NotePitch>);
 
 #[pymethods]

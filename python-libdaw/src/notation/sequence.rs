@@ -194,7 +194,7 @@ impl Sequence {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation")]
 pub struct SequenceIterator(pub std::vec::IntoIter<Item>);
 
 #[pymethods]
