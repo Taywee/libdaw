@@ -7,7 +7,7 @@ use pyo3::{
 };
 
 #[derive(Debug, Clone)]
-#[pyclass(sequence, module = "libdaw")]
+#[pyclass(module = "libdaw")]
 pub struct Stream(pub DawStream);
 
 #[pymethods]
