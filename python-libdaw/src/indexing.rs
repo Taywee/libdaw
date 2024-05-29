@@ -3,7 +3,7 @@ use pyo3::{
     types::{PyAnyMethods as _, PySlice, PySliceIndices, PySliceMethods as _, PyTypeMethods as _},
     Bound, FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
 };
-use std::ops::Range;
+use std::{ffi::c_long, ops::Range};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Index {
@@ -83,7 +83,9 @@ impl<'py> IndexOrSlice<'py> {
     pub fn normalize(&self, len: usize) -> PyResult<NormalizedIndexOrSlice> {
         match self {
             Self::Index(index) => (*index).normalize(len).map(NormalizedIndexOrSlice::Index),
-            Self::Slice(slice) => slice.indices(len as i64).map(NormalizedIndexOrSlice::Slice),
+            Self::Slice(slice) => slice
+                .indices(len as c_long)
+                .map(NormalizedIndexOrSlice::Slice),
         }
     }
     pub fn get<T>(&self, collection: &[T]) -> PyResult<ItemOrSequence<T>>
