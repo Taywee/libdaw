@@ -3,13 +3,13 @@ pub mod nodes;
 pub mod notation;
 mod parse;
 pub mod pitch;
-pub mod stream;
+pub mod sample;
 mod sync;
 pub mod time;
 
+pub use sample::Sample;
 use std::fmt::Debug;
 use std::sync::Arc;
-pub use stream::Stream;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -23,13 +23,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub trait Node: Debug + Send + Sync {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()>;
 }
 
 impl Iterator for &dyn Node {
-    type Item = Result<Vec<Stream>>;
+    type Item = Result<Vec<Sample>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut outputs = Vec::new();

@@ -1,13 +1,13 @@
+use crate::indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex};
+
 use super::NotePitch;
-use crate::{resolve_index, resolve_index_for_insert};
 use libdaw::notation::Scale as DawScale;
 use pyo3::{
-    exceptions::{PyIndexError, PyRuntimeError},
     pyclass, pymethods, Bound, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Scale {
     pub inner: Arc<Mutex<DawScale>>,
@@ -62,18 +62,61 @@ impl Scale {
     pub fn __len__(&self) -> usize {
         self.pitches.len()
     }
-    pub fn __getitem__(&self, index: isize) -> PyResult<NotePitch> {
-        let index = resolve_index(self.pitches.len(), index)?;
-        Ok(self.pitches[index].clone())
+    pub fn __getitem__(
+        &self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+    ) -> PyResult<ItemOrSequence<NotePitch, Self>> {
+        index.get(&self.pitches)?.map_sequence(move |pitches| {
+            let inner_pitches = pitches
+                .iter()
+                .map(move |pitch| pitch.as_inner(py))
+                .collect();
+            let inner = Arc::new(Mutex::new(
+                DawScale::new(inner_pitches).map_err(|e| crate::Error::new_err(e.to_string()))?,
+            ));
+            Ok(Self { inner, pitches })
+        })
     }
-    pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: NotePitch) -> PyResult<()> {
-        let index = resolve_index(self.pitches.len(), index)?;
-        self.inner.lock().expect("poisoned").pitches_mut()[index] = value.as_inner(py);
-        self.pitches[index] = value;
-        Ok(())
+    pub fn __setitem__(
+        &mut self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+        value: ItemOrSequence<NotePitch>,
+    ) -> PyResult<()> {
+        let len = self.pitches.len();
+        let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.pitches);
+        index.normalize(len)?.set(
+            value,
+            &mut userdata,
+            move |(lock, pitches), index, value| {
+                lock.pitches_mut()[index] = value.as_inner(py);
+                pitches[index] = value;
+                Ok(())
+            },
+            move |(lock, pitches), index, value| {
+                lock.insert(index, value.as_inner(py));
+                pitches.insert(index, value);
+                Ok(())
+            },
+            move |(lock, pitches), range| {
+                lock.drain(range.clone())
+                    .map_err(|e| crate::Error::new_err(e.to_string()))?;
+                pitches.drain(range);
+                Ok(())
+            },
+        )
     }
-    pub fn __delitem__(&mut self, index: isize) -> PyResult<()> {
-        self.pop(Some(index)).map(|_| ())
+    pub fn __delitem__(&mut self, index: IndexOrSlice<'_>) -> PyResult<()> {
+        let len = self.pitches.len();
+        let mut lock = self.inner.lock().expect("poisoned");
+        let pitches = &mut self.pitches;
+        index.normalize(len)?.delete(move |range| {
+            lock.drain(range.clone())
+                .map_err(|e| crate::Error::new_err(e.to_string()))?;
+            pitches.drain(range);
+            Ok(())
+        })
     }
 
     pub fn __iter__(&self) -> ScaleIterator {
@@ -89,8 +132,8 @@ impl Scale {
         Ok(())
     }
 
-    pub fn insert(&mut self, py: Python<'_>, index: isize, value: NotePitch) -> PyResult<()> {
-        let index = resolve_index_for_insert(self.pitches.len(), index)?;
+    pub fn insert(&mut self, py: Python<'_>, index: InsertIndex, value: NotePitch) -> PyResult<()> {
+        let index = index.normalize(self.pitches.len())?;
         self.inner
             .lock()
             .expect("poisoned")
@@ -98,21 +141,14 @@ impl Scale {
         self.pitches.insert(index, value);
         Ok(())
     }
-
-    pub fn pop(&mut self, index: Option<isize>) -> PyResult<NotePitch> {
-        let len = self.pitches.len();
-        if len == 0 {
-            return Err(PyIndexError::new_err("Pop from empty"));
-        }
-        let index = match index {
-            Some(index) => resolve_index(len, index)?,
-            None => len - 1,
-        };
+    #[pyo3(signature = (index = Default::default()))]
+    pub fn pop(&mut self, index: PopIndex) -> PyResult<NotePitch> {
+        let index = index.normalize(self.pitches.len())?;
         self.inner
             .lock()
             .expect("poisoned")
             .remove(index)
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| crate::Error::new_err(e.to_string()))?;
 
         Ok(self.pitches.remove(index))
     }

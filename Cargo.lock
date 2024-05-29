@@ -355,7 +355,7 @@ checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
 name = "libdaw"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "nohash-hasher",
  "nom",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "python-libdaw"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "libdaw",
  "nohash-hasher",

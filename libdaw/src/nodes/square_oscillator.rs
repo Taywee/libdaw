@@ -1,4 +1,4 @@
-use crate::stream::Stream;
+use crate::sample::Sample;
 use crate::sync::AtomicF64;
 use crate::{FrequencyNode, Node, Result};
 
@@ -47,8 +47,8 @@ impl FrequencyNode for SquareOscillator {
 }
 
 impl Node for SquareOscillator {
-    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) -> Result<()> {
-        let mut output = Stream::new(self.channels);
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Sample], outputs: &'c mut Vec<Sample>) -> Result<()> {
+        let mut output = Sample::zeroed(self.channels);
         let sample = self.sample.load(Ordering::Relaxed);
         output.fill(sample);
         outputs.push(output);

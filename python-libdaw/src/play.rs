@@ -1,5 +1,5 @@
 use crate::Node;
-use libdaw::Stream;
+use libdaw::Sample;
 use pyo3::{pyfunction, Bound, Python};
 use rodio::{OutputStream, Sink};
 use std::sync::mpsc::{sync_channel, Receiver};
@@ -9,8 +9,8 @@ use std::sync::mpsc::{sync_channel, Receiver};
 pub struct Source {
     sample_rate: u32,
     channels: u16,
-    receiver: Receiver<Stream>,
-    sample: <Stream as IntoIterator>::IntoIter,
+    receiver: Receiver<Sample>,
+    sample: <Sample as IntoIterator>::IntoIter,
 }
 
 impl Source {
@@ -66,7 +66,7 @@ pub fn play(
         channels,
         receiver,
         // The initial sample is empty.
-        sample: Stream::default().into_iter(),
+        sample: Sample::default().into_iter(),
     });
     let node = node.borrow().0.clone();
     let mut outputs = Vec::new();
@@ -80,7 +80,7 @@ pub fn play(
                 Some(acc) => Some(acc + stream),
                 None => Some(stream.clone()),
             })
-            .unwrap_or_else(move || Stream::new(channels as usize));
+            .unwrap_or_else(move || Sample::zeroed(channels as usize));
 
         sender.send(sample)?;
     }

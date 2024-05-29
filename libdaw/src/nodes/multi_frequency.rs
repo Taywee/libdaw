@@ -1,4 +1,4 @@
-use crate::{stream::Stream, sync::AtomicF64, FrequencyNode, Node, Result};
+use crate::{sample::Sample, sync::AtomicF64, FrequencyNode, Node, Result};
 use std::sync::{atomic::Ordering, Arc};
 
 /// A FrequencyNode that wraps any number of other frequency nodes
@@ -33,8 +33,8 @@ impl FrequencyNode for MultiFrequency {
 impl Node for MultiFrequency {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
         for node in self.nodes.iter() {
             node.process(inputs, outputs)?;

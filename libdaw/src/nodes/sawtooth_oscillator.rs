@@ -1,4 +1,4 @@
-use crate::{stream::Stream, sync::AtomicF64, FrequencyNode, Node, Result};
+use crate::{sample::Sample, sync::AtomicF64, FrequencyNode, Node, Result};
 use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
@@ -45,7 +45,7 @@ impl FrequencyNode for SawtoothOscillator {
 }
 
 impl Node for SawtoothOscillator {
-    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) -> Result<()> {
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Sample], outputs: &'c mut Vec<Sample>) -> Result<()> {
         let sample = self.sample.swap(
             (self.sample.load(Ordering::Relaxed) + self.delta.load(Ordering::Relaxed) + 1.0f64)
                 % 2.0f64
@@ -53,7 +53,7 @@ impl Node for SawtoothOscillator {
             Ordering::Relaxed,
         );
 
-        let mut output = Stream::new(self.channels);
+        let mut output = Sample::zeroed(self.channels);
         output.fill(sample);
         outputs.push(output);
         Ok(())

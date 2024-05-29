@@ -1,4 +1,4 @@
-use crate::stream::Stream;
+use crate::sample::Sample;
 use crate::sync::AtomicF64;
 use crate::{Node, Result};
 
@@ -26,8 +26,8 @@ impl ConstantValue {
 }
 
 impl Node for ConstantValue {
-    fn process<'a, 'b>(&'a self, _: &'b [Stream], outputs: &'a mut Vec<Stream>) -> Result<()> {
-        let mut stream = Stream::new(self.channels);
+    fn process<'a, 'b>(&'a self, _: &'b [Sample], outputs: &'a mut Vec<Sample>) -> Result<()> {
+        let mut stream = Sample::zeroed(self.channels);
         stream.fill(self.value.load(Ordering::Relaxed));
         outputs.push(stream);
         Ok(())

@@ -1,21 +1,20 @@
 use super::{duration::Duration, NotePitch, StateMember};
 use crate::{
+    indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
     pitch::MaybePitchStandard,
-    resolve_index, resolve_index_for_insert,
 };
 use libdaw::{metronome::Beat as DawBeat, notation::Chord as DawChord};
 use pyo3::{
-    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy as _, Py, PyResult,
-    PyTraverseError, PyVisit, Python,
+    pyclass, pymethods, Bound, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python,
 };
 use std::{
     ops::Deref as _,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Chord {
     pub inner: Arc<Mutex<DawChord>>,
@@ -137,18 +136,63 @@ impl Chord {
     pub fn __len__(&self) -> usize {
         self.pitches.len()
     }
-    pub fn __getitem__(&self, index: isize) -> PyResult<NotePitch> {
-        let index = resolve_index(self.pitches.len(), index)?;
-        Ok(self.pitches[index].clone())
+    pub fn __getitem__(
+        &self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+    ) -> PyResult<ItemOrSequence<NotePitch, Self>> {
+        index.get(&self.pitches)?.map_sequence(move |pitches| {
+            let inner_pitches = pitches
+                .iter()
+                .map(move |pitch| pitch.as_inner(py))
+                .collect();
+            let lock = self.inner.lock().expect("poisoned");
+            let inner = Arc::new(Mutex::new(DawChord {
+                length: lock.length,
+                duration: lock.duration,
+                state_member: lock.state_member,
+                pitches: inner_pitches,
+            }));
+            Ok(Self { inner, pitches })
+        })
     }
-    pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: NotePitch) -> PyResult<()> {
-        let index = resolve_index(self.pitches.len(), index)?;
-        self.inner.lock().expect("poisoned").pitches[index] = value.as_inner(py);
-        self.pitches[index] = value;
-        Ok(())
+    pub fn __setitem__(
+        &mut self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+        value: ItemOrSequence<NotePitch>,
+    ) -> PyResult<()> {
+        let len = self.pitches.len();
+        let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.pitches);
+        index.normalize(len)?.set(
+            value,
+            &mut userdata,
+            move |(lock, pitches), index, value| {
+                lock.pitches[index] = value.as_inner(py);
+                pitches[index] = value;
+                Ok(())
+            },
+            move |(lock, pitches), index, value| {
+                lock.pitches.insert(index, value.as_inner(py));
+                pitches.insert(index, value);
+                Ok(())
+            },
+            move |(lock, pitches), range| {
+                lock.pitches.drain(range.clone());
+                pitches.drain(range);
+                Ok(())
+            },
+        )
     }
-    pub fn __delitem__(&mut self, index: isize) -> PyResult<()> {
-        self.pop(Some(index)).map(|_| ())
+    pub fn __delitem__(&mut self, index: IndexOrSlice<'_>) -> PyResult<()> {
+        let len = self.pitches.len();
+        let mut lock = self.inner.lock().expect("poisoned");
+        let pitches = &mut self.pitches;
+        index.normalize(len)?.delete(move |range| {
+            lock.pitches.drain(range.clone());
+            pitches.drain(range);
+            Ok(())
+        })
     }
 
     pub fn __iter__(&self) -> ChordIterator {
@@ -165,8 +209,8 @@ impl Chord {
         Ok(())
     }
 
-    pub fn insert(&mut self, py: Python<'_>, index: isize, value: NotePitch) -> PyResult<()> {
-        let index = resolve_index_for_insert(self.pitches.len(), index)?;
+    pub fn insert(&mut self, py: Python<'_>, index: InsertIndex, value: NotePitch) -> PyResult<()> {
+        let index = index.normalize(self.pitches.len())?;
         self.inner
             .lock()
             .expect("poisoned")
@@ -176,15 +220,9 @@ impl Chord {
         Ok(())
     }
 
-    pub fn pop(&mut self, index: Option<isize>) -> PyResult<NotePitch> {
-        let len = self.pitches.len();
-        if len == 0 {
-            return Err(PyIndexError::new_err("Pop from empty"));
-        }
-        let index = match index {
-            Some(index) => resolve_index(len, index)?,
-            None => len - 1,
-        };
+    #[pyo3(signature = (index = Default::default()))]
+    pub fn pop(&mut self, index: PopIndex) -> PyResult<NotePitch> {
+        let index = index.normalize(self.pitches.len())?;
         self.inner.lock().expect("poisoned").pitches.remove(index);
         Ok(self.pitches.remove(index))
     }

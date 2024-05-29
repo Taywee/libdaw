@@ -5,7 +5,7 @@ pub use error::Error;
 type Result<T> = std::result::Result<T, Error>;
 
 use crate::nodes::Passthrough;
-use crate::stream::Stream;
+use crate::sample::Sample;
 use crate::Node;
 use nohash_hasher::{IntSet, IsEnabled};
 
@@ -32,8 +32,8 @@ struct Input {
 #[derive(Debug)]
 struct Slot {
     node: Strong,
-    output: Mutex<Vec<Stream>>,
-    input_buffer: Mutex<Vec<Stream>>,
+    output: Mutex<Vec<Sample>>,
+    input_buffer: Mutex<Vec<Sample>>,
     inputs: Vec<Input>,
 }
 
@@ -383,8 +383,8 @@ impl InnerGraph {
     /// All sinks are added together to turn this into a single output.
     fn process<'a, 'b, 'c>(
         &'a mut self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> crate::Result<()> {
         self.build_process_list();
         // First process all process-needing nodes in reverse order.
@@ -519,8 +519,8 @@ impl Graph {
 impl Node for Graph {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> crate::Result<()> {
         self.inner
             .lock()

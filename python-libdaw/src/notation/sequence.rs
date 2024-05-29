@@ -1,21 +1,18 @@
 use super::{Item, StateMember};
 use crate::{
+    indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
     metronome::{Beat, MaybeMetronome},
     nodes::instrument::Tone,
     pitch::MaybePitchStandard,
-    resolve_index, resolve_index_for_insert,
 };
 use libdaw::{metronome::Beat as DawBeat, notation::Sequence as DawSequence};
-use pyo3::{
-    exceptions::PyIndexError, pyclass, pymethods, Bound, IntoPy, Py, PyResult, PyTraverseError,
-    PyVisit, Python,
-};
+use pyo3::{pyclass, pymethods, Bound, IntoPy, Py, PyResult, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Sequence {
     pub inner: Arc<Mutex<DawSequence>>,
@@ -117,19 +114,58 @@ impl Sequence {
         format!("{:#?}", self.inner.lock().expect("poisoned"))
     }
 
-    pub fn __getitem__(&self, index: isize) -> PyResult<Item> {
-        let index = resolve_index(self.items.len(), index)?;
-        Ok(self.items[index].clone())
+    pub fn __getitem__(
+        &self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+    ) -> PyResult<ItemOrSequence<Item, Self>> {
+        index.get(&self.items)?.map_sequence(move |items| {
+            let inner_items = items.iter().map(move |item| item.as_inner(py)).collect();
+            let lock = self.inner.lock().expect("poisoned");
+            let inner = Arc::new(Mutex::new(DawSequence {
+                state_member: lock.state_member,
+                items: inner_items,
+            }));
+            Ok(Self { inner, items })
+        })
     }
-
-    pub fn __setitem__(&mut self, py: Python<'_>, index: isize, value: Item) -> PyResult<()> {
-        let index = resolve_index(self.items.len(), index)?;
-        self.inner.lock().expect("poisoned").items[index] = value.as_inner(py);
-        self.items[index] = value;
-        Ok(())
+    pub fn __setitem__(
+        &mut self,
+        py: Python<'_>,
+        index: IndexOrSlice<'_>,
+        value: ItemOrSequence<Item>,
+    ) -> PyResult<()> {
+        let len = self.items.len();
+        let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.items);
+        index.normalize(len)?.set(
+            value,
+            &mut userdata,
+            move |(lock, items), index, value| {
+                lock.items[index] = value.as_inner(py);
+                items[index] = value;
+                Ok(())
+            },
+            move |(lock, items), index, value| {
+                lock.items.insert(index, value.as_inner(py));
+                items.insert(index, value);
+                Ok(())
+            },
+            move |(lock, items), range| {
+                lock.items.drain(range.clone());
+                items.drain(range);
+                Ok(())
+            },
+        )
     }
-    pub fn __delitem__(&mut self, index: isize) -> PyResult<()> {
-        self.pop(Some(index)).map(|_| ())
+    pub fn __delitem__(&mut self, index: IndexOrSlice<'_>) -> PyResult<()> {
+        let len = self.items.len();
+        let mut lock = self.inner.lock().expect("poisoned");
+        let items = &mut self.items;
+        index.normalize(len)?.delete(move |range| {
+            lock.items.drain(range.clone());
+            items.drain(range);
+            Ok(())
+        })
     }
 
     pub fn __iter__(&self) -> SequenceIterator {
@@ -146,8 +182,8 @@ impl Sequence {
         Ok(())
     }
 
-    pub fn insert(&mut self, py: Python<'_>, index: isize, value: Item) -> PyResult<()> {
-        let index = resolve_index_for_insert(self.items.len(), index)?;
+    pub fn insert(&mut self, py: Python<'_>, index: InsertIndex, value: Item) -> PyResult<()> {
+        let index = index.normalize(self.items.len())?;
         self.inner
             .lock()
             .expect("poisoned")
@@ -157,16 +193,9 @@ impl Sequence {
         Ok(())
     }
 
-    pub fn pop(&mut self, index: Option<isize>) -> PyResult<Item> {
-        let len = self.items.len();
-        if len == 0 {
-            return Err(PyIndexError::new_err("Pop from empty"));
-        }
-        let index = match index {
-            Some(index) => resolve_index(self.items.len(), index)?,
-            None => len - 1,
-        };
-
+    #[pyo3(signature = (index = Default::default()))]
+    pub fn pop(&mut self, index: PopIndex) -> PyResult<Item> {
+        let index = index.normalize(self.items.len())?;
         self.inner.lock().expect("poisoned").items.remove(index);
         Ok(self.items.remove(index))
     }

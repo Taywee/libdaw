@@ -1,5 +1,5 @@
 use crate::{
-    stream::Stream,
+    sample::Sample,
     time::{Duration, Time},
     Node, Result,
 };
@@ -133,8 +133,8 @@ impl Envelope {
 impl Node for Envelope {
     fn process<'a, 'b, 'c>(
         &'a self,
-        inputs: &'b [Stream],
-        outputs: &'c mut Vec<Stream>,
+        inputs: &'b [Sample],
+        outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
         outputs.extend_from_slice(inputs);
 

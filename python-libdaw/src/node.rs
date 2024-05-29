@@ -1,4 +1,4 @@
-use crate::{Result, Stream};
+use crate::{Result, Sample};
 use pyo3::{pyclass, pymethods, Bound};
 use std::sync::Arc;
 
@@ -8,11 +8,11 @@ pub struct Node(pub Arc<dyn ::libdaw::Node>);
 
 #[pymethods]
 impl Node {
-    pub fn process(&self, inputs: Vec<Bound<'_, Stream>>) -> Result<Vec<Stream>> {
+    pub fn process(&self, inputs: Vec<Bound<'_, Sample>>) -> Result<Vec<Sample>> {
         let mut outputs = Vec::new();
         let inputs: Vec<_> = inputs.into_iter().map(|i| i.borrow().0.clone()).collect();
         self.0.process(&inputs, &mut outputs)?;
-        let outputs: Vec<_> = outputs.into_iter().map(Stream).collect();
+        let outputs: Vec<_> = outputs.into_iter().map(Sample).collect();
         Ok(outputs)
     }
 
@@ -24,9 +24,9 @@ impl Node {
         self_
     }
 
-    pub fn __next__(&self) -> Result<Option<Vec<Stream>>> {
+    pub fn __next__(&self) -> Result<Option<Vec<Sample>>> {
         match (&*self.0).next() {
-            Some(outputs) => Ok(Some(outputs?.into_iter().map(Stream).collect())),
+            Some(outputs) => Ok(Some(outputs?.into_iter().map(Sample).collect())),
             None => Ok(None),
         }
     }

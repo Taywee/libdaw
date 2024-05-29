@@ -1,4 +1,4 @@
-use crate::stream::Stream;
+use crate::sample::Sample;
 use crate::sync::AtomicF64;
 use crate::{FrequencyNode, Node, Result};
 
@@ -47,7 +47,7 @@ impl FrequencyNode for TriangleOscillator {
 }
 
 impl Node for TriangleOscillator {
-    fn process<'a, 'b, 'c>(&'a self, _: &'b [Stream], outputs: &'c mut Vec<Stream>) -> Result<()> {
+    fn process<'a, 'b, 'c>(&'a self, _: &'b [Sample], outputs: &'c mut Vec<Sample>) -> Result<()> {
         let ramp = self.ramp.swap(
             (self.ramp.load(Ordering::Relaxed) + self.delta.load(Ordering::Relaxed)) % 1.0f64,
             Ordering::Relaxed,
@@ -56,7 +56,7 @@ impl Node for TriangleOscillator {
         // /\
         //   \/
         let sample = (((ramp - 0.25).abs() - 0.5).abs() - 0.25) * 4.0;
-        let mut output = Stream::new(self.channels);
+        let mut output = Sample::zeroed(self.channels);
         output.fill(sample);
         outputs.push(output);
         Ok(())
