@@ -1,11 +1,5 @@
 use crate::{sample::Sample, time::Duration, Node, Result};
-use std::{
-    collections::VecDeque,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Mutex,
-    },
-};
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 struct DelaySample {
@@ -17,8 +11,8 @@ type Buffer = VecDeque<DelaySample>;
 
 #[derive(Debug)]
 pub struct Delay {
-    buffers: Mutex<Vec<Buffer>>,
-    sample: AtomicU64,
+    buffers: Vec<Buffer>,
+    sample: u64,
     delay: u64,
 }
 
@@ -35,7 +29,7 @@ impl Delay {
 
 impl Node for Delay {
     fn process<'a, 'b, 'c>(
-        &'a self,
+        &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
@@ -43,19 +37,19 @@ impl Node for Delay {
             outputs.extend_from_slice(inputs);
             return Ok(());
         }
-        let sample = self
-            .sample
-            .swap(self.sample.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
+
+        let sample = self.sample;
+        self.sample += 1;
+
         let play_sample = sample + self.delay;
 
-        let mut buffers = self.buffers.lock().expect("mutex poisoned");
-        if inputs.len() > buffers.len() {
+        if inputs.len() > self.buffers.len() {
             let delay = self.delay as usize;
-            buffers.resize_with(inputs.len(), || VecDeque::with_capacity(delay));
+            self.buffers
+                .resize_with(inputs.len(), || VecDeque::with_capacity(delay));
         }
 
-        outputs.reserve(buffers.len());
-        for (i, buffer) in buffers.iter_mut().enumerate() {
+        for (i, buffer) in self.buffers.iter_mut().enumerate() {
             let play = buffer
                 .front()
                 .map(|buffer_sample| sample >= buffer_sample.play_sample)

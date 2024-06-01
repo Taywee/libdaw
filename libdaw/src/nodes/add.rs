@@ -15,7 +15,7 @@ impl Add {
 
 impl Node for Add {
     fn process<'a, 'b, 'c>(
-        &'a self,
+        &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {

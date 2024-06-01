@@ -1,5 +1,5 @@
 use crate::{Node, Result};
-use libdaw::nodes::graph::Index as DawIndex;
+use libdaw::nodes::graph::{Graph as Inner, Index as DawIndex};
 use nohash_hasher::IntMap;
 use pyo3::{
     pyclass,
@@ -11,7 +11,7 @@ use pyo3::{
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash as _, Hasher as _},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 #[pyclass(module = "libdaw.nodes")]
@@ -49,7 +49,7 @@ impl From<Index> for DawIndex {
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
 pub struct Graph {
-    inner: Arc<::libdaw::nodes::Graph>,
+    inner: Arc<Mutex<Inner>>,
     nodes: IntMap<DawIndex, Py<Node>>,
 }
 
@@ -57,7 +57,7 @@ pub struct Graph {
 impl Graph {
     #[new]
     pub fn new() -> PyClassInitializer<Self> {
-        let inner = Arc::new(::libdaw::nodes::Graph::default());
+        let inner = Arc::new(Mutex::new(Inner::default()));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self {
             inner,
             nodes: Default::default(),
@@ -65,13 +65,17 @@ impl Graph {
     }
 
     pub fn add(&mut self, node: Bound<'_, Node>) -> Index {
-        let index = self.inner.add(node.borrow().0.clone());
+        let index = self
+            .inner
+            .lock()
+            .expect("poisoned")
+            .add(node.borrow().0.clone());
         self.nodes.insert(index, node.unbind());
         index.into()
     }
 
     pub fn remove(&mut self, index: Index) -> Result<Option<Py<Node>>> {
-        self.inner.remove(index.0)?;
+        self.inner.lock().expect("poisoned").remove(index.0)?;
         Ok(self.nodes.remove(&index.into()))
     }
 
@@ -79,6 +83,8 @@ impl Graph {
     /// output may be attached  multiple times. `None` will attach all outputs.
     pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
         self.inner
+            .lock()
+            .expect("poisoned")
             .connect(source.0, destination.0, stream)
             .map_err(Into::into)
     }
@@ -92,6 +98,8 @@ impl Graph {
         stream: Option<usize>,
     ) -> Result<()> {
         self.inner
+            .lock()
+            .expect("poisoned")
             .disconnect(source.0, destination.0, stream)
             .map_err(Into::into)
     }
@@ -100,13 +108,19 @@ impl Graph {
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.input(source.0, stream).map_err(Into::into)
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .input(source.0, stream)
+            .map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.inner
+            .lock()
+            .expect("poisoned")
             .remove_input(source.0, stream)
             .map_err(Into::into)
     }
@@ -115,13 +129,19 @@ impl Graph {
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
     pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner.output(source.0, stream).map_err(Into::into)
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .output(source.0, stream)
+            .map_err(Into::into)
     }
 
     /// Disconnect the last-added matching connection from the destination.0,
     /// returning a boolean indicating if anything was disconnected.
     pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
         self.inner
+            .lock()
+            .expect("poisoned")
             .remove_output(source.0, stream)
             .map_err(Into::into)
     }
@@ -135,6 +155,8 @@ impl Graph {
     pub fn __clear__(&mut self) {
         for index in self.nodes.keys().copied() {
             self.inner
+                .lock()
+                .expect("poisoned")
                 .remove(index)
                 .expect("illegal index")
                 .expect("unfilled index");

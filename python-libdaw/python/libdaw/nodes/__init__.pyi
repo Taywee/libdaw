@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from libdaw import Node, FrequencyNode
+from libdaw import Node
 from python.libdaw.time import Duration
 from .envelope import Point
 from .graph import Index
@@ -12,8 +12,8 @@ class ConstantValue(Node):
 class Delay(Node):
     def __new__(cls: type, delay: Duration, sample_rate: int = 48000): ...
 
-class Detune(FrequencyNode):
-    def __new__(cls: type, node: FrequencyNode): ...
+class Detune(Node):
+    def __new__(cls: type, node: Node): ...
 
     @property
     def detune(self) -> float: ...
@@ -44,12 +44,9 @@ class Graph(Node):
     def remove_output(self, source: Index, stream: int | None = None) -> None: ...
 
 class Instrument(Node):
-    def __new__(cls: type, factory: Callable[[], FrequencyNode], envelope: Sequence[Point], sample_rate: int = 48000): ...
+    def __new__(cls: type, factory: Callable[[], Node], envelope: Sequence[Point], sample_rate: int = 48000): ...
     def add_tone(self, tone: Tone) -> None: ...
     def set_detune(self, detune: float) -> None: ...
-
-class MultiFrequency(FrequencyNode):
-    def __new__(cls: type, nodes: Sequence[FrequencyNode]): ...
 
 class Multiply(Node):
     def __new__(cls: type, channels: int = 2): ...
@@ -57,14 +54,14 @@ class Multiply(Node):
 class Passthrough(Node):
     pass
 
-class SawtoothOscillator(FrequencyNode):
+class SawtoothOscillator(Node):
     def __new__(cls: type, sample_rate: int = 48000, channels: int = 2): ...
 
-class SineOscillator(FrequencyNode):
+class SineOscillator(Node):
     def __new__(cls: type, sample_rate: int = 48000, channels: int = 2): ...
 
-class SquareOscillator(FrequencyNode):
+class SquareOscillator(Node):
     def __new__(cls: type, sample_rate: int = 48000, channels: int = 2): ...
 
-class TriangleOscillator(FrequencyNode):
+class TriangleOscillator(Node):
     def __new__(cls: type, sample_rate: int = 48000, channels: int = 2): ...

@@ -1,38 +1,24 @@
-use crate::{sample::Sample, sync::AtomicF64, Node, Result};
-use std::sync::atomic::Ordering;
+use crate::{sample::Sample, Node, Result};
 
 #[derive(Debug)]
 pub struct Gain {
-    gain: AtomicF64,
+    pub gain: f64,
 }
 
 impl Gain {
     pub fn new(gain: f64) -> Self {
-        Self {
-            gain: AtomicF64::new(gain),
-        }
-    }
-
-    pub fn set_gain(&self, gain: f64) {
-        self.gain.store(gain, Ordering::Relaxed);
-    }
-
-    pub fn get_gain(&self) -> f64 {
-        self.gain.load(Ordering::Relaxed)
+        Self { gain }
     }
 }
 
 impl Node for Gain {
     fn process<'a, 'b, 'c>(
-        &'a self,
+        &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        outputs.extend_from_slice(inputs);
-        let gain = self.gain.load(Ordering::Relaxed);
-
-        for output in outputs {
-            *output *= gain;
+        for input in inputs {
+            outputs.push(input * self.gain);
         }
         Ok(())
     }

@@ -3,7 +3,6 @@ use crate::{
     time::{Duration, Time},
     Node, Result,
 };
-use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Offset {
@@ -64,7 +63,7 @@ impl Ord for CalculatedPoint {
 #[derive(Debug)]
 pub struct Envelope {
     envelope: Box<[CalculatedPoint]>,
-    sample: AtomicU64,
+    sample: u64,
 }
 
 impl Envelope {
@@ -125,14 +124,14 @@ impl Envelope {
 
         Self {
             envelope: envelope.into(),
-            sample: 0.into(),
+            sample: 0,
         }
     }
 }
 
 impl Node for Envelope {
     fn process<'a, 'b, 'c>(
-        &'a self,
+        &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
@@ -143,9 +142,8 @@ impl Node for Envelope {
             0 => return Ok(()),
             1 => self.envelope[0].volume,
             _ => {
-                let sample = self
-                    .sample
-                    .swap(self.sample.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
+                let sample = self.sample;
+                self.sample += 1;
                 match self
                     .envelope
                     .binary_search_by_key(&sample, |point| point.sample)

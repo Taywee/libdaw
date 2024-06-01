@@ -1,7 +1,7 @@
 use crate::{
     nodes::envelope::Point,
     time::{Duration, Timestamp},
-    FrequencyNode, Node, Result,
+    Node, Result,
 };
 use libdaw::nodes::instrument;
 use pyo3::{
@@ -10,7 +10,7 @@ use pyo3::{
     types::{PyAny, PyAnyMethods as _, PyModule, PyModuleMethods as _},
     Bound, PyClassInitializer, PyObject, PyResult, PyTraverseError, PyVisit, Python,
 };
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[pyclass(module = "libdaw.nodes.instrument")]
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ impl Tone {
 #[derive(Debug, Clone)]
 pub struct Instrument {
     pub factory: Option<PyObject>,
-    pub inner: Arc<instrument::Instrument>,
+    pub inner: Arc<Mutex<instrument::Instrument>>,
 }
 
 #[pymethods]
@@ -54,16 +54,16 @@ impl Instrument {
         let factory = factory.unbind();
         let inner = {
             let factory = factory.clone();
-            Arc::new(libdaw::nodes::Instrument::new(
+            Arc::new(Mutex::new(instrument::Instrument::new(
                 sample_rate,
                 move || {
                     Python::with_gil(|py| {
                         let factory = factory.bind(py);
-                        Ok(FrequencyNode::extract_bound(&factory.call0()?)?.0)
+                        Ok(Node::extract_bound(&factory.call0()?)?.0)
                     })
                 },
                 envelope.into_iter().map(|point| point.0),
-            ))
+            )))
         };
         Ok(
             PyClassInitializer::from(Node(inner.clone())).add_subclass(Self {
@@ -74,12 +74,7 @@ impl Instrument {
     }
 
     pub fn add_tone(&self, tone: Tone) {
-        self.inner.add_tone(tone.0);
-    }
-
-    pub fn set_detune(&self, detune: f64) -> Result<()> {
-        self.inner.set_detune(detune)?;
-        Ok(())
+        self.inner.lock().expect("poisoned").add_tone(tone.0);
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {

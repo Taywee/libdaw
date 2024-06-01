@@ -8,7 +8,7 @@ use pyo3::{
     types::{PyAnyMethods as _, PyModule, PyModuleMethods as _},
     Bound, FromPyObject, PyAny, PyClassInitializer, PyResult,
 };
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Offset(pub envelope::Offset);
@@ -45,7 +45,7 @@ impl Point {
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
-pub struct Envelope(pub Arc<envelope::Envelope>);
+pub struct Envelope(pub Arc<Mutex<envelope::Envelope>>);
 
 #[pymethods]
 impl Envelope {
@@ -56,11 +56,11 @@ impl Envelope {
         envelope: Vec<Point>,
         sample_rate: u32,
     ) -> PyClassInitializer<Self> {
-        let inner = Arc::new(libdaw::nodes::Envelope::new(
+        let inner = Arc::new(Mutex::new(envelope::Envelope::new(
             sample_rate,
             length.0,
             envelope.into_iter().map(|point| point.0),
-        ));
+        )));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 }

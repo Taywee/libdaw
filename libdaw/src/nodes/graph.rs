@@ -15,7 +15,7 @@ use Error::IllegalIndex;
 use Error::NoSuchConnection;
 
 /// A strong node shared smart pointer.
-type Strong = Arc<dyn Node>;
+type Strong = Arc<Mutex<dyn Node>>;
 
 /// The node index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -47,14 +47,14 @@ struct ProcessList {
 }
 
 #[derive(Debug)]
-struct InnerGraph {
+pub struct Graph {
     nodes: Vec<Option<Slot>>,
     empty_nodes: IntSet<Index>,
     set_nodes: IntSet<Index>,
     process_list: Mutex<ProcessList>,
 }
 
-impl Default for InnerGraph {
+impl Default for Graph {
     fn default() -> Self {
         let mut graph = Self {
             nodes: Default::default(),
@@ -63,14 +63,14 @@ impl Default for InnerGraph {
             process_list: Default::default(),
         };
         // input
-        graph.add(Arc::new(Passthrough::default()));
+        graph.add(Arc::new(Mutex::new(Passthrough::default())));
         // output
-        graph.add(Arc::new(Passthrough::default()));
+        graph.add(Arc::new(Mutex::new(Passthrough::default())));
         graph
     }
 }
 
-impl InnerGraph {
+impl Graph {
     pub fn add(&mut self, node: Strong) -> Index {
         self.process_list.lock().expect("mutex poisoned").reprocess = true;
         let slot = Some(Slot {
@@ -378,7 +378,9 @@ impl InnerGraph {
             process_list.reprocess = false;
         }
     }
+}
 
+impl Node for Graph {
     /// Process all inputs from roots down to the sink.
     /// All sinks are added together to turn this into a single output.
     fn process<'a, 'b, 'c>(
@@ -426,7 +428,10 @@ impl InnerGraph {
             }
             let mut output = slot.output.lock().expect("mutex poisoned");
             output.clear();
-            slot.node.process(&input_buffer, &mut output)?;
+            slot.node
+                .lock()
+                .expect("poisoned")
+                .process(&input_buffer, &mut output)?;
         }
         outputs.extend_from_slice(
             &self.nodes[1]
@@ -437,94 +442,5 @@ impl InnerGraph {
                 .expect("mutex poisoned"),
         );
         Ok(())
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct Graph {
-    inner: Mutex<InnerGraph>,
-}
-
-impl Graph {
-    pub fn add(&self, node: Strong) -> Index {
-        self.inner.lock().expect("mutex poisoned").add(node)
-    }
-
-    pub fn remove(&self, index: Index) -> Result<Option<Strong>> {
-        self.inner.lock().expect("mutex poisoned").remove(index)
-    }
-
-    /// Connect the given output of the source to the destination.  The same
-    /// output may be attached  multiple times. `None` will attach all outputs.
-    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .connect(source, destination, stream)
-    }
-
-    /// Disconnect the last-added matching connection, returning a boolean
-    /// indicating if anything was disconnected.
-    pub fn disconnect(
-        &self,
-        source: Index,
-        destination: Index,
-        stream: Option<usize>,
-    ) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .disconnect(source, destination, stream)
-    }
-
-    /// Connect the given output of the source to the final destinaton.  The
-    /// same output may be attached multiple times. `None` will attach all
-    /// outputs.
-    pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .input(source, stream)
-    }
-
-    /// Disconnect the last-added matching connection from the destination,
-    /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .remove_input(source, stream)
-    }
-
-    /// Connect the given output of the source to the final destinaton.  The
-    /// same output may be attached multiple times. `None` will attach all
-    /// outputs.
-    pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .output(source, stream)
-    }
-
-    /// Disconnect the last-added matching connection from the destination,
-    /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .remove_output(source, stream)
-    }
-}
-
-impl Node for Graph {
-    fn process<'a, 'b, 'c>(
-        &'a self,
-        inputs: &'b [Sample],
-        outputs: &'c mut Vec<Sample>,
-    ) -> crate::Result<()> {
-        self.inner
-            .lock()
-            .expect("mutex poisoned")
-            .process(inputs, outputs)
     }
 }
