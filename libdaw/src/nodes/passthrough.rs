@@ -9,7 +9,7 @@ pub struct Passthrough {
 
 impl Node for Passthrough {
     fn process<'a, 'b, 'c>(
-        &'a self,
+        &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {

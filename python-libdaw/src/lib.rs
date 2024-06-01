@@ -1,4 +1,3 @@
-mod frequency_node;
 mod indexing;
 mod metronome;
 mod node;
@@ -9,7 +8,6 @@ mod play;
 mod sample;
 mod time;
 
-pub use frequency_node::FrequencyNode;
 pub use node::Node;
 pub use sample::Sample;
 
@@ -65,7 +63,6 @@ fn libdaw(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("Error", py.get_type_bound::<Error>())?;
     m.add_class::<Sample>()?;
     m.add_class::<Node>()?;
-    m.add_class::<FrequencyNode>()?;
     m.add_function(wrap_pyfunction_bound!(play::play, m)?)?;
 
     nodes::register(&submodule!(m, "libdaw", "nodes"))?;

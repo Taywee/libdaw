@@ -68,7 +68,8 @@ pub fn play(
         // The initial sample is empty.
         sample: Sample::default().into_iter(),
     });
-    let node = node.borrow().0.clone();
+    let node = node.borrow();
+    let mut node = node.0.lock().expect("poisoned");
     let mut outputs = Vec::new();
     loop {
         py.check_signals()?;

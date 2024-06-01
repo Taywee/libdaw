@@ -1,17 +1,18 @@
 use crate::Node;
+use libdaw::nodes::ConstantValue as Inner;
 use pyo3::{pyclass, pymethods, PyClassInitializer};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
-pub struct ConstantValue(pub Arc<::libdaw::nodes::ConstantValue>);
+pub struct ConstantValue(pub Arc<Mutex<Inner>>);
 
 #[pymethods]
 impl ConstantValue {
     #[new]
     #[pyo3(signature = (value, channels = 2))]
     pub fn new(value: f64, channels: u16) -> PyClassInitializer<Self> {
-        let inner = Arc::new(::libdaw::nodes::ConstantValue::new(channels, value));
+        let inner = Arc::new(Mutex::new(Inner::new(channels, value)));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 }
