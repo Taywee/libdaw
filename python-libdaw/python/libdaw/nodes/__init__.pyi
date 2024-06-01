@@ -7,8 +7,10 @@ from .instrument import Tone
 
 class Add(Node):
     def __new__(cls: type, channels: int = 2): ...
+
 class ConstantValue(Node):
     def __new__(cls: type, value: float, channels: int = 2): ...
+
 class Delay(Node):
     def __new__(cls: type, delay: Duration, sample_rate: int = 48000): ...
 
