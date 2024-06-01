@@ -35,7 +35,7 @@ impl Tone {
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
 pub struct Instrument {
-    pub factory: Option<PyObject>,
+    pub factory: Option<Arc<PyObject>>,
     pub inner: Arc<Mutex<instrument::Instrument>>,
 }
 
@@ -51,16 +51,20 @@ impl Instrument {
         if !factory.is_callable() {
             return Err("factory must be a callable".into());
         }
-        let factory = factory.unbind();
+        let factory = Arc::new(factory.unbind());
         let inner = {
-            let factory = factory.clone();
+            let factory = Arc::downgrade(&factory);
             Arc::new(Mutex::new(instrument::Instrument::new(
                 sample_rate,
                 move || {
-                    Python::with_gil(|py| {
-                        let factory = factory.bind(py);
-                        Ok(Node::extract_bound(&factory.call0()?)?.0)
-                    })
+                    if let Some(factory) = factory.upgrade() {
+                        Python::with_gil(|py| {
+                            let factory = factory.bind(py);
+                            Ok(Node::extract_bound(&factory.call0()?)?.0)
+                        })
+                    } else {
+                        Err("factory no longer exists".into())
+                    }
                 },
                 envelope.into_iter().map(|point| point.0),
             )))
@@ -80,7 +84,7 @@ impl Instrument {
     fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {
         self.factory
             .as_ref()
-            .map(|factory| visit.call(factory))
+            .map(|factory| visit.call(&**factory))
             .transpose()
             .and(Ok(()))
     }
