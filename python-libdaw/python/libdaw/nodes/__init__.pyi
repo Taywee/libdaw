@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from libdaw import Node
+from libdaw import Node, Sample
 from python.libdaw.time import Duration
 from .envelope import Point
 from .graph import Index
@@ -67,3 +67,6 @@ class SquareOscillator(Node):
 
 class TriangleOscillator(Node):
     def __new__(cls: type, sample_rate: int = 48000, channels: int = 2): ...
+
+class Custom(Node):
+    def __new__(cls: type, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
