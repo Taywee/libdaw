@@ -9,7 +9,9 @@ from math import tau, sin
 
 class CustomSineOscillator(Custom):
     def __new__(cls: type[CustomSineOscillator], *args, **kwargs):
-        return Custom.__new__(cls)
+        def _callable(_):
+            raise RuntimeError('This will never be called')
+        return Custom.__new__(cls, _callable)
 
     def __init__(self, frequency: float = 256, channels: int = 2, sample_rate: int = 48000):
         self.callable = self

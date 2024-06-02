@@ -1,6 +1,6 @@
 from collections.abc import Callable, Sequence
 from libdaw import Node, Sample
-from python.libdaw.time import Duration
+from python.libdaw.time import Duration, Timestamp
 from .envelope import Point
 from .graph import Index
 from .instrument import Tone
@@ -15,7 +15,7 @@ class Delay(Node):
     def __new__(cls: type, delay: Duration, sample_rate: int = 48000): ...
 
 class Detune(Node):
-    def __new__(cls: type, node: Node): ...
+    def __new__(cls: type, detune: float = 0.0): ...
 
     @property
     def detune(self) -> float: ...
@@ -46,7 +46,7 @@ class Graph(Node):
     def remove_output(self, source: Index, stream: int | None = None) -> None: ...
 
 class Instrument(Node):
-    def __new__(cls: type, factory: Callable[[], Node], envelope: Sequence[Point], sample_rate: int = 48000): ...
+    def __new__(cls: type, factory: Callable[[Duration], Node], envelope: Sequence[Point], sample_rate: int = 48000): ...
     def add_tone(self, tone: Tone) -> None: ...
     def set_detune(self, detune: float) -> None: ...
 
@@ -70,3 +70,13 @@ class TriangleOscillator(Node):
 
 class Custom(Node):
     def __new__(cls: type, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
+
+class Callback(Node):
+    def __new__(cls: type, node: Node, sample_rate: int = 48000): ...
+    def add(
+        self,
+        callable: Callable[[Timestamp], bool | None],
+        start: Timestamp = Timestamp.MIN,
+        end: Timestamp = Timestamp.MAX,
+        post: bool = False,
+    ): ...

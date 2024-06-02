@@ -128,7 +128,7 @@ impl Add for Sample {
 impl MulAssign<&Sample> for Sample {
     fn mul_assign(&mut self, rhs: &Sample) {
         if self.len() < rhs.len() {
-            self.channels.resize(rhs.len(), 0.0);
+            self.channels.resize(rhs.len(), 1.0);
         }
         for (l, &r) in self.channels.iter_mut().zip(&rhs.channels) {
             *l *= r;
@@ -139,7 +139,7 @@ impl MulAssign<&Sample> for Sample {
 impl MulAssign for Sample {
     fn mul_assign(&mut self, rhs: Self) {
         if self.len() < rhs.len() {
-            self.channels.resize(rhs.len(), 0.0);
+            self.channels.resize(rhs.len(), 1.0);
         }
         for (l, r) in self.channels.iter_mut().zip(rhs.channels) {
             *l *= r;
