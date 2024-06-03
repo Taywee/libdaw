@@ -32,9 +32,9 @@ class CustomSineOscillator(Custom):
 
 
 graph = Graph()
-constant = graph.add(ConstantValue(440))
-custom = graph.add(CustomSineOscillator())
-gain = graph.add(Gain(0.5))
+constant = ConstantValue(440)
+custom = CustomSineOscillator()
+gain = Gain(0.5)
 graph.connect(constant, custom)
 graph.connect(custom, gain)
 graph.output(gain)

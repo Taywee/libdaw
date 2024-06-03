@@ -27,7 +27,7 @@ metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(60)))
 
 instrument = Instrument(
-    factory=SquareOscillator,
+    factory=lambda _: SquareOscillator(),
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -45,10 +45,9 @@ for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.05))
-instrument_index = graph.add(instrument)
-graph.connect(instrument_index, gain_index)
-graph.output(gain_index)
+gain = Gain(0.05)
+graph.connect(instrument, gain)
+graph.output(gain)
 
 play(graph)
 

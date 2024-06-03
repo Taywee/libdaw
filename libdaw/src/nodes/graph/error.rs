@@ -1,15 +1,15 @@
-use super::Index;
-use std::fmt;
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+};
+
+use crate::Node;
 
 #[derive(Debug)]
 pub enum Error {
-    IllegalIndex {
-        index: Index,
-        message: &'static str,
-    },
     NoSuchConnection {
-        source: Index,
-        destination: Index,
+        source: Arc<Mutex<dyn Node>>,
+        destination: Arc<Mutex<dyn Node>>,
         stream: Option<usize>,
     },
 }
@@ -17,14 +17,13 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::IllegalIndex { index, message } => {
-                write!(f, "illegal index {index:?}: {message}")
-            }
             Error::NoSuchConnection {
                 source,
                 destination,
                 stream,
             } => {
+                let source = source.lock().expect("poisoned");
+                let destination = destination.lock().expect("poisoned");
                 write!(
                     f,
                     "Connection does not exist between {source:?} and {destination:?}"

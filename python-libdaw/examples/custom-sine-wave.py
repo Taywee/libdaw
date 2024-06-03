@@ -26,10 +26,10 @@ class SineProcessor:
 
 
 graph = Graph()
-constant = graph.add(ConstantValue(440))
-custom = graph.add(Custom(SineProcessor()))
-custom = graph.add(SineOscillator())
-gain = graph.add(Gain(0.5))
+constant = ConstantValue(440)
+custom = Custom(SineProcessor())
+custom = SineOscillator()
+gain = Gain(0.5)
 graph.connect(constant, custom)
 graph.connect(custom, gain)
 graph.output(gain)

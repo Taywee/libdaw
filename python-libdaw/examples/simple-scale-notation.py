@@ -14,7 +14,8 @@ if TYPE_CHECKING:
     pass
 
 sequence = loads('''+(
-  1 2 3 4 5 6 7
+  1 2 3 4 5 6 7 1,2 1,1 7 6 5 4 3 2 1,2
+  1,1 3 5 1 5 3 1,2
 )''')
 assert isinstance(sequence, Sequence)
 
@@ -23,7 +24,7 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 pitch_standard = ScientificPitch()
 
 instrument = Instrument(
-    factory=SquareOscillator,
+    factory=lambda _: SquareOscillator(),
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -41,10 +42,9 @@ for tone in sequence.tones(metronome=metronome, pitch_standard=pitch_standard):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.3))
-instrument_index = graph.add(instrument)
-graph.connect(instrument_index, gain_index)
-graph.output(gain_index)
+gain = Gain(0.3)
+graph.connect(instrument, gain)
+graph.output(gain)
 
 play(graph, channels=2, sample_rate=48000)
 

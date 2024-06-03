@@ -1,56 +1,12 @@
-use crate::{Node, Result};
-use libdaw::nodes::graph::{Graph as Inner, Index as DawIndex};
-use nohash_hasher::IntMap;
-use pyo3::{
-    pyclass,
-    pyclass::CompareOp,
-    pymethods,
-    types::{PyModule, PyModuleMethods as _},
-    Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit,
-};
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash as _, Hasher as _},
-    sync::{Arc, Mutex},
-};
-
-#[pyclass(module = "libdaw.nodes")]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Index(DawIndex);
-
-#[pymethods]
-impl Index {
-    pub fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    pub fn __richcmp__(&self, other: Bound<'_, Self>, op: CompareOp) -> bool {
-        op.matches(self.0.cmp(&other.borrow().0))
-    }
-}
-
-impl From<DawIndex> for Index {
-    fn from(value: DawIndex) -> Self {
-        Self(value)
-    }
-}
-impl From<Index> for DawIndex {
-    fn from(value: Index) -> Self {
-        value.0
-    }
-}
+use crate::Node;
+use libdaw::nodes::graph::Graph as Inner;
+use pyo3::{pyclass, pymethods, Bound, PyClassInitializer};
+use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
 pub struct Graph {
     inner: Arc<Mutex<Inner>>,
-    nodes: IntMap<DawIndex, Py<Node>>,
 }
 
 #[pymethods]
@@ -58,114 +14,82 @@ impl Graph {
     #[new]
     pub fn new() -> PyClassInitializer<Self> {
         let inner = Arc::new(Mutex::new(Inner::default()));
-        PyClassInitializer::from(Node(inner.clone())).add_subclass(Self {
-            inner,
-            nodes: Default::default(),
-        })
+        PyClassInitializer::from(Node(inner.clone())).add_subclass(Self { inner })
     }
 
-    pub fn add(&mut self, node: Bound<'_, Node>) -> Index {
-        let index = self
-            .inner
-            .lock()
-            .expect("poisoned")
-            .add(node.borrow().0.clone());
-        self.nodes.insert(index, node.unbind());
-        index.into()
-    }
-
-    pub fn remove(&mut self, index: Index) -> Result<Option<Py<Node>>> {
-        self.inner.lock().expect("poisoned").remove(index.0)?;
-        Ok(self.nodes.remove(&index.into()))
+    pub fn remove(&mut self, node: Bound<'_, Node>) -> bool {
+        let node = node.borrow().0.clone();
+        self.inner.lock().expect("poisoned").remove(node)
     }
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
-    pub fn connect(&self, source: Index, destination: Index, stream: Option<usize>) -> Result<()> {
+    pub fn connect(
+        &self,
+        source: Bound<'_, Node>,
+        destination: Bound<'_, Node>,
+        stream: Option<usize>,
+    ) {
+        let source = source.borrow().0.clone();
+        let destination = destination.borrow().0.clone();
         self.inner
             .lock()
             .expect("poisoned")
-            .connect(source.0, destination.0, stream)
-            .map_err(Into::into)
+            .connect(source, destination, stream);
     }
 
     /// Disconnect the last-added matching connection, returning a boolean
     /// indicating if anything was disconnected.
     pub fn disconnect(
         &self,
-        source: Index,
-        destination: Index,
+        source: Bound<'_, Node>,
+        destination: Bound<'_, Node>,
         stream: Option<usize>,
-    ) -> Result<()> {
+    ) -> bool {
+        let source = source.borrow().0.clone();
+        let destination = destination.borrow().0.clone();
         self.inner
             .lock()
             .expect("poisoned")
-            .disconnect(source.0, destination.0, stream)
-            .map_err(Into::into)
+            .disconnect(source, destination, stream)
+    }
+
+    /// Connect the given output of the initial input to the destination.  The
+    /// same output may be attached multiple times. `None` will attach all
+    /// outputs.
+    pub fn input(&self, destination: Bound<'_, Node>, stream: Option<usize>) {
+        let destination = destination.borrow().0.clone();
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .input(destination, stream);
+    }
+
+    /// Disconnect the last-added matching connection from the destination,
+    /// returning a boolean indicating if anything was disconnected.
+    pub fn remove_input(&self, destination: Bound<'_, Node>, stream: Option<usize>) -> bool {
+        let destination = destination.borrow().0.clone();
+        self.inner
+            .lock()
+            .expect("poisoned")
+            .remove_input(destination, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&self, source: Index, stream: Option<usize>) -> Result<()> {
+    pub fn output(&self, source: Bound<'_, Node>, stream: Option<usize>) {
+        let source = source.borrow().0.clone();
+        self.inner.lock().expect("poisoned").output(source, stream);
+    }
+
+    /// Disconnect the last-added matching connection from the source, returning
+    /// a boolean indicating if anything was disconnected.
+    pub fn remove_output(&self, source: Bound<'_, Node>, stream: Option<usize>) -> bool {
+        let source = source.borrow().0.clone();
         self.inner
             .lock()
             .expect("poisoned")
-            .input(source.0, stream)
-            .map_err(Into::into)
+            .remove_output(source, stream)
     }
-
-    /// Disconnect the last-added matching connection from the destination.0,
-    /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("poisoned")
-            .remove_input(source.0, stream)
-            .map_err(Into::into)
-    }
-
-    /// Connect the given output of the source to the final destinaton.  The
-    /// same output may be attached multiple times. `None` will attach all
-    /// outputs.
-    pub fn output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("poisoned")
-            .output(source.0, stream)
-            .map_err(Into::into)
-    }
-
-    /// Disconnect the last-added matching connection from the destination.0,
-    /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&self, source: Index, stream: Option<usize>) -> Result<()> {
-        self.inner
-            .lock()
-            .expect("poisoned")
-            .remove_output(source.0, stream)
-            .map_err(Into::into)
-    }
-    fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {
-        for node in self.nodes.values() {
-            visit.call(node)?
-        }
-        Ok(())
-    }
-
-    pub fn __clear__(&mut self) {
-        for index in self.nodes.keys().copied() {
-            self.inner
-                .lock()
-                .expect("poisoned")
-                .remove(index)
-                .expect("illegal index")
-                .expect("unfilled index");
-        }
-        self.nodes.clear();
-    }
-}
-
-pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<Index>()?;
-    Ok(())
 }

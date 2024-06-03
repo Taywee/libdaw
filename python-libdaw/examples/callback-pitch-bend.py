@@ -37,12 +37,11 @@ def ilerp(a: float, b: float, c: float):
 def triangle_bend(length: Duration) -> Node:
     length_seconds = length.seconds()
     graph = Graph()
-    multiply = graph.add(Multiply())
+    multiply = Multiply()
     detune = Detune(-1 / 12)
-    detune_index = graph.add(detune)
     graph.input(multiply)
-    graph.connect(detune_index, multiply)
-    triangle = graph.add(TriangleOscillator())
+    graph.connect(detune, multiply)
+    triangle = TriangleOscillator()
     graph.connect(multiply, triangle)
     graph.output(triangle)
     def _callback(timestamp: Timestamp) -> None:
@@ -72,10 +71,9 @@ for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.25))
-instrument_index = graph.add(instrument)
-graph.connect(instrument_index, gain_index)
-graph.output(gain_index)
+gain = Gain(0.25)
+graph.connect(instrument, gain)
+graph.output(gain)
 
 play(graph)
 

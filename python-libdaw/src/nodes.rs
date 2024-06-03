@@ -57,6 +57,5 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<TriangleOscillator>()?;
     envelope::register(&submodule!(module, "libdaw.nodes", "envelope"))?;
     instrument::register(&submodule!(module, "libdaw.nodes", "instrument"))?;
-    graph::register(&submodule!(module, "libdaw.nodes", "graph"))?;
     Ok(())
 }
