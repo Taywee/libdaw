@@ -1,5 +1,5 @@
 use crate::{
-    nodes::{envelope::Point, graph::Index, ConstantValue, Envelope, Graph},
+    nodes::{envelope::Point, ConstantValue, Envelope, Graph},
     time::{Duration, Timestamp},
     Node, Result,
 };
@@ -48,9 +48,7 @@ impl Eq for QueuedTone {}
 #[derive(Debug)]
 struct PlayingTone {
     end_sample: u64,
-    constant_value_index: Index,
-    frequency_node_index: Index,
-    envelope_index: Index,
+    graph: Arc<Mutex<Graph>>,
 }
 
 impl PartialOrd for PlayingTone {
@@ -158,34 +156,25 @@ impl Node for Instrument {
                 tone.length,
                 self.envelope.iter().copied(),
             )));
-            let constant_value_index = self.graph.add(constant_value);
-            let frequency_node_index = self.graph.add(frequency_node);
-            let envelope_index = self.graph.add(envelope);
-            self.graph
-                .connect(constant_value_index, frequency_node_index, None)?;
-            self.graph
-                .connect(frequency_node_index, envelope_index, None)?;
-            self.graph.output(envelope_index, None)?;
+            let mut graph = Graph::default();
+            graph.connect(constant_value.clone(), frequency_node.clone(), None);
+            graph.connect(frequency_node.clone(), envelope.clone(), None);
+            graph.output(envelope.clone(), None);
+            let graph = Arc::new(Mutex::new(graph));
+            self.graph.output(graph.clone(), None);
             self.playing.push(Reverse(PlayingTone {
                 end_sample: tone.end_sample,
-                envelope_index,
-                frequency_node_index,
-                constant_value_index,
+                graph,
             }));
         }
 
-        loop {
-            let Some(tone) = self.playing.peek() else {
-                break;
-            };
-            if sample < tone.0.end_sample {
-                break;
-            }
-
+        while self
+            .playing
+            .peek()
+            .is_some_and(|tone| sample >= tone.0.end_sample)
+        {
             let tone = self.playing.pop().unwrap().0;
-            self.graph.remove(tone.constant_value_index)?;
-            self.graph.remove(tone.frequency_node_index)?;
-            self.graph.remove(tone.envelope_index)?;
+            self.graph.remove(tone.graph);
         }
 
         // Play graph

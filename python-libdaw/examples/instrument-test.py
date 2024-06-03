@@ -10,7 +10,7 @@ from libdaw.time import Duration, Time, Timestamp
 
 graph = Graph()
 instrument = Instrument(
-    factory=SquareOscillator,
+    factory=lambda _: SquareOscillator(),
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -57,8 +57,8 @@ instrument.add_tone(Tone(
   frequency = 256 * 2 ** (7 / 12),
 ))
 
-gain = graph.add(Gain(0.1))
-graph.connect(graph.add(instrument), gain)
+gain = Gain(0.1)
+graph.connect(instrument, gain)
 graph.output(gain)
 
 play(graph)

@@ -30,7 +30,7 @@ for beat in range(1, 100, 2):
     metronome.add_tempo_instruction(TempoInstruction(beat=Beat(beat), tempo=BeatsPerMinute(300)))
 
 instrument = Instrument(
-    factory=TriangleOscillator,
+    factory=lambda _: TriangleOscillator(),
     envelope=(
         # start
         Point(whence=0, volume=0),
@@ -48,10 +48,9 @@ for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
 graph = Graph()
-gain_index = graph.add(Gain(0.25))
-instrument_index = graph.add(instrument)
-graph.connect(instrument_index, gain_index)
-graph.output(gain_index)
+gain = Gain(0.25)
+graph.connect(instrument, gain)
+graph.output(gain)
 
 play(graph)
 

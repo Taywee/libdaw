@@ -1,381 +1,193 @@
-mod error;
+mod strong;
 
-pub use error::Error;
-
-type Result<T> = std::result::Result<T, Error>;
-
-use crate::nodes::Passthrough;
-use crate::sample::Sample;
-use crate::Node;
-use nohash_hasher::{IntSet, IsEnabled};
-
-use std::hash::Hash;
+use crate::{nodes::Passthrough, sample::Sample, Node};
+use nohash_hasher::{IntMap, IntSet};
 use std::sync::{Arc, Mutex};
-use Error::IllegalIndex;
-use Error::NoSuchConnection;
+use strong::Strong;
 
-/// A strong node shared smart pointer.
-type Strong = Arc<Mutex<dyn Node>>;
-
-/// The node index.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Index(usize);
-
-impl IsEnabled for Index {}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 struct Input {
-    source: Index,
+    source: Strong,
     stream: Option<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Slot {
-    node: Strong,
-    output: Mutex<Vec<Sample>>,
-    input_buffer: Mutex<Vec<Sample>>,
+    output: Vec<Sample>,
     inputs: Vec<Input>,
 }
 
-/// The processing order list, keeping the list in memory so that we only have
-/// to rebuild it if the graph has changed.
 #[derive(Debug, Default)]
-struct ProcessList {
-    list: Vec<Index>,
-    memo: IntSet<Index>,
-    reprocess: bool,
+pub struct ProcessList {
+    list: Vec<Strong>,
+    memo: IntSet<Strong>,
+    needs_rebuild: bool,
 }
 
 #[derive(Debug)]
 pub struct Graph {
-    nodes: Vec<Option<Slot>>,
-    empty_nodes: IntSet<Index>,
-    set_nodes: IntSet<Index>,
-    process_list: Mutex<ProcessList>,
+    nodes: IntMap<Strong, Slot>,
+    input: Strong,
+    output: Strong,
+    process_list: ProcessList,
 }
 
 impl Default for Graph {
     fn default() -> Self {
-        let mut graph = Self {
+        let input = Strong {
+            inner: Arc::new(Mutex::new(Passthrough::default())),
+        };
+        let output = Strong {
+            inner: Arc::new(Mutex::new(Passthrough::default())),
+        };
+        let graph = Self {
             nodes: Default::default(),
-            empty_nodes: Default::default(),
-            set_nodes: Default::default(),
+            input,
+            output,
             process_list: Default::default(),
         };
-        // input
-        graph.add(Arc::new(Mutex::new(Passthrough::default())));
-        // output
-        graph.add(Arc::new(Mutex::new(Passthrough::default())));
         graph
     }
 }
 
 impl Graph {
-    pub fn add(&mut self, node: Strong) -> Index {
-        self.process_list.lock().expect("mutex poisoned").reprocess = true;
-        let slot = Some(Slot {
-            node,
-            output: Default::default(),
-            input_buffer: Default::default(),
-            inputs: Default::default(),
-        });
-        if let Some(index) = self.empty_nodes.iter().next().copied() {
-            self.empty_nodes.remove(&index);
-            self.set_nodes.insert(index);
-            self.nodes[index.0] = slot;
-            index
+    fn add_if_needed(&mut self, node: Strong) -> &mut Slot {
+        self.nodes.entry(node).or_default()
+    }
+
+    pub fn remove(&mut self, node: Arc<Mutex<dyn Node>>) -> bool {
+        let node = Strong { inner: node };
+        if let Some((node, _)) = self.nodes.remove_entry(&node) {
+            for slot in self.nodes.values_mut() {
+                slot.inputs.retain(|input| input.source != node);
+            }
+            self.process_list.needs_rebuild = true;
+            true
         } else {
-            let index = Index(self.nodes.len());
-            self.nodes.push(slot);
-            self.set_nodes.insert(index);
-            index
+            false
         }
     }
 
-    pub fn remove(&mut self, index: Index) -> Result<Option<Strong>> {
-        match index {
-            Index(0) => {
-                return Err(IllegalIndex {
-                    index,
-                    message: "Can not remove the input",
-                })
-            }
-            Index(1) => {
-                return Err(IllegalIndex {
-                    index,
-                    message: "Can not remove the output",
-                })
-            }
-            _ => (),
-        }
-
-        self.process_list.lock().expect("mutex poisoned").reprocess = true;
-
-        if let Some(slot) = self.nodes[index.0].take() {
-            self.empty_nodes.insert(index);
-            self.set_nodes.remove(&index);
-
-            // Remove all nodes that used this one as input
-            for set_index in self.set_nodes.iter().copied() {
-                let slot = self.nodes[set_index.0]
-                    .as_mut()
-                    .expect("set slot not existing");
-                slot.inputs.retain(|input| input.source != index);
-            }
-            Ok(Some(slot.node))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn inner_connect(
-        &mut self,
-        source: Index,
-        destination: Index,
-        stream: Option<usize>,
-    ) -> Result<()> {
-        if self.nodes[source.0].is_none() {
-            return Err(IllegalIndex {
-                index: source,
-                message: "source must be a valid index",
-            });
-        }
-        let destination = self.nodes[destination.0]
-            .as_mut()
-            .ok_or_else(|| IllegalIndex {
-                index: destination,
-                message: "destination must be a valid index",
-            })?;
-
-        self.process_list.lock().expect("mutex poisoned").reprocess = true;
-        destination.inputs.push(Input { source, stream });
-        Ok(())
-    }
-
-    /// Connect the given output of the source to the destination.  The same
-    /// output may be attached  multiple times. `None` will attach all outputs.
     pub fn connect(
         &mut self,
-        source: Index,
-        destination: Index,
+        source: Arc<Mutex<dyn Node>>,
+        destination: Arc<Mutex<dyn Node>>,
         stream: Option<usize>,
-    ) -> Result<()> {
-        match (source, destination) {
-            (Index(0), _) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "use `input` instead",
-                })
-            }
-            (Index(1), _) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "cannot connect or disconnect output",
-                })
-            }
-            (_, Index(0)) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "cannot connect or disconnect input",
-                })
-            }
-            (_, Index(1)) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "use `output` instead",
-                })
-            }
-            _ => (),
-        }
-        self.inner_connect(source, destination, stream)
+    ) {
+        self.process_list.needs_rebuild = true;
+        let source = Strong { inner: source };
+        let destination = Strong { inner: destination };
+        self.add_if_needed(source.clone());
+        self.add_if_needed(destination)
+            .inputs
+            .push(Input { source, stream });
     }
 
-    /// Disconnect the last-added matching connection.
-    fn inner_disconnect(
+    fn remove_if_unneeded(&mut self, node: Strong) {
+        // Check if this needs another node
+        if self
+            .nodes
+            .get(&node)
+            .iter()
+            .flat_map(|&slot| slot.inputs.iter())
+            .next()
+            .is_some()
+        {
+            return;
+        }
+        // Check if this is needed by another node
+        if self
+            .nodes
+            .values()
+            .flat_map(|slot| slot.inputs.iter().map(|input| &input.source))
+            .find(|&strong| node == *strong)
+            .is_some()
+        {
+            return;
+        }
+        self.nodes.remove(&node);
+    }
+
+    pub fn disconnect(
         &mut self,
-        source: Index,
-        destination: Index,
+        source: Arc<Mutex<dyn Node>>,
+        destination: Arc<Mutex<dyn Node>>,
         stream: Option<usize>,
-    ) -> Result<()> {
-        let destination_slot = self.nodes[destination.0]
-            .as_mut()
-            .ok_or_else(|| IllegalIndex {
-                index: destination,
-                message: "destination must be a valid index",
-            })?;
-        let source_input = Input { source, stream };
-        let (index, _) = destination_slot
+    ) -> bool {
+        let source = Strong { inner: source };
+        let destination = Strong { inner: destination };
+        let Some(destination_slot) = self.nodes.get_mut(&destination) else {
+            return false;
+        };
+        let Some((index, _)) = destination_slot
             .inputs
             .iter()
             .enumerate()
-            .rev()
-            .find(|(_, input)| **input == source_input)
-            .ok_or_else(move || NoSuchConnection {
-                source,
-                destination,
-                stream,
-            })?;
+            .rfind(|&(_, input)| input.source == source && input.stream == stream)
+        else {
+            return false;
+        };
+        self.process_list.needs_rebuild = true;
         destination_slot.inputs.remove(index);
-        self.process_list.lock().expect("mutex poisoned").reprocess = true;
-        Ok(())
-    }
 
-    /// Disconnect the last-added matching connection, returning a boolean
-    /// indicating if anything was disconnected.
-    pub fn disconnect(
-        &mut self,
-        source: Index,
-        destination: Index,
-        stream: Option<usize>,
-    ) -> Result<()> {
-        match (source, destination) {
-            (Index(0), _) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "use `remove_input` instead",
-                })
-            }
-            (Index(1), _) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "cannot connect or disconnect output",
-                })
-            }
-            (_, Index(0)) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "cannot connect or disconnect input",
-                })
-            }
-            (_, Index(1)) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "use `remove_output` instead",
-                })
-            }
-            _ => (),
-        }
-        self.disconnect(source, destination, stream)
+        self.remove_if_unneeded(source);
+        self.remove_if_unneeded(destination);
+
+        true
     }
 
     /// Connect the given output of the initial input to the destination.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn input(&mut self, destination: Index, stream: Option<usize>) -> Result<()> {
-        match destination {
-            Index(0) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "Can not `input` the input",
-                })
-            }
-            Index(1) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "Can not `input` the output",
-                })
-            }
-            _ => (),
-        }
-        self.inner_connect(Index(0), destination, stream)
+    pub fn input(&mut self, destination: Arc<Mutex<dyn Node>>, stream: Option<usize>) {
+        self.connect(self.input.clone().inner, destination, stream);
     }
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_input(&mut self, destination: Index, stream: Option<usize>) -> Result<()> {
-        match destination {
-            Index(0) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "Can not `remove_input` the input",
-                })
-            }
-            Index(1) => {
-                return Err(IllegalIndex {
-                    index: destination,
-                    message: "Can not `remove_input` the output",
-                })
-            }
-            _ => (),
-        }
-        self.inner_disconnect(Index(0), destination, stream)
+    pub fn remove_input(
+        &mut self,
+        destination: Arc<Mutex<dyn Node>>,
+        stream: Option<usize>,
+    ) -> bool {
+        self.disconnect(self.input.clone().inner, destination, stream)
     }
 
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
-    pub fn output(&mut self, source: Index, stream: Option<usize>) -> Result<()> {
-        match source {
-            Index(0) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "Can not `output` the input",
-                })
-            }
-            Index(1) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "Can not `output` the output",
-                })
-            }
-            _ => (),
-        }
-        self.inner_connect(source, Index(1), stream)
+    pub fn output(&mut self, source: Arc<Mutex<dyn Node>>, stream: Option<usize>) {
+        self.connect(source, self.output.clone().inner, stream);
     }
 
-    /// Disconnect the last-added matching connection from the destination,
-    /// returning a boolean indicating if anything was disconnected.
-    pub fn remove_output(&mut self, source: Index, stream: Option<usize>) -> Result<()> {
-        match source {
-            Index(0) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "Can not `remove_output` the input",
-                })
-            }
-            Index(1) => {
-                return Err(IllegalIndex {
-                    index: source,
-                    message: "Can not `remove_output` the output",
-                })
-            }
-            _ => (),
-        }
-        self.inner_disconnect(source, Index(1), stream)
+    /// Disconnect the last-added matching connection from the source, returning
+    /// a boolean indicating if anything was disconnected.
+    pub fn remove_output(&mut self, source: Arc<Mutex<dyn Node>>, stream: Option<usize>) -> bool {
+        self.disconnect(source, self.output.clone().inner, stream)
     }
 
-    fn walk_node(&self, node: Index, process_list: &mut ProcessList) {
-        if process_list.memo.insert(node) {
-            process_list.list.push(node);
-            let slot = self
+    fn walk_node(&mut self, node: Strong) {
+        if self.process_list.memo.insert(node.clone()) {
+            self.process_list.list.push(node.clone());
+            let sources: Vec<_> = self
                 .nodes
-                .get(node.0)
-                .map(Option::as_ref)
-                .flatten()
-                .expect("walk_node found node that doesn't exist");
-            for input in &slot.inputs {
-                self.walk_node(input.source, process_list);
+                .get(&node)
+                .iter()
+                .flat_map(|&slot| &slot.inputs)
+                .map(|input| input.source.clone())
+                .collect();
+            for source in sources {
+                self.walk_node(source);
             }
         }
     }
 
-    /// Get the processing list, in order from sink to roots.
-    fn build_process_list(&self) {
-        let mut process_list = self.process_list.lock().expect("mutex poisoned");
-        if process_list.reprocess {
-            process_list.list.clear();
-            process_list.memo.clear();
-            // Special case the input node to ensure it's always at the end of
-            // the list.
-            process_list.memo.insert(Index(0));
-            self.walk_node(Index(1), &mut process_list);
-            if process_list.list.len() < self.nodes.len() {
-                for index in self.set_nodes.iter().copied() {
-                    self.walk_node(index, &mut process_list);
-                }
-            }
-            process_list.list.push(Index(0));
-            process_list.reprocess = false;
+    fn check_process_list(&mut self) {
+        if self.process_list.needs_rebuild {
+            self.process_list.needs_rebuild = false;
+            self.process_list.memo.clear();
+            self.process_list.list.clear();
+            self.walk_node(self.output.clone());
         }
     }
 }
@@ -388,59 +200,44 @@ impl Node for Graph {
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> crate::Result<()> {
-        self.build_process_list();
+        self.check_process_list();
+        let mut input_buffer = Vec::new();
         // First process all process-needing nodes in reverse order.
-        for node in self
-            .process_list
-            .lock()
-            .expect("mutex poisoned")
-            .list
-            .iter()
-            .rev()
-            .copied()
-        {
-            let slot = self.nodes[node.0].as_ref().expect("node needs to be set");
-            let mut input_buffer = slot.input_buffer.lock().expect("mutex poisoned");
+        for node in self.process_list.list.iter().rev() {
             input_buffer.clear();
-            if node == Index(0) {
-                // The input node, 0, just gets the inputs from the outside world.
+            if *node == self.input {
+                // The input node just gets the inputs from the outside world.
                 input_buffer.extend_from_slice(inputs);
-            } else if !slot.inputs.is_empty() {
-                for input in slot.inputs.iter().copied() {
-                    let input_slot = self.nodes[input.source.0]
-                        .as_ref()
+            } else {
+                for input in self
+                    .nodes
+                    .get(node)
+                    .expect("node needs to be set")
+                    .inputs
+                    .iter()
+                {
+                    let input_slot = self
+                        .nodes
+                        .get(&input.source)
                         .expect("process node not in input values");
                     if let Some(output) = input.stream {
-                        if let Some(stream) = input_slot
-                            .output
-                            .lock()
-                            .expect("mutex poisoned")
-                            .get(output)
-                            .cloned()
-                        {
+                        if let Some(stream) = input_slot.output.get(output).cloned() {
                             input_buffer.push(stream);
                         }
                     } else {
-                        input_buffer
-                            .extend_from_slice(&input_slot.output.lock().expect("mutex poisoned"));
+                        input_buffer.extend_from_slice(&input_slot.output);
                     }
                 }
             }
-            let mut output = slot.output.lock().expect("mutex poisoned");
-            output.clear();
-            slot.node
-                .lock()
+            let slot = self.nodes.get_mut(node).expect("node needs to be set");
+            slot.output.clear();
+            node.lock()
                 .expect("poisoned")
-                .process(&input_buffer, &mut output)?;
+                .process(&input_buffer, &mut slot.output)?;
         }
-        outputs.extend_from_slice(
-            &self.nodes[1]
-                .as_ref()
-                .expect("Sink does not exist")
-                .output
-                .lock()
-                .expect("mutex poisoned"),
-        );
+        if let Some(slot) = self.nodes.get_mut(&self.output) {
+            outputs.extend_from_slice(&slot.output);
+        }
         Ok(())
     }
 }
