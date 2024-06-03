@@ -20,20 +20,16 @@ pub fn pitch_name(input: &str) -> IResult<&str, PitchName> {
     Ok((input, note))
 }
 fn adjustment_symbol(input: &str) -> IResult<&str, f64> {
-    let (input, symbol) = one_of("#b♭♯𝄳𝄫𝄪𝄲♮,'")(input)?;
+    let (input, symbol) = one_of("#b♭♯𝄳𝄫𝄪𝄲♮")(input)?;
     let adjustment = match symbol {
         '𝄫' => -2.0,
         'b' => -1.0,
-        'f' => -1.0,
-        ',' => -1.0,
         '♭' => -1.0,
         '𝄳' => -0.5,
         '♮' => 0.0,
         '𝄲' => 0.5,
         '#' => 1.0,
-        's' => 1.0,
         '♯' => 1.0,
-        '\'' => 1.0,
         '𝄪' => 2.0,
         _ => unreachable!(),
     };

@@ -1,7 +1,7 @@
 use crate::{Node, Sample};
 use libdaw::Node as DawNode;
 use pyo3::{
-    pyclass, pymethods, types::PyAnyMethods as _, Bound, Py, PyAny, PyClassInitializer, PyResult,
+    pyclass, pymethods, types::PyAnyMethods as _, Py, PyAny, PyClassInitializer, PyResult,
     PyTraverseError, PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
@@ -44,20 +44,25 @@ pub struct Custom(Arc<Mutex<Inner>>);
 #[pymethods]
 impl Custom {
     #[new]
-    pub fn new(callable: Option<Bound<'_, PyAny>>) -> PyClassInitializer<Self> {
+    pub fn new(callable: Py<PyAny>) -> PyClassInitializer<Self> {
         let inner = Arc::new(Mutex::new(Inner {
-            callable: callable.map(|callable| callable.unbind()),
+            callable: Some(callable),
         }));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 
     #[getter]
-    fn get_callable(&self) -> Option<Py<PyAny>> {
-        self.0.lock().expect("poisoned").callable.clone()
+    fn get_callable(&self) -> Py<PyAny> {
+        self.0
+            .lock()
+            .expect("poisoned")
+            .callable
+            .clone()
+            .expect("cleared")
     }
     #[setter]
-    fn set_callable(&self, callable: Option<Py<PyAny>>) {
-        self.0.lock().expect("poisoned").callable = callable;
+    fn set_callable(&self, callable: Py<PyAny>) {
+        self.0.lock().expect("poisoned").callable = Some(callable);
     }
     fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {
         self.0

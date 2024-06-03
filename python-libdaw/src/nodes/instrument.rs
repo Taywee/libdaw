@@ -56,11 +56,11 @@ impl Instrument {
             let factory = Arc::downgrade(&factory);
             Arc::new(Mutex::new(instrument::Instrument::new(
                 sample_rate,
-                move || {
+                move |length| {
                     if let Some(factory) = factory.upgrade() {
                         Python::with_gil(|py| {
                             let factory = factory.bind(py);
-                            Ok(Node::extract_bound(&factory.call0()?)?.0)
+                            Ok(Node::extract_bound(&factory.call1((Duration(length),))?)?.0)
                         })
                     } else {
                         Err("factory no longer exists".into())

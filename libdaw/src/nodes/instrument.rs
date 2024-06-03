@@ -73,7 +73,7 @@ impl Eq for PlayingTone {}
 
 /// A node that can play a sequence of tones from a node creator.
 pub struct Instrument {
-    node_creator: Box<dyn FnMut() -> Result<Arc<Mutex<dyn Node>>> + Send>,
+    node_creator: Box<dyn FnMut(Duration) -> Result<Arc<Mutex<dyn Node>>> + Send>,
     graph: Graph,
     queue: BinaryHeap<Reverse<QueuedTone>>,
     playing: BinaryHeap<Reverse<PlayingTone>>,
@@ -98,7 +98,7 @@ impl fmt::Debug for Instrument {
 impl Instrument {
     pub fn new(
         sample_rate: u32,
-        frequency_node_creator: impl 'static + FnMut() -> Result<Arc<Mutex<dyn Node>>> + Send,
+        frequency_node_creator: impl 'static + FnMut(Duration) -> Result<Arc<Mutex<dyn Node>>> + Send,
         envelope: impl IntoIterator<Item = Point>,
     ) -> Self {
         Self {
@@ -151,7 +151,7 @@ impl Node for Instrument {
 
             let tone = self.queue.pop().unwrap().0;
             let constant_value = Arc::new(Mutex::new(ConstantValue::new(1, tone.frequency)));
-            let frequency_node = (self.node_creator)()?;
+            let frequency_node = (self.node_creator)(tone.length)?;
 
             let envelope = Arc::new(Mutex::new(Envelope::new(
                 self.sample_rate,

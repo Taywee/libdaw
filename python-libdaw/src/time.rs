@@ -1,4 +1,5 @@
 use crate::ErrorWrapper;
+use libdaw::time::{Duration as DawDuration, Time as DawTime, Timestamp as DawTimestamp};
 use pyo3::{
     exceptions::PyValueError,
     pyclass,
@@ -12,10 +13,17 @@ use std::hash::{Hash as _, Hasher as _};
 
 #[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Duration(pub libdaw::time::Duration);
+pub struct Duration(pub DawDuration);
 
 #[pymethods]
 impl Duration {
+    #[classattr]
+    pub const ZERO: Duration = Duration(DawDuration::ZERO);
+    #[classattr]
+    pub const MAX: Duration = Duration(DawDuration::MAX);
+    #[classattr]
+    pub const MIN: Duration = Duration(DawDuration::MIN);
+
     #[new]
     pub fn new(seconds: &Bound<'_, PyAny>) -> PyResult<Self> {
         let seconds = if let Ok(delta) = seconds.downcast::<PyDelta>() {
@@ -25,7 +33,7 @@ impl Duration {
         } else {
             seconds.extract()?
         };
-        libdaw::time::Duration::from_seconds(seconds)
+        DawDuration::from_seconds(seconds)
             .map(Self)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -68,10 +76,17 @@ impl Duration {
 
 #[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Time(pub libdaw::time::Time);
+pub struct Time(pub DawTime);
 
 #[pymethods]
 impl Time {
+    #[classattr]
+    pub const ZERO: Time = Time(DawTime::ZERO);
+    #[classattr]
+    pub const MAX: Time = Time(DawTime::MAX);
+    #[classattr]
+    pub const MIN: Time = Time(DawTime::MIN);
+
     #[new]
     pub fn new(seconds: &Bound<'_, PyAny>) -> PyResult<Self> {
         let seconds = if let Ok(delta) = seconds.downcast::<PyDelta>() {
@@ -81,7 +96,7 @@ impl Time {
         } else {
             seconds.extract()?
         };
-        libdaw::time::Time::from_seconds(seconds)
+        DawTime::from_seconds(seconds)
             .map(Self)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -124,10 +139,17 @@ impl Time {
 
 #[pyclass(module = "libdaw.time")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Timestamp(pub libdaw::time::Timestamp);
+pub struct Timestamp(pub DawTimestamp);
 
 #[pymethods]
 impl Timestamp {
+    #[classattr]
+    pub const ZERO: Timestamp = Timestamp(DawTimestamp::ZERO);
+    #[classattr]
+    pub const MAX: Timestamp = Timestamp(DawTimestamp::MAX);
+    #[classattr]
+    pub const MIN: Timestamp = Timestamp(DawTimestamp::MIN);
+
     #[new]
     pub fn new(seconds: &Bound<'_, PyAny>) -> PyResult<Self> {
         let seconds = if let Ok(delta) = seconds.downcast::<PyDelta>() {
@@ -137,7 +159,7 @@ impl Timestamp {
         } else {
             seconds.extract()?
         };
-        libdaw::time::Timestamp::from_seconds(seconds)
+        DawTimestamp::from_seconds(seconds)
             .map(Self)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
