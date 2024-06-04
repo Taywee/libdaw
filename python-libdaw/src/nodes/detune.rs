@@ -10,10 +10,9 @@ pub struct Detune(pub Arc<Mutex<Inner>>);
 #[pymethods]
 impl Detune {
     #[new]
-    pub fn new(detune: Option<f64>) -> PyClassInitializer<Self> {
-        let inner = Arc::new(Mutex::new(Inner {
-            detune: detune.unwrap_or(0.0),
-        }));
+    #[pyo3(signature = (detune = 0.0))]
+    pub fn new(detune: f64) -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(Inner { detune }));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 

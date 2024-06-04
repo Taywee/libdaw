@@ -3,6 +3,9 @@ use std::f64;
 
 #[derive(Debug)]
 pub struct SineOscillator {
+    /// The frequency if no input comes in.
+    pub frequency: f64,
+
     sample_rate: f64,
     /// Ramps from 0 to TAU per period
     ramp: f64,
@@ -10,8 +13,9 @@ pub struct SineOscillator {
 }
 
 impl SineOscillator {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
+    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
         SineOscillator {
+            frequency,
             ramp: Default::default(),
             sample_rate: sample_rate as f64,
             channels: channels.into(),
@@ -28,7 +32,7 @@ impl Node for SineOscillator {
         let frequency = inputs
             .get(0)
             .and_then(|input| input.get(0).cloned())
-            .unwrap_or(0.0);
+            .unwrap_or(self.frequency);
         let delta = frequency * f64::consts::TAU / self.sample_rate;
         let mut output = Sample::zeroed(self.channels);
         output.fill(self.ramp.sin());
