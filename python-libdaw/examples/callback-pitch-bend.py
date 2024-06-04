@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain, Multiply, TriangleOscillator
+from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain, TriangleOscillator
+from libdaw.nodes.instrument import Tone
 from libdaw.notation import Sequence, loads
-from libdaw.time import Duration, Time, Timestamp
+from libdaw.time import Time, Timestamp
 
 #import copy
 
@@ -34,15 +35,13 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 def ilerp(a: float, b: float, c: float):
     return (b - a) / (c - a)
 
-def triangle_bend(length: Duration) -> Node:
-    length_seconds = length.seconds()
+def triangle_bend(tone: Tone) -> Node:
+    length_seconds = tone.length.seconds()
     graph = Graph()
-    multiply = Multiply()
     detune = Detune(-1 / 12)
-    graph.input(multiply)
-    graph.connect(detune, multiply)
     triangle = TriangleOscillator()
-    graph.connect(multiply, triangle)
+    graph.input(detune)
+    graph.connect(detune, triangle)
     graph.output(triangle)
     def _callback(timestamp: Timestamp) -> None:
         timestamp_seconds = timestamp.seconds()
