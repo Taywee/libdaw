@@ -3,6 +3,9 @@ use crate::{Node, Result};
 
 #[derive(Debug)]
 pub struct SquareOscillator {
+    /// The frequency if no input comes in.
+    pub frequency: f64,
+
     samples_since_switch: f64,
     sample_rate: f64,
     sample: f64,
@@ -10,8 +13,9 @@ pub struct SquareOscillator {
 }
 
 impl SquareOscillator {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
+    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
         Self {
+            frequency,
             samples_since_switch: Default::default(),
             sample: 1.0,
             sample_rate: sample_rate as f64,
@@ -33,7 +37,7 @@ impl Node for SquareOscillator {
         let frequency = inputs
             .get(0)
             .and_then(|input| input.get(0).cloned())
-            .unwrap_or(0.0);
+            .unwrap_or(self.frequency);
         let switches_per_second = frequency * 2.0;
         let samples_per_switch = self.sample_rate / switches_per_second;
 
