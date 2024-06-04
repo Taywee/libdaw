@@ -30,6 +30,19 @@ impl Tone {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.0)
     }
+
+    #[getter]
+    fn get_start(&self) -> Timestamp {
+        Timestamp(self.0.start)
+    }
+    #[getter]
+    fn get_length(&self) -> Duration {
+        Duration(self.0.length)
+    }
+    #[getter]
+    fn get_frequency(&self) -> f64 {
+        self.0.frequency
+    }
 }
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
@@ -56,11 +69,11 @@ impl Instrument {
             let factory = Arc::downgrade(&factory);
             Arc::new(Mutex::new(instrument::Instrument::new(
                 sample_rate,
-                move |length| {
+                move |tone| {
                     if let Some(factory) = factory.upgrade() {
                         Python::with_gil(|py| {
                             let factory = factory.bind(py);
-                            Ok(Node::extract_bound(&factory.call1((Duration(length),))?)?.0)
+                            Ok(Node::extract_bound(&factory.call1((Tone(tone),))?)?.0)
                         })
                     } else {
                         Err("factory no longer exists".into())
