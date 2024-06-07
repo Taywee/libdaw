@@ -1,4 +1,4 @@
-use crate::{time::Duration, Node};
+use crate::Node;
 use libdaw::nodes::LowPassFilter as Inner;
 use pyo3::{pyclass, pymethods, PyClassInitializer};
 use std::sync::{Arc, Mutex};

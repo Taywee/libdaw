@@ -7,6 +7,9 @@ use std::collections::VecDeque;
 pub struct LowPassFilter {
     buffer_size: usize,
     buffers: Vec<VecDeque<Sample>>,
+
+    /// Running averages
+    averages: Vec<Sample>,
 }
 impl LowPassFilter {
     pub fn new(sample_rate: u32, frequency: f64) -> Result<Self> {
@@ -18,6 +21,7 @@ impl LowPassFilter {
         Ok(Self {
             buffer_size,
             buffers: Vec::new(),
+            averages: Vec::new(),
         })
     }
 }
@@ -35,14 +39,23 @@ impl Node for LowPassFilter {
         }
         self.buffers
             .resize_with(inputs.len(), move || VecDeque::with_capacity(buffer_size));
+        self.averages.resize_with(inputs.len(), Default::default);
 
-        for (buffer, sample) in self.buffers.iter_mut().zip(inputs) {
+        // Calculates a rolling average, including eviction of previous values,
+        // so the entire average doesn't have to be calculated every time.
+        for ((buffer, average), sample) in
+            self.buffers.iter_mut().zip(&mut self.averages).zip(inputs)
+        {
             while buffer.len() >= buffer_size {
-                buffer.pop_front();
+                let prev_len = buffer.len() as f64;
+                let evicted = buffer.pop_front().unwrap();
+                // Remove average influence of the evicted sample
+                *average = (&*average * prev_len - evicted) / (prev_len - 1.0);
             }
+            let prev_len = buffer.len() as f64;
             buffer.push_back(sample.clone());
-            let sum: Sample = buffer.iter().sum();
-            outputs.push(sum / buffer.len() as f64);
+            *average = (&*average * prev_len + sample) / (prev_len + 1.0);
+            outputs.push(average.clone());
         }
         Ok(())
     }

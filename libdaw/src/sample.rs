@@ -4,7 +4,7 @@ pub use iter::{IntoIter, Iter};
 
 use std::{
     iter::{Product, Sum},
-    ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign},
+    ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -121,6 +121,64 @@ impl Add for Sample {
 
     fn add(mut self, rhs: Sample) -> Self::Output {
         self += rhs;
+        self
+    }
+}
+
+impl SubAssign<&Sample> for Sample {
+    fn sub_assign(&mut self, rhs: &Sample) {
+        if self.len() < rhs.len() {
+            self.channels.resize(rhs.len(), 0.0);
+        }
+        for (l, &r) in self.channels.iter_mut().zip(&rhs.channels) {
+            *l -= r;
+        }
+    }
+}
+
+impl SubAssign for Sample {
+    fn sub_assign(&mut self, rhs: Self) {
+        if self.len() < rhs.len() {
+            self.channels.resize(rhs.len(), 0.0);
+        }
+        for (l, r) in self.channels.iter_mut().zip(rhs.channels) {
+            *l -= r;
+        }
+    }
+}
+impl Sub for &Sample {
+    type Output = Sample;
+
+    fn sub(self, rhs: &Sample) -> Self::Output {
+        let mut output = self.clone();
+        output -= rhs;
+        output
+    }
+}
+
+impl Sub<Sample> for &Sample {
+    type Output = Sample;
+
+    fn sub(self, rhs: Sample) -> Self::Output {
+        let mut output = self.clone();
+        output -= rhs;
+        output
+    }
+}
+impl Sub<&Sample> for Sample {
+    type Output = Sample;
+
+    fn sub(mut self, rhs: &Sample) -> Self::Output {
+        self -= rhs;
+        self
+    }
+}
+
+impl Sub for Sample {
+    type Output = Sample;
+
+    fn sub(mut self, rhs: Sample) -> Self::Output {
+        self -= rhs;
         self
     }
 }
