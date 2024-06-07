@@ -1,3 +1,12 @@
+version := ```
+python -c '
+import tomllib
+with open("Cargo.toml", "rb") as cargo:
+    data = tomllib.load(cargo)
+print(data["workspace"]["package"]["version"])
+'
+```
+
 _default:
     @just --list
 venv:
@@ -18,3 +27,8 @@ develop: venv
 clean:
     -rm -r .venv
 
+# git tag with the current version and push
+tag-and-push:
+    git tag v{{version}}
+    git push
+    git push --tags
