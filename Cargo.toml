@@ -13,3 +13,7 @@ repository = 'https://forge.axfive.net/Taylor/libdaw'
 license-file = 'LICENSE'
 readme = 'README.md'
 version = '0.12.0'
+
+[profile.dev]
+opt-level = 1
+
