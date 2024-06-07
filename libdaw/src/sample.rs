@@ -4,7 +4,7 @@ pub use iter::{IntoIter, Iter};
 
 use std::{
     iter::{Product, Sum},
-    ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign},
+    ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -224,6 +224,49 @@ impl Mul<&Sample> for f64 {
 
     fn mul(self, rhs: &Sample) -> Self::Output {
         rhs * self
+    }
+}
+impl DivAssign<f64> for Sample {
+    fn div_assign(&mut self, rhs: f64) {
+        let rhs = rhs;
+        for l in self.channels.iter_mut() {
+            *l /= rhs;
+        }
+    }
+}
+
+impl Div<f64> for &Sample {
+    type Output = Sample;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        let mut output = self.clone();
+        output /= rhs;
+        output
+    }
+}
+
+impl Div<f64> for Sample {
+    type Output = Sample;
+
+    fn div(mut self, rhs: f64) -> Self::Output {
+        self /= rhs;
+        self
+    }
+}
+
+impl Div<Sample> for f64 {
+    type Output = Sample;
+
+    fn div(self, rhs: Sample) -> Self::Output {
+        rhs / self
+    }
+}
+
+impl Div<&Sample> for f64 {
+    type Output = Sample;
+
+    fn div(self, rhs: &Sample) -> Self::Output {
+        rhs / self
     }
 }
 

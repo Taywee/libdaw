@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
-from libdaw import play
+from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Instrument, Graph, Gain, TriangleOscillator
+from libdaw.nodes import Add, Detune, Instrument, Graph, Gain, LowPassFilter, SawtoothOscillator
 from libdaw.notation import Overlapped, Sequence, loads
 from libdaw.time import Time
 
@@ -108,13 +108,34 @@ piece = Sequence([section_1, section_1, section_2, section_2])
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(256)))
 
+def accordian(_) -> Node:
+    graph = Graph()
+    oscillator_1 = SawtoothOscillator()
+    oscillator_2 = SawtoothOscillator()
+    oscillator_3 = SawtoothOscillator()
+    detune_2 = Detune(0.175 / 12)
+    detune_3 = Detune(-0.15 / 12)
+    low_pass = LowPassFilter(frequency=2000)
+    add = Add()
+    graph.input(oscillator_1)
+    graph.input(detune_2)
+    graph.input(detune_3)
+    graph.connect(detune_2, oscillator_2)
+    graph.connect(detune_3, oscillator_3)
+    graph.connect(oscillator_1, add)
+    graph.connect(oscillator_2, add)
+    graph.connect(oscillator_3, add)
+    graph.connect(add, low_pass)
+    graph.output(low_pass)
+    return graph
+
 instrument = Instrument(
-    factory=lambda _: TriangleOscillator(),
+    factory=accordian,
     envelope=(
         # start
         Point(whence=0, volume=0),
         # attack
-        Point(whence=0, offset=Time(0.1), volume=1),
+        Point(whence=0, offset=Time(0.1), volume=0.6),
         # decay
         Point(whence=0, offset=Time(0.2), volume=0.6),
         # sustain
