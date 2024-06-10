@@ -1,6 +1,6 @@
 mod iter;
 
-pub use iter::{IntoIter, Iter};
+pub use iter::{IntoIter, Iter, IterMut};
 
 use std::{
     iter::{Product, Sum},
@@ -18,27 +18,39 @@ impl Sample {
             channels: vec![0.0; len],
         }
     }
-    pub fn iter(&self) -> iter::Iter<'_> {
-        iter::Iter(self.channels.iter())
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.channels.iter())
+    }
+    pub fn iter_mut(&mut self) -> IterMut<'_> {
+        IterMut(self.channels.iter_mut())
     }
 }
 
 impl IntoIterator for Sample {
     type Item = f64;
 
-    type IntoIter = iter::IntoIter;
+    type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        iter::IntoIter(self.channels.into_iter())
+        IntoIter(self.channels.into_iter())
     }
 }
 impl<'a> IntoIterator for &'a Sample {
     type Item = &'a f64;
 
-    type IntoIter = iter::Iter<'a>;
+    type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+impl<'a> IntoIterator for &'a mut Sample {
+    type Item = &'a mut f64;
+
+    type IntoIter = IterMut<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
     }
 }
 

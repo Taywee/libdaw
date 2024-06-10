@@ -5,10 +5,10 @@ pub mod custom;
 pub mod delay;
 pub mod detune;
 pub mod envelope;
+pub mod filters;
 pub mod gain;
 pub mod graph;
 pub mod instrument;
-pub mod low_pass_filter;
 pub mod multiply;
 pub mod passthrough;
 pub mod sawtooth_oscillator;
@@ -26,7 +26,6 @@ pub use envelope::Envelope;
 pub use gain::Gain;
 pub use graph::Graph;
 pub use instrument::Instrument;
-pub use low_pass_filter::LowPassFilter;
 pub use multiply::Multiply;
 pub use passthrough::Passthrough;
 pub use sawtooth_oscillator::SawtoothOscillator;
@@ -51,7 +50,6 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Gain>()?;
     module.add_class::<Graph>()?;
     module.add_class::<Instrument>()?;
-    module.add_class::<LowPassFilter>()?;
     module.add_class::<Multiply>()?;
     module.add_class::<Passthrough>()?;
     module.add_class::<SawtoothOscillator>()?;
@@ -60,5 +58,6 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<TriangleOscillator>()?;
     envelope::register(&submodule!(module, "libdaw.nodes", "envelope"))?;
     instrument::register(&submodule!(module, "libdaw.nodes", "instrument"))?;
+    filters::register(&submodule!(module, "libdaw.nodes", "filters"))?;
     Ok(())
 }

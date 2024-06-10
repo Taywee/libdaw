@@ -1,32 +1,27 @@
-use crate::{sample::Sample, Node, Result};
+use crate::{sample::Sample, time::Duration, Node, Result};
 use std::collections::VecDeque;
 
 /// Simple averaging low pass filter.  Keeps a buffer of the length of the
 /// passed-in frequency and averages that buffer for each new input sample.
 #[derive(Debug)]
-pub struct LowPassFilter {
+pub struct MovingAverage {
     buffer_size: usize,
     buffers: Vec<VecDeque<Sample>>,
 
     /// Running averages
     averages: Vec<Sample>,
 }
-impl LowPassFilter {
-    pub fn new(sample_rate: u32, frequency: f64) -> Result<Self> {
-        let buffer_size = sample_rate as f64 / frequency;
-        if !(buffer_size >= 0.0) {
-            return Err("frequency must be non-negative".into());
-        }
-        let buffer_size = buffer_size as usize;
-        Ok(Self {
-            buffer_size,
+impl MovingAverage {
+    pub fn new(sample_rate: u32, window: Duration) -> Self {
+        Self {
+            buffer_size: (sample_rate as f64 * window.seconds()) as usize,
             buffers: Vec::new(),
             averages: Vec::new(),
-        })
+        }
     }
 }
 
-impl Node for LowPassFilter {
+impl Node for MovingAverage {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],
