@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, cast
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Add, Detune, Instrument, Graph, Gain, SawtoothOscillator
+from libdaw.nodes import Add, Detune, Instrument, Graph, Gain
+from libdaw.nodes.oscillators import Sawtooth
 from libdaw.nodes.filters.chebyshev import LowPass # noqa
 from libdaw.nodes.filters import MovingAverage # noqa
 from libdaw.notation import Overlapped, Sequence, loads
@@ -112,9 +113,9 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 
 def accordian(_) -> Node:
     graph = Graph()
-    oscillator_1 = SawtoothOscillator()
-    oscillator_2 = SawtoothOscillator()
-    oscillator_3 = SawtoothOscillator()
+    oscillator_1 = Sawtooth()
+    oscillator_2 = Sawtooth()
+    oscillator_3 = Sawtooth()
     detune_2 = Detune(0.175 / 12)
     detune_3 = Detune(-0.15 / 12)
     low_pass = LowPass(n=2, epsilon=0.5, frequency=1024)

@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
+from libdaw.nodes import Instrument, Graph, Gain
+from libdaw.nodes.oscillators import Square
 from libdaw.notation import Sequence
 from libdaw.pitch import ScientificPitch
 from libdaw.time import Time
@@ -34,7 +35,7 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 pitch_standard = ScientificPitch()
 
 instrument = Instrument(
-    factory=lambda _: SquareOscillator(),
+    factory=lambda _: Square(),
     envelope=(
         # start
         Point(whence=0, volume=0),

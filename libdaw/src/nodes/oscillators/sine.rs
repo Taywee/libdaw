@@ -2,7 +2,7 @@ use crate::{sample::Sample, Node, Result};
 use std::f64;
 
 #[derive(Debug)]
-pub struct SineOscillator {
+pub struct Sine {
     /// The frequency if no input comes in.
     pub frequency: f64,
 
@@ -12,9 +12,9 @@ pub struct SineOscillator {
     channels: usize,
 }
 
-impl SineOscillator {
+impl Sine {
     pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
-        SineOscillator {
+        Sine {
             frequency,
             ramp: Default::default(),
             sample_rate: sample_rate as f64,
@@ -23,7 +23,7 @@ impl SineOscillator {
     }
 }
 
-impl Node for SineOscillator {
+impl Node for Sine {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],

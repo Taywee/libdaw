@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain, TriangleOscillator
+from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain
+from libdaw.nodes.oscillators import Triangle
 from libdaw.nodes.instrument import Tone
 from libdaw.notation import Sequence, loads
 from libdaw.time import Time, Timestamp
@@ -39,7 +40,7 @@ def triangle_bend(tone: Tone) -> Node:
     length_seconds = tone.length.seconds()
     graph = Graph()
     detune = Detune(-1 / 12)
-    triangle = TriangleOscillator()
+    triangle = Triangle()
     graph.input(detune)
     graph.connect(detune, triangle)
     graph.output(triangle)

@@ -3,14 +3,15 @@
 from libdaw import play
 from libdaw.nodes.envelope import Point
 from libdaw.nodes.instrument import Tone
-from libdaw.nodes import Instrument, Graph, Gain, SquareOscillator
+from libdaw.nodes import Instrument, Graph, Gain
+from libdaw.nodes.oscillators import Square
 
 from libdaw.time import Duration, Time, Timestamp
 
 
 graph = Graph()
 instrument = Instrument(
-    factory=lambda _: SquareOscillator(),
+    factory=lambda _: Square(),
     envelope=(
         # start
         Point(whence=0, volume=0),

@@ -7,8 +7,8 @@ from libdaw import play, Sample
 from libdaw.nodes import Custom, Graph, Gain, ConstantValue
 from math import tau, sin
 
-class CustomSineOscillator(Custom):
-    def __new__(cls: type[CustomSineOscillator], *args, **kwargs):
+class CustomSine(Custom):
+    def __new__(cls: type[CustomSine], *args, **kwargs):
         def _callable(_):
             raise RuntimeError('This will never be called')
         return Custom.__new__(cls, _callable)
@@ -33,7 +33,7 @@ class CustomSineOscillator(Custom):
 
 graph = Graph()
 constant = ConstantValue(440)
-custom = CustomSineOscillator()
+custom = CustomSine()
 gain = Gain(0.5)
 graph.connect(constant, custom)
 graph.connect(custom, gain)

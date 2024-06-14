@@ -1,14 +1,14 @@
 use crate::Node;
-use libdaw::nodes::SawtoothOscillator as Inner;
+use libdaw::nodes::oscillators::Triangle as Inner;
 use pyo3::{pyclass, pymethods, PyClassInitializer};
 use std::sync::{Arc, Mutex};
 
-#[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
+#[pyclass(extends = Node, subclass, module = "libdaw.nodes.oscillators")]
 #[derive(Debug, Clone)]
-pub struct SawtoothOscillator(pub Arc<Mutex<Inner>>);
+pub struct Triangle(pub Arc<Mutex<Inner>>);
 
 #[pymethods]
-impl SawtoothOscillator {
+impl Triangle {
     #[new]
     #[pyo3(signature = (sample_rate = 48000, channels = 2, frequency = 0.0))]
     pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> PyClassInitializer<Self> {

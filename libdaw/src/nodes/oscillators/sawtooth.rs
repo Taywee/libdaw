@@ -1,7 +1,7 @@
 use crate::{sample::Sample, Node, Result};
 
 #[derive(Debug)]
-pub struct SawtoothOscillator {
+pub struct Sawtooth {
     /// The frequency if no input comes in.
     pub frequency: f64,
 
@@ -10,9 +10,9 @@ pub struct SawtoothOscillator {
     channels: usize,
 }
 
-impl SawtoothOscillator {
+impl Sawtooth {
     pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
-        SawtoothOscillator {
+        Sawtooth {
             frequency,
             sample: Default::default(),
             sample_rate: sample_rate as f64,
@@ -21,7 +21,7 @@ impl SawtoothOscillator {
     }
 }
 
-impl Node for SawtoothOscillator {
+impl Node for Sawtooth {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],

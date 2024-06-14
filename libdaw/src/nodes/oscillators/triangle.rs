@@ -2,50 +2,47 @@ use crate::sample::Sample;
 use crate::{Node, Result};
 
 #[derive(Debug)]
-pub struct SquareOscillator {
+pub struct Triangle {
     /// The frequency if no input comes in.
     pub frequency: f64,
 
-    samples_since_switch: f64,
     sample_rate: f64,
-    sample: f64,
+    /// Ramps from 0 to 1 per period
+    ramp: f64,
     channels: usize,
 }
 
-impl SquareOscillator {
+impl Triangle {
     pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
-        Self {
+        Triangle {
             frequency,
-            samples_since_switch: Default::default(),
-            sample: 1.0,
+            ramp: Default::default(),
             sample_rate: sample_rate as f64,
             channels: channels.into(),
         }
     }
 }
 
-impl Node for SquareOscillator {
+impl Node for Triangle {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        let mut output = Sample::zeroed(self.channels);
-        output.fill(self.sample);
-        outputs.push(output);
-
         let frequency = inputs
             .get(0)
             .and_then(|input| input.get(0).cloned())
             .unwrap_or(self.frequency);
-        let switches_per_second = frequency * 2.0;
-        let samples_per_switch = self.sample_rate / switches_per_second;
-
-        if self.samples_since_switch >= samples_per_switch {
-            self.samples_since_switch -= samples_per_switch;
-            self.sample = -self.sample;
-        }
-        self.samples_since_switch += 1.0;
+        let delta = frequency / self.sample_rate;
+        let ramp = self.ramp;
+        self.ramp = (ramp + delta) % 1.0f64;
+        // Builds this pattern:
+        // /\
+        //   \/
+        let sample = (((ramp - 0.25).abs() - 0.5).abs() - 0.25) * 4.0;
+        let mut output = Sample::zeroed(self.channels);
+        output.fill(sample);
+        outputs.push(output);
         Ok(())
     }
 }
