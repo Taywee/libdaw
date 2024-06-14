@@ -79,3 +79,43 @@ impl ExactSizeIterator for Iter<'_> {
 }
 
 impl FusedIterator for Iter<'_> {}
+
+#[derive(Debug, Default)]
+pub struct IterMut<'a>(pub(super) std::slice::IterMut<'a, f64>);
+
+impl AsRef<[f64]> for IterMut<'_> {
+    fn as_ref(&self) -> &[f64] {
+        self.0.as_ref()
+    }
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = &'a mut f64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+}
+
+impl DoubleEndedIterator for IterMut<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back()
+    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
+    }
+}
+
+impl ExactSizeIterator for IterMut<'_> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl FusedIterator for IterMut<'_> {}
