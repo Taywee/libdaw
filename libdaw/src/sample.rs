@@ -54,6 +54,17 @@ impl<'a> IntoIterator for &'a mut Sample {
     }
 }
 
+impl FromIterator<f64> for Sample {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = f64>,
+    {
+        Self {
+            channels: iter.into_iter().collect(),
+        }
+    }
+}
+
 impl From<Vec<f64>> for Sample {
     fn from(samples: Vec<f64>) -> Self {
         Self { channels: samples }

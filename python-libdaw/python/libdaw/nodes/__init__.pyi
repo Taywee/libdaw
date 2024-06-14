@@ -7,8 +7,21 @@ from .instrument import Tone
 class Add(Node):
     def __new__(cls: type, channels: int = 2): ...
 
+class Callback(Node):
+    def __new__(cls: type, node: Node, sample_rate: int = 48000): ...
+    def add(
+        self,
+        callable: Callable[[Timestamp], bool | None],
+        start: Timestamp = Timestamp.MIN,
+        end: Timestamp = Timestamp.MAX,
+        post: bool = False,
+    ): ...
+
 class ConstantValue(Node):
     def __new__(cls: type, value: float, channels: int = 2): ...
+
+class Custom(Node):
+    def __new__(cls: type, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
 
 class Delay(Node):
     def __new__(cls: type, delay: Duration, sample_rate: int = 48000): ...
@@ -24,6 +37,9 @@ class Detune(Node):
 
 class Envelope(Node):
     def __new__(cls: type, length: Duration, envelope: Sequence[Point], sample_rate: int = 48000): ...
+
+class Explode(Node):
+    pass
 
 class Gain(Node):
     def __new__(cls: type, gain: float): ...
@@ -43,6 +59,9 @@ class Graph(Node):
     def output(self, source: Node, stream: int | None = None) -> None: ...
     def remove_output(self, source: Node, stream: int | None = None) -> bool: ...
 
+class Implode(Node):
+    pass
+
 class Instrument(Node):
     def __new__(cls: type, factory: Callable[[Tone], Node], envelope: Sequence[Point], sample_rate: int = 48000): ...
     def add_tone(self, tone: Tone) -> None: ...
@@ -52,16 +71,3 @@ class Multiply(Node):
 
 class Passthrough(Node):
     pass
-
-class Custom(Node):
-    def __new__(cls: type, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
-
-class Callback(Node):
-    def __new__(cls: type, node: Node, sample_rate: int = 48000): ...
-    def add(
-        self,
-        callable: Callable[[Timestamp], bool | None],
-        start: Timestamp = Timestamp.MIN,
-        end: Timestamp = Timestamp.MAX,
-        post: bool = False,
-    ): ...
