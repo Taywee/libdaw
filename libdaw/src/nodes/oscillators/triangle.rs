@@ -9,16 +9,14 @@ pub struct Triangle {
     sample_rate: f64,
     /// Ramps from 0 to 1 per period
     ramp: f64,
-    channels: usize,
 }
 
 impl Triangle {
-    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
+    pub fn new(sample_rate: u32, frequency: f64) -> Self {
         Triangle {
             frequency,
             ramp: Default::default(),
             sample_rate: sample_rate as f64,
-            channels: channels.into(),
         }
     }
 }
@@ -40,9 +38,7 @@ impl Node for Triangle {
         // /\
         //   \/
         let sample = (((ramp - 0.25).abs() - 0.5).abs() - 0.25) * 4.0;
-        let mut output = Sample::zeroed(self.channels);
-        output.fill(sample);
-        outputs.push(output);
+        outputs.push(sample.into());
         Ok(())
     }
 }

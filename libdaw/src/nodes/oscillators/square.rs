@@ -9,17 +9,15 @@ pub struct Square {
     samples_since_switch: f64,
     sample_rate: f64,
     sample: f64,
-    channels: usize,
 }
 
 impl Square {
-    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
+    pub fn new(sample_rate: u32, frequency: f64) -> Self {
         Self {
             frequency,
             samples_since_switch: Default::default(),
             sample: 1.0,
             sample_rate: sample_rate as f64,
-            channels: channels.into(),
         }
     }
 }
@@ -30,9 +28,7 @@ impl Node for Square {
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        let mut output = Sample::zeroed(self.channels);
-        output.fill(self.sample);
-        outputs.push(output);
+        outputs.push(self.sample.into());
 
         let frequency = inputs
             .get(0)

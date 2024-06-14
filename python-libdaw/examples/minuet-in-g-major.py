@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, cast
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Add, Detune, Instrument, Graph, Gain
+from libdaw.nodes import Add, Detune, Instrument, Graph, Gain, Implode
 from libdaw.nodes.oscillators import Sawtooth
-from libdaw.nodes.filters.chebyshev import LowPass # noqa
+from libdaw.nodes.filters.butterworth import LowPass # noqa
 from libdaw.nodes.filters import MovingAverage # noqa
 from libdaw.notation import Overlapped, Sequence, loads
 from libdaw.time import Duration, Time # noqa
@@ -111,15 +111,16 @@ piece = Sequence([section_1, section_1, section_2, section_2])
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(256)))
 
-def accordian(_) -> Node:
+def accordian(channels: int = 1) -> Node:
     graph = Graph()
     oscillator_1 = Sawtooth()
     oscillator_2 = Sawtooth()
     oscillator_3 = Sawtooth()
     detune_2 = Detune(0.175 / 12)
     detune_3 = Detune(-0.15 / 12)
-    low_pass = LowPass(n=2, epsilon=0.5, frequency=1024)
+    low_pass = LowPass(order=2, frequency=1024)
     add = Add()
+    implode = Implode()
     graph.input(oscillator_1)
     graph.input(detune_2)
     graph.input(detune_3)
@@ -129,11 +130,13 @@ def accordian(_) -> Node:
     graph.connect(oscillator_2, add)
     graph.connect(oscillator_3, add)
     graph.connect(add, low_pass)
-    graph.output(low_pass)
+    for _ in range(channels):
+        graph.connect(low_pass, implode, 0)
+    graph.output(implode)
     return graph
 
 instrument = Instrument(
-    factory=accordian,
+    factory=lambda _: accordian(),
     envelope=(
         # start
         Point(whence=0, volume=0),

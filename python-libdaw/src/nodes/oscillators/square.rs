@@ -10,9 +10,9 @@ pub struct Square(pub Arc<Mutex<Inner>>);
 #[pymethods]
 impl Square {
     #[new]
-    #[pyo3(signature = (sample_rate = 48000, channels = 2, frequency = 0.0))]
-    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> PyClassInitializer<Self> {
-        let inner = Arc::new(Mutex::new(Inner::new(sample_rate, channels, frequency)));
+    #[pyo3(signature = (sample_rate = 48000, frequency = 0.0))]
+    pub fn new(sample_rate: u32, frequency: f64) -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(Inner::new(sample_rate, frequency)));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
     #[getter]

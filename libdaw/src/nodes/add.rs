@@ -1,16 +1,8 @@
 use crate::{sample::Sample, Node, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Add {
-    channels: usize,
-}
-
-impl Add {
-    pub fn new(channels: u16) -> Self {
-        Add {
-            channels: channels.into(),
-        }
-    }
+    _private: (),
 }
 
 impl Node for Add {
@@ -19,9 +11,7 @@ impl Node for Add {
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        let mut output: Sample = inputs.iter().sum();
-        output.channels.resize(self.channels, 0.0);
-        outputs.push(output);
+        outputs.push(inputs.into_iter().sum());
         Ok(())
     }
 }
