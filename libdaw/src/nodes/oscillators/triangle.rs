@@ -2,28 +2,26 @@ use crate::sample::Sample;
 use crate::{Node, Result};
 
 #[derive(Debug)]
-pub struct TriangleOscillator {
+pub struct Triangle {
     /// The frequency if no input comes in.
     pub frequency: f64,
 
     sample_rate: f64,
     /// Ramps from 0 to 1 per period
     ramp: f64,
-    channels: usize,
 }
 
-impl TriangleOscillator {
-    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
-        TriangleOscillator {
+impl Triangle {
+    pub fn new(sample_rate: u32, frequency: f64) -> Self {
+        Triangle {
             frequency,
             ramp: Default::default(),
             sample_rate: sample_rate as f64,
-            channels: channels.into(),
         }
     }
 }
 
-impl Node for TriangleOscillator {
+impl Node for Triangle {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],
@@ -40,9 +38,7 @@ impl Node for TriangleOscillator {
         // /\
         //   \/
         let sample = (((ramp - 0.25).abs() - 0.5).abs() - 0.25) * 4.0;
-        let mut output = Sample::zeroed(self.channels);
-        output.fill(sample);
-        outputs.push(output);
+        outputs.push(sample.into());
         Ok(())
     }
 }

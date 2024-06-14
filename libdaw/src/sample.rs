@@ -54,9 +54,29 @@ impl<'a> IntoIterator for &'a mut Sample {
     }
 }
 
+impl FromIterator<f64> for Sample {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = f64>,
+    {
+        Self {
+            channels: iter.into_iter().collect(),
+        }
+    }
+}
+
+/// Expected to always be a single-channel sample.
+impl From<f64> for Sample {
+    fn from(sample: f64) -> Self {
+        let mut channels = Vec::new();
+        channels.reserve_exact(1);
+        channels.push(sample);
+        Self { channels }
+    }
+}
 impl From<Vec<f64>> for Sample {
-    fn from(samples: Vec<f64>) -> Self {
-        Self { channels: samples }
+    fn from(sample: Vec<f64>) -> Self {
+        Self { channels: sample }
     }
 }
 impl From<Sample> for Vec<f64> {

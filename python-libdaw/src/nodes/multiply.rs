@@ -10,9 +10,8 @@ pub struct Multiply(pub Arc<Mutex<Inner>>);
 #[pymethods]
 impl Multiply {
     #[new]
-    #[pyo3(signature = (channels = 2))]
-    pub fn new(channels: u16) -> PyClassInitializer<Self> {
-        let inner = Arc::new(Mutex::new(Inner::new(channels)));
+    pub fn new() -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(Inner::default()));
         PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
     }
 }

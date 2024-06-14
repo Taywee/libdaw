@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from libdaw import play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Instrument, Graph, Gain, TriangleOscillator
+from libdaw.nodes import Instrument, Graph, Gain
+from libdaw.nodes.oscillators import Triangle
 from libdaw.notation import Overlapped, Rest, Sequence, loads
 from libdaw.time import Time
 
@@ -42,7 +43,7 @@ metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
 
 instrument = Instrument(
-    factory=lambda _: TriangleOscillator(),
+    factory=lambda _: Triangle(),
     envelope=(
         # start
         Point(whence=0, volume=0),

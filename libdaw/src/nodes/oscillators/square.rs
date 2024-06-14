@@ -2,37 +2,33 @@ use crate::sample::Sample;
 use crate::{Node, Result};
 
 #[derive(Debug)]
-pub struct SquareOscillator {
+pub struct Square {
     /// The frequency if no input comes in.
     pub frequency: f64,
 
     samples_since_switch: f64,
     sample_rate: f64,
     sample: f64,
-    channels: usize,
 }
 
-impl SquareOscillator {
-    pub fn new(sample_rate: u32, channels: u16, frequency: f64) -> Self {
+impl Square {
+    pub fn new(sample_rate: u32, frequency: f64) -> Self {
         Self {
             frequency,
             samples_since_switch: Default::default(),
             sample: 1.0,
             sample_rate: sample_rate as f64,
-            channels: channels.into(),
         }
     }
 }
 
-impl Node for SquareOscillator {
+impl Node for Square {
     fn process<'a, 'b, 'c>(
         &'a mut self,
         inputs: &'b [Sample],
         outputs: &'c mut Vec<Sample>,
     ) -> Result<()> {
-        let mut output = Sample::zeroed(self.channels);
-        output.fill(self.sample);
-        outputs.push(output);
+        outputs.push(self.sample.into());
 
         let frequency = inputs
             .get(0)

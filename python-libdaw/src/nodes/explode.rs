@@ -1,14 +1,14 @@
 use crate::Node;
-use libdaw::nodes::Add as Inner;
+use libdaw::nodes::Explode as Inner;
 use pyo3::{pyclass, pymethods, PyClassInitializer};
 use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
-pub struct Add(pub Arc<Mutex<Inner>>);
+pub struct Explode(pub Arc<Mutex<Inner>>);
 
 #[pymethods]
-impl Add {
+impl Explode {
     #[new]
     pub fn new() -> PyClassInitializer<Self> {
         let inner = Arc::new(Mutex::new(Inner::default()));

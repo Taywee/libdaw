@@ -51,7 +51,7 @@ impl Iterator for Source {
 
 /// Play a node to the default speakers of the system.
 #[pyfunction]
-#[pyo3(signature = (node, sample_rate = 48000, channels=2))]
+#[pyo3(signature = (node, sample_rate = 48000, channels=1))]
 pub fn play(
     py: Python,
     node: &Bound<'_, Node>,
@@ -75,13 +75,14 @@ pub fn play(
         py.check_signals()?;
         outputs.clear();
         node.process(&[], &mut outputs)?;
-        let sample = outputs
+        let mut sample = outputs
             .iter()
             .fold(None, move |acc, stream| match acc {
                 Some(acc) => Some(acc + stream),
                 None => Some(stream.clone()),
             })
-            .unwrap_or_else(move || Sample::zeroed(channels as usize));
+            .unwrap_or_else(move || Sample::default());
+        sample.channels.resize(channels as usize, 0.0);
 
         sender.send(sample)?;
     }

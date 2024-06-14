@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from libdaw import play, Sample
-from libdaw.nodes import Custom, Graph, Gain, ConstantValue, SineOscillator
+from libdaw.nodes import Custom, Graph, Gain, ConstantValue
 from math import tau, sin
 
 class SineProcessor:
@@ -28,7 +28,6 @@ class SineProcessor:
 graph = Graph()
 constant = ConstantValue(440)
 custom = Custom(SineProcessor())
-custom = SineOscillator()
 gain = Gain(0.5)
 graph.connect(constant, custom)
 graph.connect(custom, gain)

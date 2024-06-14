@@ -150,7 +150,7 @@ impl Node for Instrument {
             }
 
             let tone = self.queue.pop().unwrap().0;
-            let constant_value = Arc::new(Mutex::new(ConstantValue::new(1, tone.frequency)));
+            let constant_value = Arc::new(Mutex::new(ConstantValue::new(tone.frequency)));
             let frequency_node = (self.node_creator)(tone.tone)?;
 
             let envelope = Arc::new(Mutex::new(Envelope::new(
