@@ -9,7 +9,7 @@ from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain
 from libdaw.nodes.oscillators import Triangle
 from libdaw.nodes.instrument import Tone
 from libdaw.notation import Sequence, loads
-from libdaw.time import Time, Timestamp
+from libdaw.time import Duration, Time, Timestamp
 
 #import copy
 
@@ -19,11 +19,11 @@ if TYPE_CHECKING:
 sequence = loads('''+(
 e+ d#
 e d# e b d c
-a,3 c-,1 e a 
+a,3 c-,1 e a
 b,3 e-,1 g# b
 c,3 e-,1 e+ d#
 e d# e b d c
-a,3 c-,1 e a 
+a,3 c-,1 e a
 b,3 e-,1 c+ b
 a,6
 )''')
@@ -75,5 +75,6 @@ gain = Gain(0.25)
 graph.connect(instrument, gain)
 graph.output(gain)
 
-play(graph)
+
+play(graph, duration=Duration(metronome.beat_to_time(sequence.duration()).seconds()))
 
