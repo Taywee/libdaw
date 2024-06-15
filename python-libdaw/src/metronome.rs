@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{time::Timestamp, Result};
 use libdaw::metronome::Metronome as DawMetronome;
 use pyo3::{
     pyclass,
@@ -144,6 +144,9 @@ impl Metronome {
     }
     pub fn add_tempo_instruction(&mut self, instruction: TempoInstruction) {
         self.0.add_tempo_instruction(instruction.0);
+    }
+    pub fn beat_to_time(&mut self, beat: Beat) -> Timestamp {
+        Timestamp(self.0.beat_to_time(beat.0))
     }
 }
 

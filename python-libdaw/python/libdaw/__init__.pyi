@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from libdaw.time import Duration
 
 class Sample:
     def __new__(cls: type, channels: Sequence[float]):
@@ -16,4 +17,4 @@ class Sample:
 class Node:
     def process(self, inputs: Sequence[Sample]) -> Sequence[Sample]: ...
 
-def play(node: Node, sample_rate: int = 48000, channels: int = 2) -> None: ...
+def play(node: Node, sample_rate: int = 48000, channels: int = 2, duration: Duration | None = None, grace_sleep: bool = True) -> None: ...
