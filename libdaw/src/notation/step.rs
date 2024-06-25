@@ -2,7 +2,10 @@ mod parse;
 
 use crate::{parse::IResult, pitch::Pitch};
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 use super::tone_generation_state::ToneGenerationState;
 
@@ -24,10 +27,11 @@ impl Step {
         let scale_octave = self.scale_octave(state);
         let index = (self.step - 1 + state.inversion).rem_euclid(state.scale.len() as i64) as usize;
         let scale_pitch = &state.scale[index];
-        let pitch_class = scale_pitch.pitch_class.clone();
-        pitch_class.lock().expect("poisoned").adjustment += self.adjustment;
+        // Need to clone it to not let adjustments pollute the scale pitch.
+        let mut pitch_class = scale_pitch.pitch_class.lock().expect("poisoned").clone();
+        pitch_class.adjustment += self.adjustment;
         Pitch {
-            pitch_class,
+            pitch_class: Arc::new(Mutex::new(pitch_class)),
             octave: scale_pitch.octave.saturating_add(scale_octave),
         }
     }
