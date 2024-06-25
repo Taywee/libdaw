@@ -69,7 +69,7 @@ impl Item {
                 offset,
                 metronome,
                 pitch_standard,
-                state.clone(),
+                state,
             )),
             Item::Overlapped(overlapped) => {
                 Box::new(overlapped.lock().expect("poisoned").inner_tones(

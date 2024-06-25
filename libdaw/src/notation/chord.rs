@@ -34,13 +34,13 @@ impl Chord {
         offset: Beat,
         metronome: &Metronome,
         pitch_standard: &S,
-        mut state: ToneGenerationState,
+        state: &ToneGenerationState,
     ) -> impl Iterator<Item = Tone> + 'static
     where
         S: PitchStandard + ?Sized,
     {
         let start = metronome.beat_to_time(offset);
-        let duration = self.inner_duration(&state);
+        let duration = self.inner_duration(state);
         let end_beat = offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
@@ -48,8 +48,7 @@ impl Chord {
             .pitches
             .iter()
             .map(move |pitch| {
-                let frequency = pitch_standard.resolve(&pitch.absolute(&state));
-                pitch.update_state(&mut state);
+                let frequency = pitch_standard.resolve(&pitch.absolute(state));
                 Tone {
                     start,
                     length,
@@ -71,7 +70,7 @@ impl Chord {
     where
         S: PitchStandard + ?Sized,
     {
-        self.inner_tones(offset, metronome, pitch_standard, Default::default())
+        self.inner_tones(offset, metronome, pitch_standard, &Default::default())
     }
 
     pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
@@ -97,9 +96,7 @@ impl Chord {
         match self.state_member {
             Some(StateMember::First) => self.pitches[0].update_state(state),
             Some(StateMember::Last) => {
-                for pitch in &self.pitches {
-                    pitch.update_state(state);
-                }
+                self.pitches.last().unwrap().update_state(state);
             }
             None => (),
         }
