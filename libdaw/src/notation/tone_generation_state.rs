@@ -61,7 +61,7 @@ impl Default for ToneGenerationState {
                 octave: 4,
             })
             .collect(),
-            inversion: 0,
+            inversion: 1,
             step: 1,
             scale_octave: 0,
         }
