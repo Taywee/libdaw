@@ -1,4 +1,4 @@
-use libdaw::notation::Inversion as DawInversion;
+use libdaw::notation::Mode as DawMode;
 use pyo3::{pyclass, pymethods, IntoPy as _, Py, Python};
 use std::{
     ops::Deref,
@@ -7,12 +7,12 @@ use std::{
 
 #[pyclass(module = "libdaw.notation")]
 #[derive(Debug, Clone)]
-pub struct Inversion {
-    pub inner: Arc<Mutex<DawInversion>>,
+pub struct Mode {
+    pub inner: Arc<Mutex<DawMode>>,
 }
 
-impl Inversion {
-    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawInversion>>) -> Py<Self> {
+impl Mode {
+    pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawMode>>) -> Py<Self> {
         Self { inner }
             .into_py(py)
             .downcast_bound(py)
@@ -23,11 +23,11 @@ impl Inversion {
 }
 
 #[pymethods]
-impl Inversion {
+impl Mode {
     #[new]
-    pub fn new(inversion: i64) -> Self {
+    pub fn new(mode: i64) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(DawInversion { inversion })),
+            inner: Arc::new(Mutex::new(DawMode { mode })),
         }
     }
     #[staticmethod]
@@ -36,12 +36,12 @@ impl Inversion {
     }
 
     #[getter]
-    pub fn get_inversion(&self) -> i64 {
-        self.inner.lock().expect("poisoned").inversion
+    pub fn get_mode(&self) -> i64 {
+        self.inner.lock().expect("poisoned").mode
     }
     #[setter]
-    pub fn set_inversion(&mut self, value: i64) {
-        self.inner.lock().expect("poisoned").inversion = value
+    pub fn set_mode(&mut self, value: i64) {
+        self.inner.lock().expect("poisoned").mode = value
     }
 
     pub fn __repr__(&self) -> String {
@@ -52,6 +52,6 @@ impl Inversion {
     }
 
     pub fn __getnewargs__(&self) -> (i64,) {
-        (self.get_inversion(),)
+        (self.get_mode(),)
     }
 }

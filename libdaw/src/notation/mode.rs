@@ -6,27 +6,27 @@ use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
-pub struct Inversion {
-    pub inversion: i64,
+pub struct Mode {
+    pub mode: i64,
 }
 
-impl Inversion {
+impl Mode {
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::inversion(input)
+        parse::mode(input)
     }
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        state.inversion = self.inversion;
+        state.mode = self.mode;
     }
 }
 
-impl FromStr for Inversion {
+impl FromStr for Mode {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let inversion = all_consuming(Self::parse)(s)
+        let mode = all_consuming(Self::parse)(s)
             .finish()
             .map_err(move |e| convert_error(s, e))?
             .1;
-        Ok(inversion)
+        Ok(mode)
     }
 }

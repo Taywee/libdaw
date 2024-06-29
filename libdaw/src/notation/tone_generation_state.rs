@@ -18,14 +18,14 @@ pub struct ToneGenerationState {
     /// Previous set duration.
     pub duration: Duration,
 
-    /// The scale for scale-inversion notation.
+    /// The scale for scale-mode notation.
     pub scale: Vec<Pitch>,
 
-    /// The current scale inversion.
-    pub inversion: i64,
+    /// The current scale mode.
+    pub mode: i64,
 
-    /// Previous used scale step, post-inversion.
-    pub step: i64,
+    /// Previous used scale step, normalized into mode 1.
+    pub normalized_step: i64,
 
     /// Previous used scale octave.
     pub scale_octave: i8,
@@ -61,8 +61,8 @@ impl Default for ToneGenerationState {
                 octave: 4,
             })
             .collect(),
-            inversion: 1,
-            step: 1,
+            mode: 1,
+            normalized_step: 1,
             scale_octave: 0,
         }
     }

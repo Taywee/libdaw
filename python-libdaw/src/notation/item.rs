@@ -1,4 +1,4 @@
-use super::{Chord, Inversion, Note, Overlapped, Rest, Scale, Sequence, Set};
+use super::{Chord, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::Result;
 use libdaw::notation::Item as DawItem;
 use pyo3::{
@@ -17,7 +17,7 @@ pub enum Item {
     Overlapped(Py<Overlapped>),
     Sequence(Py<Sequence>),
     Scale(Py<Scale>),
-    Inversion(Py<Inversion>),
+    Mode(Py<Mode>),
     Set(Py<Set>),
 }
 
@@ -32,7 +32,7 @@ impl Item {
             }
             DawItem::Sequence(sequence) => Self::Sequence(Sequence::from_inner(py, sequence)),
             DawItem::Scale(scale) => Self::Scale(Scale::from_inner(py, scale)),
-            DawItem::Inversion(inversion) => Self::Inversion(Inversion::from_inner(py, inversion)),
+            DawItem::Mode(mode) => Self::Mode(Mode::from_inner(py, mode)),
             DawItem::Set(set) => Self::Set(Set::from_inner(py, set)),
         }
     }
@@ -48,9 +48,7 @@ impl Item {
                 DawItem::Sequence(sequence.bind_borrowed(py).borrow().inner.clone())
             }
             Item::Scale(scale) => DawItem::Scale(scale.bind_borrowed(py).borrow().inner.clone()),
-            Item::Inversion(inversion) => {
-                DawItem::Inversion(inversion.bind_borrowed(py).borrow().inner.clone())
-            }
+            Item::Mode(mode) => DawItem::Mode(mode.bind_borrowed(py).borrow().inner.clone()),
             Item::Set(set) => DawItem::Set(set.bind_borrowed(py).borrow().inner.clone()),
         }
     }
@@ -70,8 +68,8 @@ impl<'py> FromPyObject<'py> for Item {
             Self::Sequence(sequence.clone().unbind())
         } else if let Ok(scale) = value.downcast::<Scale>() {
             Self::Scale(scale.clone().unbind())
-        } else if let Ok(inversion) = value.downcast::<Inversion>() {
-            Self::Inversion(inversion.clone().unbind())
+        } else if let Ok(mode) = value.downcast::<Mode>() {
+            Self::Mode(mode.clone().unbind())
         } else if let Ok(set) = value.downcast::<Set>() {
             Self::Set(set.clone().unbind())
         } else {
@@ -93,7 +91,7 @@ impl IntoPy<Py<PyAny>> for Item {
             Item::Overlapped(overlapped) => overlapped.into_py(py),
             Item::Sequence(sequence) => sequence.into_py(py),
             Item::Scale(scale) => scale.into_py(py),
-            Item::Inversion(inversion) => inversion.into_py(py),
+            Item::Mode(mode) => mode.into_py(py),
             Item::Set(set) => set.into_py(py),
         }
     }
@@ -108,7 +106,7 @@ unsafe impl AsPyPointer for Item {
             Item::Overlapped(overlapped) => overlapped.as_ptr(),
             Item::Sequence(sequence) => sequence.as_ptr(),
             Item::Scale(scale) => scale.as_ptr(),
-            Item::Inversion(inversion) => inversion.as_ptr(),
+            Item::Mode(mode) => mode.as_ptr(),
             Item::Set(set) => set.as_ptr(),
         }
     }

@@ -46,8 +46,8 @@ impl Scale {
             running_state.pitch = absolute;
         }
         state.scale = scale;
-        state.step = 1;
-        state.inversion = 1;
+        state.normalized_step = 1;
+        state.mode = 1;
         state.scale_octave = 0;
     }
 

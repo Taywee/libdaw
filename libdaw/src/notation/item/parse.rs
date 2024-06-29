@@ -1,4 +1,4 @@
-use super::{Chord, Inversion, Item, Note, Overlapped, Rest, Scale, Sequence, Set};
+use super::{Chord, Item, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::parse::IResult;
 use nom::{branch::alt, combinator::map, error::context};
 use std::sync::{Arc, Mutex};
@@ -21,8 +21,8 @@ pub fn item(input: &str) -> IResult<&str, Item> {
         map(context("Scale", Scale::parse), move |scale| {
             Item::Scale(Arc::new(Mutex::new(scale)))
         }),
-        map(context("Inversion", Inversion::parse), move |inversion| {
-            Item::Inversion(Arc::new(Mutex::new(inversion)))
+        map(context("Mode", Mode::parse), move |mode| {
+            Item::Mode(Arc::new(Mutex::new(mode)))
         }),
         map(context("Rest", Rest::parse), move |rest| {
             Item::Rest(Arc::new(Mutex::new(rest)))

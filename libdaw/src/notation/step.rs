@@ -25,7 +25,7 @@ impl Step {
     /// Resolve to an absolute pitch
     pub(super) fn absolute(&self, state: &ToneGenerationState) -> Pitch {
         let scale_octave = self.scale_octave(state);
-        let index = (self.step + state.inversion - 2).rem_euclid(state.scale.len() as i64) as usize;
+        let index = (self.step + state.mode - 2).rem_euclid(state.scale.len() as i64) as usize;
         let scale_pitch = &state.scale[index];
         // Need to clone it to not let adjustments pollute the scale pitch.
         let mut pitch_class = scale_pitch.pitch_class.lock().expect("poisoned").clone();
@@ -38,8 +38,8 @@ impl Step {
 
     pub(super) fn scale_octave(&self, state: &ToneGenerationState) -> i8 {
         let half_scale = state.scale.len() / 2;
-        let step = (self.step + state.inversion - 2).rem_euclid(state.scale.len() as i64) as usize;
-        let state_step = (state.step - 1).rem_euclid(state.scale.len() as i64) as usize;
+        let step = (self.step + state.mode - 2).rem_euclid(state.scale.len() as i64) as usize;
+        let state_step = (state.normalized_step - 1).rem_euclid(state.scale.len() as i64) as usize;
         let relative_shift = if state_step + half_scale < step {
             -1
         } else if step + half_scale < state_step {
@@ -50,9 +50,9 @@ impl Step {
         relative_shift + self.octave_shift + state.scale_octave
     }
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        let scale_step = (self.step + state.inversion - 2).rem_euclid(state.scale.len() as i64) + 1;
+        let scale_step = (self.step + state.mode - 2).rem_euclid(state.scale.len() as i64) + 1;
         let scale_octave = self.scale_octave(state);
-        state.step = scale_step;
+        state.normalized_step = scale_step;
         state.scale_octave = scale_octave;
     }
 }

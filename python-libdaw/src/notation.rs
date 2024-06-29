@@ -1,7 +1,7 @@
 mod chord;
 pub mod duration;
-mod inversion;
 mod item;
+mod mode;
 mod note;
 mod overlapped;
 mod pitch;
@@ -13,8 +13,8 @@ mod state_member;
 mod step;
 
 pub use chord::Chord;
-pub use inversion::Inversion;
 pub use item::Item;
+pub use mode::Mode;
 pub use note::{Note, NotePitch};
 pub use overlapped::Overlapped;
 pub use pitch::Pitch;
@@ -34,7 +34,7 @@ use pyo3::{
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(item::loads, module)?)?;
     module.add_class::<Chord>()?;
-    module.add_class::<Inversion>()?;
+    module.add_class::<Mode>()?;
     module.add_class::<Note>()?;
     module.add_class::<Overlapped>()?;
     module.add_class::<Pitch>()?;

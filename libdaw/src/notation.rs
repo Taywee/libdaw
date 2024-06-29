@@ -1,7 +1,7 @@
 mod chord;
 mod duration;
-mod inversion;
 mod item;
+mod mode;
 mod note;
 mod note_pitch;
 mod overlapped;
@@ -16,8 +16,8 @@ mod tone_generation_state;
 
 pub use chord::Chord;
 pub use duration::Duration;
-pub use inversion::Inversion;
 pub use item::Item;
+pub use mode::Mode;
 pub use note::Note;
 pub use note_pitch::NotePitch;
 pub use overlapped::Overlapped;
