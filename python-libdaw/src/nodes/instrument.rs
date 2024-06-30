@@ -1,5 +1,4 @@
 use crate::{
-    nodes::envelope::Point,
     time::{Duration, Timestamp},
     Node, Result,
 };
@@ -55,12 +54,8 @@ pub struct Instrument {
 #[pymethods]
 impl Instrument {
     #[new]
-    #[pyo3(signature = (factory, envelope, sample_rate = 48000))]
-    pub fn new(
-        factory: Bound<'_, PyAny>,
-        envelope: Vec<Point>,
-        sample_rate: u32,
-    ) -> Result<PyClassInitializer<Self>> {
+    #[pyo3(signature = (factory, sample_rate = 48000))]
+    pub fn new(factory: Bound<'_, PyAny>, sample_rate: u32) -> Result<PyClassInitializer<Self>> {
         if !factory.is_callable() {
             return Err("factory must be a callable".into());
         }
@@ -79,7 +74,6 @@ impl Instrument {
                         Err("factory no longer exists".into())
                     }
                 },
-                envelope.into_iter().map(|point| point.0),
             )))
         };
         Ok(

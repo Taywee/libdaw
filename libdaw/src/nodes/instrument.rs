@@ -1,5 +1,5 @@
 use crate::{
-    nodes::{envelope::Point, ConstantValue, Envelope, Graph},
+    nodes::{ConstantValue, Graph},
     time::{Duration, Timestamp},
     Node, Result,
 };
@@ -24,8 +24,6 @@ pub struct Tone {
 struct QueuedTone {
     start_sample: u64,
     end_sample: u64,
-    length: Duration,
-    frequency: f64,
     tone: Tone,
 }
 impl PartialOrd for QueuedTone {
@@ -76,7 +74,6 @@ pub struct Instrument {
     graph: Graph,
     queue: BinaryHeap<Reverse<QueuedTone>>,
     playing: BinaryHeap<Reverse<PlayingTone>>,
-    envelope: Vec<Point>,
     sample_rate: u32,
     sample: u64,
 }
@@ -87,7 +84,6 @@ impl fmt::Debug for Instrument {
             .field("graph", &self.graph)
             .field("queue", &self.queue)
             .field("playing", &self.playing)
-            .field("envelope", &self.envelope)
             .field("sample_rate", &self.sample_rate)
             .field("sample", &self.sample)
             .finish()
@@ -98,7 +94,6 @@ impl Instrument {
     pub fn new(
         sample_rate: u32,
         frequency_node_creator: impl 'static + FnMut(Tone) -> Result<Arc<Mutex<dyn Node>>> + Send,
-        envelope: impl IntoIterator<Item = Point>,
     ) -> Self {
         Self {
             sample_rate,
@@ -106,7 +101,6 @@ impl Instrument {
             graph: Default::default(),
             queue: Default::default(),
             playing: Default::default(),
-            envelope: envelope.into_iter().collect(),
             sample: Default::default(),
         }
     }
@@ -119,8 +113,6 @@ impl Instrument {
             self.queue.push(Reverse(QueuedTone {
                 start_sample,
                 end_sample,
-                length: tone.length,
-                frequency: tone.frequency,
                 tone,
             }));
         }
@@ -150,18 +142,12 @@ impl Node for Instrument {
             }
 
             let tone = self.queue.pop().unwrap().0;
-            let constant_value = Arc::new(Mutex::new(ConstantValue::new(tone.frequency)));
-            let frequency_node = (self.node_creator)(tone.tone)?;
+            let constant_value = Arc::new(Mutex::new(ConstantValue::new(tone.tone.frequency)));
+            let node = (self.node_creator)(tone.tone)?;
 
-            let envelope = Arc::new(Mutex::new(Envelope::new(
-                self.sample_rate,
-                tone.length,
-                self.envelope.iter().copied(),
-            )));
             let mut graph = Graph::default();
-            graph.connect(constant_value.clone(), frequency_node.clone(), None);
-            graph.connect(frequency_node.clone(), envelope.clone(), None);
-            graph.output(envelope.clone(), None);
+            graph.connect(constant_value.clone(), node.clone(), None);
+            graph.output(node.clone(), None);
             let graph = Arc::new(Mutex::new(graph));
             self.graph.output(graph.clone(), None);
             self.playing.push(Reverse(PlayingTone {
