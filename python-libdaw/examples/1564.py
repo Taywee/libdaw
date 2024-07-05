@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from libdaw import play
+from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Instrument, Graph, Gain
+from libdaw.nodes import Envelope, Instrument, Graph, Gain
+from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Square
 from libdaw.notation import Sequence, loads
 from libdaw.time import Time
@@ -63,21 +64,30 @@ assert isinstance(sequence, Sequence)
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
 
-instrument = Instrument(
-    factory=lambda _: Square(),
-    envelope=(
-        # start
-        Point(whence=0, volume=0),
-        # attack
-        Point(whence=0, offset=Time(0.05), volume=1),
-        # decay
-        Point(whence=0, offset=Time(0.1), volume=0.6),
-        # sustain
-        Point(whence=1, offset=Time(-0.05), volume=0.5),
-        # zero
-        Point(whence=1, volume=0),
-    ),
-)
+def factory(tone: Tone) -> Node:
+    graph = Graph()
+    envelope = Envelope(
+        length=tone.length,
+        envelope=(
+            # start
+            Point(whence=0, volume=0),
+            # attack
+            Point(whence=0, offset=Time(0.05), volume=1),
+            # decay
+            Point(whence=0, offset=Time(0.1), volume=0.6),
+            # sustain
+            Point(whence=1, offset=Time(-0.05), volume=0.5),
+            # zero
+            Point(whence=1, volume=0),
+        ),
+    )
+    square = Square()
+    graph.connect(square, envelope)
+    graph.input(square)
+    graph.output(envelope)
+    return graph
+
+instrument = Instrument(factory)
 for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
