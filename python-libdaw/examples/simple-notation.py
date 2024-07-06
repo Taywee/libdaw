@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from libdaw import play
+from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Instrument, Graph, Gain
+from libdaw.nodes import Envelope, Instrument, Graph, Gain
+from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Square
 from libdaw.notation import Sequence, loads
 from libdaw.pitch import ScientificPitch
@@ -24,21 +25,30 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(8), tempo=BeatsPerMinute(100)))
 pitch_standard = ScientificPitch()
 
-instrument = Instrument(
-    factory=lambda _: Square(),
-    envelope=(
-        # start
-        Point(whence=0, volume=0),
-        # attack
-        Point(whence=0, offset=Time(0.1), volume=1),
-        # decay
-        Point(whence=0, offset=Time(0.2), volume=0.6),
-        # sustain
-        Point(whence=1, offset=Time(-0.05), volume=0.5),
-        # zero
-        Point(whence=1, volume=0),
-    ),
-)
+def factory(tone: Tone) -> Node:
+    oscillator = Square()
+    envelope = Envelope(
+        length = tone.length,
+        envelope=(
+            # start
+            Point(whence=0, volume=0),
+            # attack
+            Point(whence=0, offset=Time(0.1), volume=1),
+            # decay
+            Point(whence=0, offset=Time(0.2), volume=0.6),
+            # sustain
+            Point(whence=1, offset=Time(-0.05), volume=0.5),
+            # zero
+            Point(whence=1, volume=0),
+        ),
+    )
+    graph = Graph()
+    graph.connect(oscillator, envelope)
+    graph.input(oscillator)
+    graph.output(envelope)
+    return graph
+instrument = Instrument(factory)
+
 for tone in sequence.tones(metronome=metronome, pitch_standard=pitch_standard):
   instrument.add_tone(tone)
 
@@ -47,5 +57,5 @@ gain = Gain(0.2)
 graph.connect(instrument, gain)
 graph.output(gain)
 
-play(graph, channels=2, sample_rate=48000)
+play(graph)
 

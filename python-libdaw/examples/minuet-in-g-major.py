@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, cast
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Add, Detune, Instrument, Graph, Gain, Implode
+from libdaw.nodes import Add, Detune, Envelope, Instrument, Graph, Gain, Implode
+from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Sawtooth
 from libdaw.nodes.filters.butterworth import LowPass # noqa
 from libdaw.nodes.filters import MovingAverage # noqa
@@ -112,13 +113,15 @@ metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(256)))
 
 def accordian(channels: int = 1) -> Node:
+    '''Get an accordian oscillator'''
+
     graph = Graph()
     oscillator_1 = Sawtooth()
     oscillator_2 = Sawtooth()
     oscillator_3 = Sawtooth()
     detune_2 = Detune(0.175 / 12)
     detune_3 = Detune(-0.15 / 12)
-    low_pass = LowPass(order=2, frequency=1024)
+    low_pass = LowPass(order=2, frequency=2048)
     add = Add()
     implode = Implode()
     graph.input(oscillator_1)
@@ -135,21 +138,29 @@ def accordian(channels: int = 1) -> Node:
     graph.output(implode)
     return graph
 
-instrument = Instrument(
-    factory=lambda _: accordian(),
-    envelope=(
-        # start
-        Point(whence=0, volume=0),
-        # attack
-        Point(whence=0, offset=Time(0.1), volume=0.6),
-        # decay
-        Point(whence=0, offset=Time(0.2), volume=0.6),
-        # sustain
-        Point(whence=1, offset=Time(-0.05), volume=0.5),
-        # zero
-        Point(whence=1, volume=0),
-    ),
-)
+def factory(tone: Tone) -> Node:
+    oscillator = accordian()
+    envelope = Envelope(
+        length = tone.length,
+        envelope=(
+            # start
+            Point(whence=0, volume=0),
+            # attack
+            Point(whence=0, offset=Time(0.1), volume=0.6),
+            # decay
+            Point(whence=0, offset=Time(0.2), volume=0.6),
+            # sustain
+            Point(whence=1, offset=Time(-0.05), volume=0.5),
+            # zero
+            Point(whence=1, volume=0),
+        ),
+    )
+    graph = Graph()
+    graph.connect(oscillator, envelope)
+    graph.input(oscillator)
+    graph.output(envelope)
+    return graph
+instrument = Instrument(factory)
 for tone in piece.tones(metronome=metronome):
   instrument.add_tone(tone)
 

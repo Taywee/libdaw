@@ -13,7 +13,7 @@ class CustomSine(Custom):
             raise RuntimeError('This will never be called')
         return Custom.__new__(cls, _callable)
 
-    def __init__(self, frequency: float = 256, channels: int = 2, sample_rate: int = 48000):
+    def __init__(self, frequency: float = 256, channels: int = 1, sample_rate: int = 48000):
         self.callable = self
         self.__channels = channels
         self.__frequency = frequency

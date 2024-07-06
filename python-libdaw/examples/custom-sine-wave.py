@@ -8,7 +8,7 @@ from libdaw.nodes import Custom, Graph, Gain, ConstantValue
 from math import tau, sin
 
 class SineProcessor:
-    def __init__(self, frequency: float = 256, channels: int = 2, sample_rate: int = 48000):
+    def __init__(self, frequency: float = 256, channels: int = 1, sample_rate: int = 48000):
         self.__channels = channels
         self.__frequency = frequency
         self.__sample_rate = sample_rate

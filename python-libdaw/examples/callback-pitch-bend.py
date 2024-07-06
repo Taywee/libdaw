@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from libdaw import Node, play
 from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
-from libdaw.nodes import Callback, Detune, Instrument, Graph, Gain
+from libdaw.nodes import Callback, Detune, Envelope, Instrument, Graph, Gain
 from libdaw.nodes.oscillators import Triangle
 from libdaw.nodes.instrument import Tone
 from libdaw.notation import Sequence, loads
@@ -36,14 +36,30 @@ metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMin
 def ilerp(a: float, b: float, c: float):
     return (b - a) / (c - a)
 
-def triangle_bend(tone: Tone) -> Node:
+def factory(tone: Tone) -> Node:
     length_seconds = tone.length.seconds()
     graph = Graph()
     detune = Detune(-1 / 12)
     triangle = Triangle()
+    envelope = Envelope(
+        length=tone.length,
+        envelope=(
+            # start
+            Point(whence=0, volume=0),
+            # attack
+            Point(whence=0, offset=Time(0.1), volume=1),
+            # decay
+            Point(whence=0, offset=Time(0.2), volume=0.6),
+            # sustain
+            Point(whence=1, offset=Time(-0.05), volume=0.5),
+            # zero
+            Point(whence=1, volume=0),
+        ),
+    )
     graph.input(detune)
     graph.connect(detune, triangle)
-    graph.output(triangle)
+    graph.connect(triangle, envelope)
+    graph.output(envelope)
     def _callback(timestamp: Timestamp) -> None:
         timestamp_seconds = timestamp.seconds()
         interpolation = ilerp(0.0, timestamp_seconds, length_seconds)
@@ -52,21 +68,8 @@ def triangle_bend(tone: Tone) -> Node:
     callback.add(_callback, end=Timestamp(length_seconds))
     return callback
 
-instrument = Instrument(
-    factory=triangle_bend,
-    envelope=(
-        # start
-        Point(whence=0, volume=0),
-        # attack
-        Point(whence=0, offset=Time(0.1), volume=1),
-        # decay
-        Point(whence=0, offset=Time(0.2), volume=0.6),
-        # sustain
-        Point(whence=1, offset=Time(-0.05), volume=0.5),
-        # zero
-        Point(whence=1, volume=0),
-    ),
-)
+instrument = Instrument(factory)
+
 for tone in sequence.tones(metronome=metronome):
   instrument.add_tone(tone)
 
