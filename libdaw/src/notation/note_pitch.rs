@@ -9,6 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+// TODO: remove Arc<Mutex from this enum and make the users wrap it.  Maybe provide a convenience wrapper for it.
 #[derive(Clone)]
 pub enum NotePitch {
     Pitch(Arc<Mutex<Pitch>>),

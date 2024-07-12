@@ -1,34 +1,39 @@
-use super::{Chord, Item, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
+use super::{Chord, InnerItem, Item, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::parse::IResult;
 use nom::{branch::alt, combinator::map, error::context};
 use std::sync::{Arc, Mutex};
 
-pub fn item(input: &str) -> IResult<&str, Item> {
+pub fn inner_item(input: &str) -> IResult<&str, InnerItem> {
     alt((
         map(context("Set", Set::parse), move |chord| {
-            Item::Set(Arc::new(Mutex::new(chord)))
+            InnerItem::Set(chord)
         }),
         map(context("Chord", Chord::parse), move |chord| {
-            Item::Chord(Arc::new(Mutex::new(chord)))
+            InnerItem::Chord(chord)
         }),
         map(
             context("Overlapped", Overlapped::parse),
-            move |overlapped| Item::Overlapped(Arc::new(Mutex::new(overlapped))),
+            move |overlapped| InnerItem::Overlapped(overlapped),
         ),
         map(context("Sequence", Sequence::parse), move |sequence| {
-            Item::Sequence(Arc::new(Mutex::new(sequence)))
+            InnerItem::Sequence(sequence)
         }),
         map(context("Scale", Scale::parse), move |scale| {
-            Item::Scale(Arc::new(Mutex::new(scale)))
+            InnerItem::Scale(scale)
         }),
         map(context("Mode", Mode::parse), move |mode| {
-            Item::Mode(Arc::new(Mutex::new(mode)))
+            InnerItem::Mode(mode)
         }),
         map(context("Rest", Rest::parse), move |rest| {
-            Item::Rest(Arc::new(Mutex::new(rest)))
+            InnerItem::Rest(rest)
         }),
         map(context("Note", Note::parse), move |note| {
-            Item::Note(Arc::new(Mutex::new(note)))
+            InnerItem::Note(note)
         }),
     ))(input)
+}
+
+pub fn item(input: &str) -> IResult<&str, Item> {
+    let (input, inner) = inner_item(input)?;
+    Ok((input, Item { inner }))
 }

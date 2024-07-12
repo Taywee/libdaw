@@ -1,6 +1,6 @@
 use super::{Chord, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::Result;
-use libdaw::notation::Item as DawItem;
+use libdaw::notation::InnerItem as DawItem;
 use pyo3::{
     exceptions::PyTypeError,
     pyfunction,

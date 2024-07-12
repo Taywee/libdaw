@@ -8,11 +8,14 @@ use crate::{
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Debug, Clone)]
 pub struct Overlapped {
-    pub items: Vec<Item>,
+    pub items: Vec<Arc<Mutex<Item>>>,
     pub state_member: Option<StateMember>,
 }
 
@@ -31,6 +34,7 @@ impl Overlapped {
             .items
             .iter()
             .flat_map(move |item| {
+                let item = item.lock().expect("poisoned");
                 let resolved = item.inner_tones(offset, metronome, pitch_standard, &state);
                 item.update_state(&mut state);
                 resolved
@@ -53,7 +57,7 @@ impl Overlapped {
     pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
-            .map(|item| item.inner_length(state))
+            .map(|item| item.lock().expect("poisoned").inner_length(state))
             .max()
             .unwrap_or(Beat::ZERO)
     }
@@ -61,7 +65,7 @@ impl Overlapped {
     pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
-            .map(|item| item.inner_duration(state))
+            .map(|item| item.lock().expect("poisoned").inner_duration(state))
             .max()
             .unwrap_or(Beat::ZERO)
     }
@@ -79,12 +83,12 @@ impl Overlapped {
         match self.state_member {
             Some(StateMember::First) => {
                 if let Some(item) = self.items.get(0) {
-                    item.update_state(state);
+                    item.lock().expect("poisoned").update_state(state);
                 }
             }
             Some(StateMember::Last) => {
                 for item in &self.items {
-                    item.update_state(state);
+                    item.lock().expect("poisoned").update_state(state);
                 }
             }
             None => (),
