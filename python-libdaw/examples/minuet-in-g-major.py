@@ -10,7 +10,7 @@ from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Sawtooth
 from libdaw.nodes.filters.butterworth import LowPass # noqa
 from libdaw.nodes.filters import MovingAverage # noqa
-from libdaw.notation import Overlapped, Sequence, loads
+from libdaw.notation import Overlapped, Sequence, Item
 from libdaw.time import Duration, Time # noqa
 
 #import copy
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     pass
 
 def top_section_1() -> Sequence:
-    lead = loads('''+>(
+    lead = Item.loads('''+>(
     d5,2 g-,1 a b c
     d,2 g- g
     e+ c,1 d e f#
@@ -27,17 +27,17 @@ def top_section_1() -> Sequence:
     c d,1 c b a
     b,2 c,1 b a g
     )''')
-    end_a = loads('''+(
+    end_a = Item.loads('''+(
     f#,2 g,1 a b g
     a,6
     )''')
-    end_b = loads('''+(
+    end_b = Item.loads('''+(
     a,2 b,1 a g f#
     g,6
     )''')
     return Sequence([lead, end_a, lead, end_b])
 def bottom_section_1() -> Sequence:
-    return cast(Sequence, loads('''+(
+    return cast(Sequence, Item.loads('''+(
     =<(g3 b d),4 a,2
     b,6
     c
@@ -58,7 +58,7 @@ def bottom_section_1() -> Sequence:
 
 section_1 = Overlapped([top_section_1(), bottom_section_1()])
 
-top_section_2 = loads('''+(
+top_section_2 = Item.loads('''+(
 b5,2 g,1 a b g
 a,2 d-,1 e f# d
 g,2 e,1 f# g d
@@ -77,7 +77,7 @@ b,1 d g-,2 f#
 =(g d b),6
 )''')
 
-bottom_section_2 = loads('''+(
+bottom_section_2 = Item.loads('''+(
 g3,6
 f#
 e,2 g e

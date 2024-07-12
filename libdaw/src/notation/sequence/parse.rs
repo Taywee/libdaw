@@ -4,9 +4,10 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{char, multispace0, multispace1},
-    combinator::{cut, opt},
+    combinator::{cut, map, opt},
     multi::separated_list0,
 };
+use std::sync::{Arc, Mutex};
 
 pub fn sequence(input: &str) -> IResult<&str, Sequence> {
     let (input, _) = alt((tag("+"), tag("sequence")))(input)?;
@@ -15,7 +16,10 @@ pub fn sequence(input: &str) -> IResult<&str, Sequence> {
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(char('('))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, items) = cut(separated_list0(multispace1, Item::parse))(input)?;
+    let (input, items) = cut(separated_list0(
+        multispace1,
+        map(Item::parse, move |item| Arc::new(Mutex::new(item))),
+    ))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = cut(char(')'))(input)?;
     Ok((

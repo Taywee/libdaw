@@ -8,12 +8,15 @@ use crate::{
     pitch::PitchStandard,
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 /// A linear sequence of items.
 #[derive(Default, Debug, Clone)]
 pub struct Sequence {
-    pub items: Vec<Item>,
+    pub items: Vec<Arc<Mutex<Item>>>,
     pub state_member: Option<StateMember>,
 }
 
@@ -45,6 +48,7 @@ impl Sequence {
             .items
             .iter()
             .flat_map(move |item| {
+                let item = item.lock().expect("poisoned");
                 let resolved = item.inner_tones(start, metronome, pitch_standard, &state);
                 start += item.inner_length(&state);
                 item.update_state(&mut state);
@@ -77,6 +81,7 @@ impl Sequence {
         self.items
             .iter()
             .map(move |item| {
+                let item = item.lock().expect("poisoned");
                 let length = item.inner_length(&state);
                 item.update_state(&mut state);
                 length
@@ -88,6 +93,7 @@ impl Sequence {
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
         for item in &self.items {
+            let item = item.lock().expect("poisoned");
             let item_duration = item.inner_duration(&state);
             let item_length = item.inner_length(&state);
             item.update_state(&mut state);
@@ -105,12 +111,12 @@ impl Sequence {
         match self.state_member {
             Some(StateMember::First) => {
                 if let Some(item) = self.items.get(0) {
-                    item.update_state(state);
+                    item.lock().expect("poisoned").update_state(state);
                 }
             }
             Some(StateMember::Last) => {
                 for item in &self.items {
-                    item.update_state(state);
+                    item.lock().expect("poisoned").update_state(state);
                 }
             }
             None => (),

@@ -8,7 +8,7 @@ from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Square
-from libdaw.notation import Sequence, loads
+from libdaw.notation import Sequence, Item
 from libdaw.time import Time
 
 #import copy
@@ -16,7 +16,7 @@ from libdaw.time import Time
 if TYPE_CHECKING:
     pass
 
-sequence = loads('''+(
+sequence = Item.loads('''+(
     %1
     *(
         +(1 2 5 3)
@@ -57,7 +57,7 @@ sequence = loads('''+(
         +(1,0.5 3 5 3 1+ 5 3 5)
         =(1- 3 5),4
     )
-)''')
+)''').value
 
 assert isinstance(sequence, Sequence)
     
