@@ -18,7 +18,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Overlapped {
     pub inner: Arc<Mutex<DawOverlapped>>,
-    pub items: Vec<Item>,
+    pub items: Vec<Py<Item>>,
 }
 
 impl Overlapped {
@@ -43,18 +43,17 @@ impl Overlapped {
 #[pymethods]
 impl Overlapped {
     #[new]
-    pub fn new(
-        py: Python<'_>,
-        items: Option<Vec<Item>>,
-        state_member: Option<StateMember>,
-    ) -> Self {
+    pub fn new(items: Option<Vec<Bound<'_, Item>>>, state_member: Option<StateMember>) -> Self {
         let items = items.unwrap_or_default();
         Self {
             inner: Arc::new(Mutex::new(DawOverlapped {
-                items: items.iter().map(move |item| item.as_inner(py)).collect(),
+                items: items
+                    .iter()
+                    .map(move |item| item.borrow().inner.clone())
+                    .collect(),
                 state_member: state_member.map(Into::into),
             })),
-            items,
+            items: items.into_iter().map(Bound::unbind).collect(),
         }
     }
 
@@ -122,9 +121,12 @@ impl Overlapped {
         &self,
         py: Python<'_>,
         index: IndexOrSlice<'_>,
-    ) -> PyResult<ItemOrSequence<Item, Self>> {
+    ) -> PyResult<ItemOrSequence<Py<Item>, Self>> {
         index.get(&self.items)?.map_sequence(move |items| {
-            let inner_items = items.iter().map(move |item| item.as_inner(py)).collect();
+            let inner_items = items
+                .iter()
+                .map(move |item| item.borrow(py).inner.clone())
+                .collect();
             let lock = self.inner.lock().expect("poisoned");
             let inner = Arc::new(Mutex::new(DawOverlapped {
                 state_member: lock.state_member,
@@ -137,7 +139,7 @@ impl Overlapped {
         &mut self,
         py: Python<'_>,
         index: IndexOrSlice<'_>,
-        value: ItemOrSequence<Item>,
+        value: ItemOrSequence<Py<Item>>,
     ) -> PyResult<()> {
         let len = self.items.len();
         let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.items);
@@ -145,12 +147,12 @@ impl Overlapped {
             value,
             &mut userdata,
             move |(lock, items), index, value| {
-                lock.items[index] = value.as_inner(py);
+                lock.items[index] = value.borrow(py).inner.clone();
                 items[index] = value;
                 Ok(())
             },
             move |(lock, items), index, value| {
-                lock.items.insert(index, value.as_inner(py));
+                lock.items.insert(index, value.borrow(py).inner.clone());
                 items.insert(index, value);
                 Ok(())
             },
@@ -176,35 +178,35 @@ impl Overlapped {
         OverlappedIterator(self.items.clone().into_iter())
     }
 
-    pub fn append(&mut self, py: Python<'_>, value: Item) -> PyResult<()> {
+    pub fn append(&mut self, value: Bound<'_, Item>) -> PyResult<()> {
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .push(value.as_inner(py));
-        self.items.push(value);
+            .push(value.borrow().inner.clone());
+        self.items.push(value.unbind());
         Ok(())
     }
 
-    pub fn insert(&mut self, py: Python<'_>, index: InsertIndex, value: Item) -> PyResult<()> {
+    pub fn insert(&mut self, index: InsertIndex, value: Bound<'_, Item>) -> PyResult<()> {
         let index = index.normalize(self.items.len())?;
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .insert(index, value.as_inner(py));
-        self.items.insert(index, value);
+            .insert(index, value.borrow().inner.clone());
+        self.items.insert(index, value.unbind());
         Ok(())
     }
 
     #[pyo3(signature = (index = Default::default()))]
-    pub fn pop(&mut self, index: PopIndex) -> PyResult<Item> {
+    pub fn pop(&mut self, index: PopIndex) -> PyResult<Py<Item>> {
         let index = index.normalize(self.items.len())?;
         self.inner.lock().expect("poisoned").items.remove(index);
         Ok(self.items.remove(index))
     }
 
-    pub fn __getnewargs__(&self) -> (Vec<Item>, Option<StateMember>) {
+    pub fn __getnewargs__(&self) -> (Vec<Py<Item>>, Option<StateMember>) {
         (
             self.items.clone(),
             self.inner
@@ -230,7 +232,7 @@ impl Overlapped {
 
 #[derive(Debug, Clone)]
 #[pyclass(module = "libdaw.notation")]
-pub struct OverlappedIterator(pub std::vec::IntoIter<Item>);
+pub struct OverlappedIterator(pub std::vec::IntoIter<Py<Item>>);
 
 #[pymethods]
 impl OverlappedIterator {
@@ -240,7 +242,7 @@ impl OverlappedIterator {
     pub fn __repr__(&self) -> String {
         format!("OverlappedIterator<{:?}>", self.0)
     }
-    pub fn __next__(&mut self) -> Option<Item> {
+    pub fn __next__(&mut self) -> Option<Py<Item>> {
         self.0.next()
     }
 }

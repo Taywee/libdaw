@@ -8,7 +8,7 @@ from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Triangle
-from libdaw.notation import Overlapped, Rest, Sequence, loads
+from libdaw.notation import Item, Overlapped, Rest, Sequence, loads
 from libdaw.time import Time
 
 #import copy
@@ -34,10 +34,10 @@ overlapped = Overlapped()
 
 for offset in range(4):
     inner = Sequence(items=[
-        Rest(length=Beat(offset * 8)),
-        sequence
+        Item(Rest(length=Beat(offset * 8))),
+        Item(sequence),
     ])
-    overlapped.append(inner)
+    overlapped.append(Item(inner))
     
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))

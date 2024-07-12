@@ -17,19 +17,40 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[derive(Clone, Debug)]
-pub enum InnerItem {
-    Note(Note),
-    Chord(Chord),
-    Rest(Rest),
-    Overlapped(Overlapped),
-    Sequence(Sequence),
-    Scale(Scale),
-    Mode(Mode),
-    Set(Set),
+/// A container type for the things inside an Item, allowing in-place
+/// modification of an Item's value.
+#[derive(Clone)]
+pub enum ItemValue {
+    Note(Arc<Mutex<Note>>),
+    Chord(Arc<Mutex<Chord>>),
+    Rest(Arc<Mutex<Rest>>),
+    Overlapped(Arc<Mutex<Overlapped>>),
+    Sequence(Arc<Mutex<Sequence>>),
+    Scale(Arc<Mutex<Scale>>),
+    Mode(Arc<Mutex<Mode>>),
+    Set(Arc<Mutex<Set>>),
 }
 
-impl InnerItem {
+impl fmt::Debug for ItemValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ItemValue::Note(note) => fmt::Debug::fmt(&note.lock().expect("poisoned"), f),
+            ItemValue::Chord(chord) => fmt::Debug::fmt(&chord.lock().expect("poisoned"), f),
+            ItemValue::Rest(rest) => fmt::Debug::fmt(&rest.lock().expect("poisoned"), f),
+            ItemValue::Overlapped(overlapped) => {
+                fmt::Debug::fmt(&overlapped.lock().expect("poisoned"), f)
+            }
+            ItemValue::Sequence(sequence) => {
+                fmt::Debug::fmt(&sequence.lock().expect("poisoned"), f)
+            }
+            ItemValue::Scale(scale) => fmt::Debug::fmt(&scale.lock().expect("poisoned"), f),
+            ItemValue::Mode(mode) => fmt::Debug::fmt(&mode.lock().expect("poisoned"), f),
+            ItemValue::Set(set) => fmt::Debug::fmt(&set.lock().expect("poisoned"), f),
+        }
+    }
+}
+
+impl ItemValue {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
     pub(super) fn inner_tones<S>(
@@ -43,22 +64,34 @@ impl InnerItem {
         S: PitchStandard + ?Sized,
     {
         match self {
-            InnerItem::Note(note) => Box::new(std::iter::once(note.inner_tone(
+            ItemValue::Note(note) => Box::new(std::iter::once(
+                note.lock()
+                    .expect("poisoned")
+                    .inner_tone(offset, metronome, pitch_standard, state),
+            )),
+            ItemValue::Chord(chord) => Box::new(chord.lock().expect("poisoned").inner_tones(
                 offset,
                 metronome,
                 pitch_standard,
                 state,
-            ))),
-            InnerItem::Chord(chord) => {
-                Box::new(chord.inner_tones(offset, metronome, pitch_standard, state))
+            )),
+            ItemValue::Overlapped(overlapped) => {
+                Box::new(overlapped.lock().expect("poisoned").inner_tones(
+                    offset,
+                    metronome,
+                    pitch_standard,
+                    state.clone(),
+                ))
             }
-            InnerItem::Overlapped(overlapped) => {
-                Box::new(overlapped.inner_tones(offset, metronome, pitch_standard, state.clone()))
+            ItemValue::Sequence(sequence) => {
+                Box::new(sequence.lock().expect("poisoned").inner_tones(
+                    offset,
+                    metronome,
+                    pitch_standard,
+                    state.clone(),
+                ))
             }
-            InnerItem::Sequence(sequence) => {
-                Box::new(sequence.inner_tones(offset, metronome, pitch_standard, state.clone()))
-            }
-            InnerItem::Scale(_) | InnerItem::Mode(_) | InnerItem::Rest(_) | InnerItem::Set(_) => {
+            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Rest(_) | ItemValue::Set(_) => {
                 Box::new(std::iter::empty())
             }
         }
@@ -77,36 +110,48 @@ impl InnerItem {
 
     pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
         match self {
-            InnerItem::Note(note) => note.inner_length(state),
-            InnerItem::Chord(chord) => chord.inner_length(state),
-            InnerItem::Rest(rest) => rest.inner_length(state),
-            InnerItem::Overlapped(overlapped) => overlapped.inner_length(state),
-            InnerItem::Sequence(sequence) => sequence.inner_length(state.clone()),
-            InnerItem::Scale(_) | InnerItem::Mode(_) | InnerItem::Set(_) => Beat::ZERO,
+            ItemValue::Note(note) => note.lock().expect("poisoned").inner_length(state),
+            ItemValue::Chord(chord) => chord.lock().expect("poisoned").inner_length(state),
+            ItemValue::Rest(rest) => rest.lock().expect("poisoned").inner_length(state),
+            ItemValue::Overlapped(overlapped) => {
+                overlapped.lock().expect("poisoned").inner_length(state)
+            }
+            ItemValue::Sequence(sequence) => sequence
+                .lock()
+                .expect("poisoned")
+                .inner_length(state.clone()),
+            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Set(_) => Beat::ZERO,
         }
     }
 
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
         match self {
-            InnerItem::Note(note) => note.update_state(state),
-            InnerItem::Chord(chord) => chord.update_state(state),
-            InnerItem::Rest(rest) => rest.update_state(state),
-            InnerItem::Scale(scale) => scale.update_state(state),
-            InnerItem::Mode(mode) => mode.update_state(state),
-            InnerItem::Set(set) => set.update_state(state),
-            InnerItem::Sequence(sequence) => sequence.update_state(state),
-            InnerItem::Overlapped(overlapped) => overlapped.update_state(state),
+            ItemValue::Note(note) => note.lock().expect("poisoned").update_state(state),
+            ItemValue::Chord(chord) => chord.lock().expect("poisoned").update_state(state),
+            ItemValue::Rest(rest) => rest.lock().expect("poisoned").update_state(state),
+            ItemValue::Scale(scale) => scale.lock().expect("poisoned").update_state(state),
+            ItemValue::Mode(mode) => mode.lock().expect("poisoned").update_state(state),
+            ItemValue::Set(set) => set.lock().expect("poisoned").update_state(state),
+            ItemValue::Sequence(sequence) => sequence.lock().expect("poisoned").update_state(state),
+            ItemValue::Overlapped(overlapped) => {
+                overlapped.lock().expect("poisoned").update_state(state)
+            }
         }
     }
 
     pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
         match self {
-            InnerItem::Note(note) => note.inner_duration(state),
-            InnerItem::Chord(chord) => chord.inner_duration(state),
-            InnerItem::Rest(rest) => rest.duration(),
-            InnerItem::Overlapped(overlapped) => overlapped.inner_duration(state),
-            InnerItem::Sequence(sequence) => sequence.inner_duration(state.clone()),
-            InnerItem::Scale(_) | InnerItem::Mode(_) | InnerItem::Set(_) => Beat::ZERO,
+            ItemValue::Note(note) => note.lock().expect("poisoned").inner_duration(state),
+            ItemValue::Chord(chord) => chord.lock().expect("poisoned").inner_duration(state),
+            ItemValue::Rest(rest) => rest.lock().expect("poisoned").duration(),
+            ItemValue::Overlapped(overlapped) => {
+                overlapped.lock().expect("poisoned").inner_duration(state)
+            }
+            ItemValue::Sequence(sequence) => sequence
+                .lock()
+                .expect("poisoned")
+                .inner_duration(state.clone()),
+            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Set(_) => Beat::ZERO,
         }
     }
     pub fn length(&self) -> Beat {
@@ -117,11 +162,11 @@ impl InnerItem {
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::inner_item(input)
+        parse::item_value(input)
     }
 }
 
-impl FromStr for InnerItem {
+impl FromStr for ItemValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -135,7 +180,7 @@ impl FromStr for InnerItem {
 
 #[derive(Clone, Debug)]
 pub struct Item {
-    pub inner: InnerItem,
+    pub value: ItemValue,
 }
 
 impl Item {
@@ -151,7 +196,7 @@ impl Item {
     where
         S: PitchStandard + ?Sized,
     {
-        self.inner
+        self.value
             .inner_tones(offset, metronome, pitch_standard, state)
     }
     pub fn tones<S>(
@@ -163,19 +208,19 @@ impl Item {
     where
         S: PitchStandard + ?Sized,
     {
-        self.inner.tones(offset, metronome, pitch_standard)
+        self.value.tones(offset, metronome, pitch_standard)
     }
 
     pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
-        self.inner.inner_length(state)
+        self.value.inner_length(state)
     }
 
     pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        self.inner.update_state(state)
+        self.value.update_state(state)
     }
 
     pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
-        self.inner.inner_duration(state)
+        self.value.inner_duration(state)
     }
     pub fn length(&self) -> Beat {
         self.inner_length(&Default::default())

@@ -17,6 +17,7 @@ mod tone_generation_state;
 pub use chord::Chord;
 pub use duration::Duration;
 pub use item::Item;
+pub use item::ItemValue;
 pub use mode::Mode;
 pub use note::Note;
 pub use note_pitch::NotePitch;
