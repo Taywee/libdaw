@@ -43,6 +43,7 @@ impl Overlapped {
 #[pymethods]
 impl Overlapped {
     #[new]
+    #[pyo3(signature = (items=None, state_member=None))]
     pub fn new(items: Option<Vec<ItemOrValue<'_>>>, state_member: Option<StateMember>) -> Self {
         let items = items.unwrap_or_default();
         Self {

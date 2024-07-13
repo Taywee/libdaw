@@ -24,6 +24,7 @@ impl Graph {
 
     /// Connect the given output of the source to the destination.  The same
     /// output may be attached  multiple times. `None` will attach all outputs.
+    #[pyo3(signature = (source, destination, stream=None))]
     pub fn connect(
         &self,
         source: Bound<'_, Node>,
@@ -40,6 +41,7 @@ impl Graph {
 
     /// Disconnect the last-added matching connection, returning a boolean
     /// indicating if anything was disconnected.
+    #[pyo3(signature = (source, destination, stream=None))]
     pub fn disconnect(
         &self,
         source: Bound<'_, Node>,
@@ -57,6 +59,7 @@ impl Graph {
     /// Connect the given output of the initial input to the destination.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
+    #[pyo3(signature = (destination, stream=None))]
     pub fn input(&self, destination: Bound<'_, Node>, stream: Option<usize>) {
         let destination = destination.borrow().0.clone();
         self.inner
@@ -67,6 +70,7 @@ impl Graph {
 
     /// Disconnect the last-added matching connection from the destination,
     /// returning a boolean indicating if anything was disconnected.
+    #[pyo3(signature = (destination, stream=None))]
     pub fn remove_input(&self, destination: Bound<'_, Node>, stream: Option<usize>) -> bool {
         let destination = destination.borrow().0.clone();
         self.inner
@@ -78,6 +82,7 @@ impl Graph {
     /// Connect the given output of the source to the final destinaton.  The
     /// same output may be attached multiple times. `None` will attach all
     /// outputs.
+    #[pyo3(signature = (source, stream=None))]
     pub fn output(&self, source: Bound<'_, Node>, stream: Option<usize>) {
         let source = source.borrow().0.clone();
         self.inner.lock().expect("poisoned").output(source, stream);
@@ -85,6 +90,7 @@ impl Graph {
 
     /// Disconnect the last-added matching connection from the source, returning
     /// a boolean indicating if anything was disconnected.
+    #[pyo3(signature = (source, stream=None))]
     pub fn remove_output(&self, source: Bound<'_, Node>, stream: Option<usize>) -> bool {
         let source = source.borrow().0.clone();
         self.inner

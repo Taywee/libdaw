@@ -1,7 +1,7 @@
 use libdaw::notation::StateMember as DawStateMember;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, PyResult};
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(module = "libdaw.notation", eq, eq_int)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateMember {
     First,

@@ -8,7 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.pitch")]
+#[pyclass(module = "libdaw.pitch", eq, eq_int)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PitchName {
     C,
@@ -96,6 +96,7 @@ impl PitchClass {
 #[pymethods]
 impl PitchClass {
     #[new]
+    #[pyo3(signature = (name, adjustment=None))]
     pub fn new(name: PitchName, adjustment: Option<f64>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawPitchClass {

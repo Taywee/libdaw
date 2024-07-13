@@ -42,6 +42,7 @@ impl Note {
 #[pymethods]
 impl Note {
     #[new]
+    #[pyo3(signature = (pitch, length=None, duration=None))]
     pub fn new(
         py: Python<'_>,
         pitch: NotePitch,

@@ -26,6 +26,7 @@ impl Rest {
 #[pymethods]
 impl Rest {
     #[new]
+    #[pyo3(signature = (length=None))]
     pub fn new(length: Option<Beat>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawRest {
