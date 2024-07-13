@@ -1,11 +1,12 @@
+use super::Element;
 use libdaw::notation::Mode as DawMode;
-use pyo3::{pyclass, pymethods, IntoPy as _, Py, Python};
+use pyo3::{pyclass, pymethods, Py, PyClassInitializer, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(extends = Element, module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Mode {
     pub inner: Arc<Mutex<DawMode>>,
@@ -13,22 +14,26 @@ pub struct Mode {
 
 impl Mode {
     pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawMode>>) -> Py<Self> {
-        Self { inner }
-            .into_py(py)
-            .downcast_bound(py)
-            .unwrap()
-            .clone()
-            .unbind()
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self { inner }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
 #[pymethods]
 impl Mode {
     #[new]
-    pub fn new(mode: i64) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(DawMode { mode })),
-        }
+    pub fn new(mode: i64) -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(DawMode { mode }));
+        PyClassInitializer::from(Element {
+            inner: inner.clone(),
+        })
+        .add_subclass(Self { inner })
     }
     #[staticmethod]
     pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {

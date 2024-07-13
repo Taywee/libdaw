@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{tone_generation_state::ToneGenerationState, NotePitch, Pitch};
+use super::{tone_generation_state::ToneGenerationState, Element, NotePitch, Pitch};
 use crate::{
     parse::IResult,
     pitch::{PitchClass, PitchName},
@@ -37,20 +37,6 @@ impl Scale {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::scale(input)
     }
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        let mut scale = Vec::new();
-        let mut running_state = state.clone();
-        for pitch in &self.pitches {
-            let absolute = pitch.absolute(&running_state);
-            scale.push(absolute.clone());
-            running_state.pitch = absolute;
-        }
-        state.scale = scale;
-        state.normalized_step = 1;
-        state.mode = 1;
-        state.scale_octave = 0;
-    }
-
     pub fn push(&mut self, value: NotePitch) {
         self.pitches.push(value)
     }
@@ -87,6 +73,22 @@ impl Scale {
             return Err("Can not empty scale".into());
         }
         Ok(self.pitches.drain(range))
+    }
+}
+
+impl Element for Scale {
+    fn update_state(&self, state: &mut ToneGenerationState) {
+        let mut scale = Vec::new();
+        let mut running_state = state.clone();
+        for pitch in &self.pitches {
+            let absolute = pitch.absolute(&running_state);
+            scale.push(absolute.clone());
+            running_state.pitch = absolute;
+        }
+        state.scale = scale;
+        state.normalized_step = 1;
+        state.mode = 1;
+        state.scale_octave = 0;
     }
 }
 

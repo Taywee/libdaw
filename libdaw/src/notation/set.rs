@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{tone_generation_state::ToneGenerationState, Duration, NotePitch};
+use super::{tone_generation_state::ToneGenerationState, Duration, Element, NotePitch};
 use crate::{metronome::Beat, parse::IResult};
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
@@ -13,6 +13,12 @@ pub struct Set {
     pub pitch: Option<NotePitch>,
     pub length: Option<Beat>,
     pub duration: Option<Duration>,
+}
+
+impl Set {
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::set(input)
+    }
 }
 
 impl BitOrAssign for Set {
@@ -31,11 +37,8 @@ impl BitOr for Set {
     }
 }
 
-impl Set {
-    pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::set(input)
-    }
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+impl Element for Set {
+    fn update_state(&self, state: &mut ToneGenerationState) {
         if let Some(pitch) = &self.pitch {
             pitch.update_state(state);
         }

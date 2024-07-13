@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{tone_generation_state::ToneGenerationState, Item, StateMember};
+use super::{tone_generation_state::ToneGenerationState, Element, Item, StateMember};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -32,70 +32,51 @@ impl FromStr for Sequence {
     }
 }
 
-impl Sequence {
-    pub(super) fn inner_tones<S>(
+impl Element for Sequence {
+    fn tones(
         &self,
         offset: Beat,
         metronome: &Metronome,
-        pitch_standard: &S,
-        mut state: ToneGenerationState,
-    ) -> impl Iterator<Item = Tone> + 'static
-    where
-        S: PitchStandard + ?Sized,
-    {
+        pitch_standard: &dyn PitchStandard,
+        state: &ToneGenerationState,
+    ) -> Box<dyn Iterator<Item = Tone> + 'static> {
+        let mut state = state.clone();
         let mut start = offset;
         let tones: Vec<_> = self
             .items
             .iter()
             .flat_map(move |item| {
                 let item = item.lock().expect("poisoned");
-                let resolved = item.inner_tones(start, metronome, pitch_standard, &state);
-                start += item.inner_length(&state);
+                let resolved = item.tones(start, metronome, pitch_standard, &state);
+                start += item.length(&state);
                 item.update_state(&mut state);
                 resolved
             })
             .collect();
-        tones.into_iter()
+        Box::new(tones.into_iter())
     }
 
-    pub fn tones<S>(
-        &self,
-        offset: Beat,
-        metronome: &Metronome,
-        pitch_standard: &S,
-    ) -> impl Iterator<Item = Tone> + 'static
-    where
-        S: PitchStandard + ?Sized,
-    {
-        self.inner_tones(offset, metronome, pitch_standard, Default::default())
-    }
-
-    pub fn length(&self) -> Beat {
-        self.inner_length(Default::default())
-    }
-    pub fn duration(&self) -> Beat {
-        self.inner_duration(Default::default())
-    }
-
-    pub(super) fn inner_length(&self, mut state: ToneGenerationState) -> Beat {
+    fn length(&self, state: &ToneGenerationState) -> Beat {
+        let mut state = state.clone();
         self.items
             .iter()
             .map(move |item| {
                 let item = item.lock().expect("poisoned");
-                let length = item.inner_length(&state);
+                let length = item.length(&state);
                 item.update_state(&mut state);
                 length
             })
             .sum()
     }
 
-    pub(super) fn inner_duration(&self, mut state: ToneGenerationState) -> Beat {
+    fn duration(&self, state: &ToneGenerationState) -> Beat {
+        let mut state = state.clone();
         let mut start = Beat::ZERO;
         let mut duration = Beat::ZERO;
         for item in &self.items {
             let item = item.lock().expect("poisoned");
-            let item_duration = item.inner_duration(&state);
-            let item_length = item.inner_length(&state);
+            let item_duration = item.duration(&state);
+            let item_length = item.length(&state);
             item.update_state(&mut state);
             duration = duration.max(start + item_duration);
             start += item_length;
@@ -103,11 +84,7 @@ impl Sequence {
         duration
     }
 
-    pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::sequence(input)
-    }
-
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+    fn update_state(&self, state: &mut ToneGenerationState) {
         match self.state_member {
             Some(StateMember::First) => {
                 if let Some(item) = self.items.get(0) {
@@ -121,5 +98,10 @@ impl Sequence {
             }
             None => (),
         }
+    }
+}
+impl Sequence {
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::sequence(input)
     }
 }

@@ -2,20 +2,20 @@ mod note_pitch;
 
 pub use note_pitch::NotePitch;
 
-use super::duration::Duration;
+use super::{duration::Duration, Element};
 use crate::{
-    metronome::{Beat, MaybeMetronome},
-    nodes::instrument::Tone,
-    pitch::MaybePitchStandard,
+    metronome::{Beat},
 };
-use libdaw::{metronome::Beat as DawBeat, notation::Note as DawNote};
-use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
+use libdaw::{notation::Note as DawNote};
+use pyo3::{
+    pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python,
+};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(extends = Element, module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Note {
     pub inner: Arc<Mutex<DawNote>>,
@@ -27,15 +27,17 @@ pub struct Note {
 impl Note {
     pub fn from_inner(py: Python<'_>, inner: Arc<Mutex<DawNote>>) -> Py<Self> {
         let pitch = NotePitch::from_inner(py, inner.lock().expect("poisoned").pitch.clone());
-        Self {
-            inner,
-            pitch: Some(pitch),
-        }
-        .into_py(py)
-        .downcast_bound(py)
-        .unwrap()
-        .clone()
-        .unbind()
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self {
+                inner,
+                pitch: Some(pitch),
+            }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
@@ -48,15 +50,19 @@ impl Note {
         pitch: NotePitch,
         length: Option<Beat>,
         duration: Option<Duration>,
-    ) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(DawNote {
-                pitch: pitch.as_inner(py),
-                length: length.map(|beat| beat.0),
-                duration: duration.map(move |duration| duration.inner),
-            })),
+    ) -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(DawNote {
+            pitch: pitch.as_inner(py),
+            length: length.map(|beat| beat.0),
+            duration: duration.map(move |duration| duration.inner),
+        }));
+        PyClassInitializer::from(Element {
+            inner: inner.clone(),
+        })
+        .add_subclass(Self {
+            inner,
             pitch: Some(pitch),
-        }
+        })
     }
 
     #[staticmethod]
@@ -72,29 +78,6 @@ impl Note {
     pub fn set_pitch(&mut self, py: Python<'_>, value: NotePitch) {
         self.inner.lock().expect("poisoned").pitch = value.as_inner(py);
         self.pitch = Some(value);
-    }
-
-    #[pyo3(
-        signature = (
-            *,
-            offset=Beat(DawBeat::ZERO),
-            metronome=MaybeMetronome::default(),
-            pitch_standard=MaybePitchStandard::default(),
-        )
-    )]
-    pub fn tone(
-        &self,
-        offset: Beat,
-        metronome: MaybeMetronome,
-        pitch_standard: MaybePitchStandard,
-    ) -> Tone {
-        let metronome = MaybeMetronome::from(metronome);
-        let pitch_standard = MaybePitchStandard::from(pitch_standard);
-        Tone(self.inner.lock().expect("poisoned").tone(
-            offset.0,
-            &metronome,
-            pitch_standard.deref(),
-        ))
     }
 
     #[getter]

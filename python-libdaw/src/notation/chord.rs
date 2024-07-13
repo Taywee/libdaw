@@ -1,20 +1,18 @@
-use super::{duration::Duration, NotePitch, StateMember};
+use super::{duration::Duration, Element, NotePitch, StateMember};
 use crate::{
     indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
-    metronome::{Beat, MaybeMetronome},
-    nodes::instrument::Tone,
-    pitch::MaybePitchStandard,
+    metronome::{Beat},
 };
-use libdaw::{metronome::Beat as DawBeat, notation::Chord as DawChord};
+use libdaw::{notation::Chord as DawChord};
 use pyo3::{
-    pyclass, pymethods, Bound, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python,
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError,
+    PyVisit, Python,
 };
 use std::{
-    ops::Deref as _,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation", sequence)]
+#[pyclass(extends = Element, module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Chord {
     pub inner: Arc<Mutex<DawChord>>,
@@ -31,12 +29,15 @@ impl Chord {
             .cloned()
             .map(move |pitch| NotePitch::from_inner(py, pitch))
             .collect();
-        Self { inner, pitches }
-            .into_py(py)
-            .downcast_bound(py)
-            .unwrap()
-            .clone()
-            .unbind()
+
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self { inner, pitches }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
@@ -50,48 +51,25 @@ impl Chord {
         length: Option<Beat>,
         duration: Option<Duration>,
         state_member: Option<StateMember>,
-    ) -> Self {
+    ) -> PyClassInitializer<Self> {
         let pitches = pitches.unwrap_or_default();
-        Self {
-            inner: Arc::new(Mutex::new(DawChord {
-                pitches: pitches
-                    .iter()
-                    .map(move |pitch| pitch.as_inner(py))
-                    .collect(),
-                length: length.map(|beat| beat.0),
-                duration: duration.map(|duration| duration.inner),
-                state_member: state_member.map(Into::into),
-            })),
-            pitches,
-        }
+        let inner = Arc::new(Mutex::new(DawChord {
+            pitches: pitches
+                .iter()
+                .map(move |pitch| pitch.as_inner(py))
+                .collect(),
+            length: length.map(|beat| beat.0),
+            duration: duration.map(|duration| duration.inner),
+            state_member: state_member.map(Into::into),
+        }));
+        PyClassInitializer::from(Element {
+            inner: inner.clone(),
+        })
+        .add_subclass(Self { inner, pitches })
     }
     #[staticmethod]
     pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
         Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
-    }
-
-    #[pyo3(
-        signature = (
-            *,
-            offset=Beat(DawBeat::ZERO),
-            metronome=MaybeMetronome::default(),
-            pitch_standard=MaybePitchStandard::default(),
-        )
-    )]
-    pub fn tones(
-        &self,
-        offset: Beat,
-        metronome: MaybeMetronome,
-        pitch_standard: MaybePitchStandard,
-    ) -> Vec<Tone> {
-        let metronome = MaybeMetronome::from(metronome);
-        let pitch_standard = MaybePitchStandard::from(pitch_standard);
-        self.inner
-            .lock()
-            .expect("poisoned")
-            .tones(offset.0, &metronome, pitch_standard.deref())
-            .map(Tone)
-            .collect()
     }
 
     #[getter]
@@ -141,7 +119,7 @@ impl Chord {
         &self,
         py: Python<'_>,
         index: IndexOrSlice<'_>,
-    ) -> PyResult<ItemOrSequence<NotePitch, Self>> {
+    ) -> PyResult<ItemOrSequence<NotePitch, Py<Self>>> {
         index.get(&self.pitches)?.map_sequence(move |pitches| {
             let inner_pitches = pitches
                 .iter()
@@ -154,7 +132,13 @@ impl Chord {
                 state_member: lock.state_member,
                 pitches: inner_pitches,
             }));
-            Ok(Self { inner, pitches })
+            Py::new(
+                py,
+                PyClassInitializer::from(Element {
+                    inner: inner.clone(),
+                })
+                .add_subclass(Self { inner, pitches }),
+            )
         })
     }
     pub fn __setitem__(
