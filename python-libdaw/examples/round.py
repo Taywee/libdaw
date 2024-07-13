@@ -8,7 +8,7 @@ from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Triangle
-from libdaw.notation import Overlapped, Rest, Sequence, loads
+from libdaw.notation import Item, Overlapped, Rest, Sequence
 from libdaw.time import Time
 
 #import copy
@@ -16,7 +16,7 @@ from libdaw.time import Time
 if TYPE_CHECKING:
     pass
 
-sequence = loads('''+(
+sequence = Item.loads('''+(
 @(ab4 bb c db eb f g)
 1,1 1 1 2 1 1 5,2
 6,1 5 6 7 1,2 1
@@ -26,7 +26,7 @@ sequence = loads('''+(
 6,1 5 6 7 1,2 1
 5,1 5 6 7 1 1 2,2
 5,1 4 3 2 1,2 4 1,4
-)''')
+)''').value
 
 assert isinstance(sequence, Sequence)
 
@@ -35,9 +35,9 @@ overlapped = Overlapped()
 for offset in range(4):
     inner = Sequence(items=[
         Rest(length=Beat(offset * 8)),
-        sequence
+        sequence,
     ])
-    overlapped.append(inner)
+    overlapped.append(Item(inner))
     
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))

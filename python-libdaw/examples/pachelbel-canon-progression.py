@@ -23,8 +23,6 @@ for progression_chord in [1, 5, 6, 3, 4, 1, 4, 5]:
     sequence.append(Mode(progression_chord))
     sequence.append(chord)
 
-assert isinstance(sequence, Sequence)
-    
 metronome = Metronome()
 metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(60)))
 

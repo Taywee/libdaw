@@ -8,7 +8,7 @@ from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Triangle
-from libdaw.notation import Sequence, loads
+from libdaw.notation import Sequence, Item
 from libdaw.time import Time
 
 #import copy
@@ -16,11 +16,11 @@ from libdaw.time import Time
 if TYPE_CHECKING:
     pass
 
-sequence = loads('''+(
+sequence = Item.loads('''+(
 @(c eb f f# g bb)
 1+,2 3 2 4,1 5 4 3 2 3 5
 1 2
-)''')
+)''').value
 assert isinstance(sequence, Sequence)
 
 metronome = Metronome()
