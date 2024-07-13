@@ -1,6 +1,6 @@
 mod parse;
 
-use super::{tone_generation_state::ToneGenerationState, Item, StateMember};
+use super::{tone_generation_state::ToneGenerationState, Item, ItemValue, StateMember};
 use crate::{
     metronome::{Beat, Metronome},
     nodes::instrument::Tone,
@@ -19,67 +19,43 @@ pub struct Overlapped {
     pub state_member: Option<StateMember>,
 }
 
-impl Overlapped {
-    pub(super) fn inner_tones<S>(
+impl ItemValue for Overlapped {
+    fn tones(
         &self,
         offset: Beat,
         metronome: &Metronome,
-        pitch_standard: &S,
-        mut state: ToneGenerationState,
-    ) -> impl Iterator<Item = Tone> + 'static
-    where
-        S: PitchStandard + ?Sized,
-    {
+        pitch_standard: &dyn PitchStandard,
+        state: &ToneGenerationState,
+    ) -> Box<dyn Iterator<Item = Tone> + 'static> {
+        let mut state = state.clone();
         let pitches: Vec<_> = self
             .items
             .iter()
             .flat_map(move |item| {
                 let item = item.lock().expect("poisoned");
-                let resolved = item.inner_tones(offset, metronome, pitch_standard, &state);
+                let resolved = item.tones(offset, metronome, pitch_standard, &state);
                 item.update_state(&mut state);
                 resolved
             })
             .collect();
-        pitches.into_iter()
+        Box::new(pitches.into_iter())
     }
-    pub fn tones<S>(
-        &self,
-        offset: Beat,
-        metronome: &Metronome,
-        pitch_standard: &S,
-    ) -> impl Iterator<Item = Tone> + 'static
-    where
-        S: PitchStandard + ?Sized,
-    {
-        self.inner_tones(offset, metronome, pitch_standard, Default::default())
-    }
-
-    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
+    fn length(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
-            .map(|item| item.lock().expect("poisoned").inner_length(state))
+            .map(|item| item.lock().expect("poisoned").length(state))
             .max()
             .unwrap_or(Beat::ZERO)
     }
 
-    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
+    fn duration(&self, state: &ToneGenerationState) -> Beat {
         self.items
             .iter()
-            .map(|item| item.lock().expect("poisoned").inner_duration(state))
+            .map(|item| item.lock().expect("poisoned").duration(state))
             .max()
             .unwrap_or(Beat::ZERO)
     }
-    pub fn length(&self) -> Beat {
-        self.inner_length(&Default::default())
-    }
-    pub fn duration(&self) -> Beat {
-        self.inner_duration(&Default::default())
-    }
-    pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::overlapped(input)
-    }
-
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+    fn update_state(&self, state: &mut ToneGenerationState) {
         match self.state_member {
             Some(StateMember::First) => {
                 if let Some(item) = self.items.get(0) {
@@ -93,6 +69,11 @@ impl Overlapped {
             }
             None => (),
         }
+    }
+}
+impl Overlapped {
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::overlapped(input)
     }
 }
 

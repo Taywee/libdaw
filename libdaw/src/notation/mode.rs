@@ -1,6 +1,6 @@
 mod parse;
 
-use super::tone_generation_state::ToneGenerationState;
+use super::{tone_generation_state::ToneGenerationState, ItemValue};
 use crate::parse::IResult;
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::str::FromStr;
@@ -10,15 +10,17 @@ pub struct Mode {
     pub mode: i64,
 }
 
-impl Mode {
-    pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::mode(input)
-    }
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
+impl ItemValue for Mode {
+    fn update_state(&self, state: &mut ToneGenerationState) {
         state.mode = self.mode;
     }
 }
 
+impl Mode {
+    pub fn parse(input: &str) -> IResult<&str, Self> {
+        parse::mode(input)
+    }
+}
 impl FromStr for Mode {
     type Err = String;
 

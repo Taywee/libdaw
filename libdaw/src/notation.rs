@@ -29,3 +29,4 @@ pub use sequence::Sequence;
 pub use set::Set;
 pub use state_member::StateMember;
 pub use step::Step;
+pub use tone_generation_state::ToneGenerationState;
