@@ -17,7 +17,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub trait ItemValue: fmt::Debug {
+pub trait ItemValue: fmt::Debug + Send {
     /// Resolve all the section's notes to playable instrument tones.
     fn tones(
         &self,
