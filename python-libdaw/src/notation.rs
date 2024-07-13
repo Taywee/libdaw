@@ -13,7 +13,7 @@ mod state_member;
 mod step;
 
 pub use chord::Chord;
-pub use item::{Item, ItemValue};
+pub use item::{Item, ItemOrValue};
 pub use mode::Mode;
 pub use note::{Note, NotePitch};
 pub use overlapped::Overlapped;
@@ -27,8 +27,7 @@ pub use step::Step;
 
 use crate::submodule;
 use pyo3::{
-    types::{PyModule, PyModuleMethods as _},
-    wrap_pyfunction, Bound, PyResult,
+    types::{PyModule, PyModuleMethods as _}, Bound, PyResult,
 };
 
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

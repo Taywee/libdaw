@@ -1,4 +1,4 @@
-use super::{Item, StateMember};
+use super::{Item, ItemOrValue, StateMember};
 use crate::{
     indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
     metronome::{Beat, MaybeMetronome},
@@ -27,7 +27,7 @@ impl Sequence {
             .items
             .iter()
             .cloned()
-            .map(move |item| Item::from_inner(py, item))
+            .map(move |item| Item::from_inner(py, item).unbind())
             .collect();
         Self { inner, items }
             .into_py(py)
@@ -41,17 +41,17 @@ impl Sequence {
 #[pymethods]
 impl Sequence {
     #[new]
-    pub fn new(items: Option<Vec<Bound<'_, Item>>>, state_member: Option<StateMember>) -> Self {
+    pub fn new(items: Option<Vec<ItemOrValue<'_>>>, state_member: Option<StateMember>) -> Self {
         let items = items.unwrap_or_default();
         Self {
             inner: Arc::new(Mutex::new(DawSequence {
                 items: items
                     .iter()
-                    .map(move |item| item.borrow().inner.clone())
+                    .map(move |item| item.0.borrow().inner.clone())
                     .collect(),
                 state_member: state_member.map(Into::into),
             })),
-            items: items.into_iter().map(Bound::unbind).collect(),
+            items: items.into_iter().map(|item| item.0.unbind()).collect(),
         }
     }
 
@@ -130,11 +130,10 @@ impl Sequence {
             Ok(Self { inner, items })
         })
     }
-    pub fn __setitem__(
+    pub fn __setitem__<'py>(
         &mut self,
-        py: Python<'_>,
-        index: IndexOrSlice<'_>,
-        value: ItemOrSequence<Py<Item>>,
+        index: IndexOrSlice<'py>,
+        value: ItemOrSequence<ItemOrValue<'py>>,
     ) -> PyResult<()> {
         let len = self.items.len();
         let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.items);
@@ -142,13 +141,13 @@ impl Sequence {
             value,
             &mut userdata,
             move |(lock, items), index, value| {
-                lock.items[index] = value.borrow(py).inner.clone();
-                items[index] = value;
+                lock.items[index] = value.0.borrow().inner.clone();
+                items[index] = value.0.unbind();
                 Ok(())
             },
             move |(lock, items), index, value| {
-                lock.items.insert(index, value.borrow(py).inner.clone());
-                items.insert(index, value);
+                lock.items.insert(index, value.0.borrow().inner.clone());
+                items.insert(index, value.0.unbind());
                 Ok(())
             },
             move |(lock, items), range| {
@@ -172,24 +171,24 @@ impl Sequence {
         SequenceIterator(self.items.clone().into_iter())
     }
 
-    pub fn append(&mut self, value: Bound<'_, Item>) -> PyResult<()> {
+    pub fn append(&mut self, value: ItemOrValue<'_>) -> PyResult<()> {
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .push(value.borrow().inner.clone());
-        self.items.push(value.unbind());
+            .push(value.0.borrow().inner.clone());
+        self.items.push(value.0.unbind());
         Ok(())
     }
 
-    pub fn insert(&mut self, index: InsertIndex, value: Bound<'_, Item>) -> PyResult<()> {
+    pub fn insert(&mut self, index: InsertIndex, value: ItemOrValue<'_>) -> PyResult<()> {
         let index = index.normalize(self.items.len())?;
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .insert(index, value.borrow().inner.clone());
-        self.items.insert(index, value.unbind());
+            .insert(index, value.0.borrow().inner.clone());
+        self.items.insert(index, value.0.unbind());
         Ok(())
     }
 
