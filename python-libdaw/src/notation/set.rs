@@ -31,6 +31,7 @@ impl Set {
 #[pymethods]
 impl Set {
     #[new]
+    #[pyo3(signature = (pitch=None, length=None, duration=None))]
     pub fn new(
         py: Python<'_>,
         pitch: Option<NotePitch>,

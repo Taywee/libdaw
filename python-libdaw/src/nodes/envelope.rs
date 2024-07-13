@@ -30,6 +30,7 @@ pub struct Point(pub envelope::Point);
 #[pymethods]
 impl Point {
     #[new]
+    #[pyo3(signature = (whence, volume, offset=None))]
     pub fn new(whence: f64, volume: f64, offset: Option<Offset>) -> Self {
         Point(envelope::Point {
             offset: offset.unwrap_or_default().0,

@@ -12,8 +12,11 @@ pub use node::Node;
 pub use sample::Sample;
 
 use pyo3::{
-    create_exception, exceptions::PyRuntimeError, pymodule, types::PyModule, wrap_pyfunction_bound,
-    Bound, PyErr, PyResult, Python,
+    create_exception,
+    exceptions::PyRuntimeError,
+    pymodule,
+    types::{PyModule, PyModuleMethods as _},
+    wrap_pyfunction_bound, Bound, PyErr, PyResult, Python,
 };
 
 create_exception!(libdaw, Error, PyRuntimeError);

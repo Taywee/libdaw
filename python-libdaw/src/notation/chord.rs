@@ -43,6 +43,7 @@ impl Chord {
 #[pymethods]
 impl Chord {
     #[new]
+    #[pyo3(signature = (pitches=None, length=None, duration=None, state_member=None))]
     pub fn new(
         py: Python<'_>,
         pitches: Option<Vec<NotePitch>>,
