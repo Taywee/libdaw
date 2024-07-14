@@ -1,13 +1,14 @@
 use crate::indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex};
 
-use super::NotePitch;
+use super::{Element, NotePitch};
 use libdaw::notation::Scale as DawScale;
 use pyo3::{
-    pyclass, pymethods, Bound, IntoPy as _, Py, PyResult, PyTraverseError, PyVisit, Python,
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError,
+    PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
 
-#[pyclass(module = "libdaw.notation", sequence)]
+#[pyclass(extends = Element, module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Scale {
     pub inner: Arc<Mutex<DawScale>>,
@@ -24,28 +25,32 @@ impl Scale {
             .cloned()
             .map(move |pitch| NotePitch::from_inner(py, pitch))
             .collect();
-        Self { inner, pitches }
-            .into_py(py)
-            .downcast_bound(py)
-            .unwrap()
-            .clone()
-            .unbind()
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self { inner, pitches }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
 #[pymethods]
 impl Scale {
     #[new]
-    pub fn new(py: Python<'_>, pitches: Vec<NotePitch>) -> crate::Result<Self> {
-        Ok(Self {
-            inner: Arc::new(Mutex::new(DawScale::new(
-                pitches
-                    .iter()
-                    .map(move |pitch| pitch.as_inner(py))
-                    .collect(),
-            )?)),
-            pitches,
+    pub fn new(py: Python<'_>, pitches: Vec<NotePitch>) -> crate::Result<PyClassInitializer<Self>> {
+        let inner = Arc::new(Mutex::new(DawScale::new(
+            pitches
+                .iter()
+                .map(move |pitch| pitch.as_inner(py))
+                .collect(),
+        )?));
+
+        Ok(PyClassInitializer::from(Element {
+            inner: inner.clone(),
         })
+        .add_subclass(Self { inner, pitches }))
     }
     #[staticmethod]
     pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {
@@ -66,7 +71,7 @@ impl Scale {
         &self,
         py: Python<'_>,
         index: IndexOrSlice<'_>,
-    ) -> PyResult<ItemOrSequence<NotePitch, Self>> {
+    ) -> PyResult<ItemOrSequence<NotePitch, Py<Self>>> {
         index.get(&self.pitches)?.map_sequence(move |pitches| {
             let inner_pitches = pitches
                 .iter()
@@ -75,7 +80,13 @@ impl Scale {
             let inner = Arc::new(Mutex::new(
                 DawScale::new(inner_pitches).map_err(|e| crate::Error::new_err(e.to_string()))?,
             ));
-            Ok(Self { inner, pitches })
+            Py::new(
+                py,
+                PyClassInitializer::from(Element {
+                    inner: inner.clone(),
+                })
+                .add_subclass(Self { inner, pitches }),
+            )
         })
     }
     pub fn __setitem__(

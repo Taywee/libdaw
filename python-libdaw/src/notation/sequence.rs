@@ -1,18 +1,17 @@
-use super::{Item, ItemOrValue, StateMember};
+use super::{Element, Item, ItemOrElement, StateMember};
 use crate::{
     indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
-    metronome::{Beat, MaybeMetronome},
-    nodes::instrument::Tone,
-    pitch::MaybePitchStandard,
 };
-use libdaw::{metronome::Beat as DawBeat, notation::Sequence as DawSequence};
-use pyo3::{pyclass, pymethods, Bound, IntoPy, Py, PyResult, PyTraverseError, PyVisit, Python};
+use libdaw::{notation::Sequence as DawSequence};
+use pyo3::{
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit,
+    Python,
+};
 use std::{
-    ops::Deref,
     sync::{Arc, Mutex},
 };
 
-#[pyclass(module = "libdaw.notation", sequence)]
+#[pyclass(extends = Element, module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]
 pub struct Sequence {
     pub inner: Arc<Mutex<DawSequence>>,
@@ -29,12 +28,14 @@ impl Sequence {
             .cloned()
             .map(move |item| Item::from_inner(py, item).unbind())
             .collect();
-        Self { inner, items }
-            .into_py(py)
-            .downcast_bound(py)
-            .unwrap()
-            .clone()
-            .unbind()
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self { inner, items }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
@@ -42,18 +43,25 @@ impl Sequence {
 impl Sequence {
     #[new]
     #[pyo3(signature = (items=None, state_member=None))]
-    pub fn new(items: Option<Vec<ItemOrValue<'_>>>, state_member: Option<StateMember>) -> Self {
+    pub fn new(
+        items: Option<Vec<ItemOrElement<'_>>>,
+        state_member: Option<StateMember>,
+    ) -> PyClassInitializer<Self> {
         let items = items.unwrap_or_default();
-        Self {
-            inner: Arc::new(Mutex::new(DawSequence {
-                items: items
-                    .iter()
-                    .map(move |item| item.0.borrow().inner.clone())
-                    .collect(),
-                state_member: state_member.map(Into::into),
-            })),
-            items: items.into_iter().map(|item| item.0.unbind()).collect(),
-        }
+        let inner = Arc::new(Mutex::new(DawSequence {
+            items: items
+                .iter()
+                .map(move |item| item.item.borrow().inner.clone())
+                .collect(),
+            state_member: state_member.map(Into::into),
+        }));
+        PyClassInitializer::from(Element {
+            inner: inner.clone(),
+        })
+        .add_subclass(Self {
+            inner,
+            items: items.into_iter().map(|item| item.item.unbind()).collect(),
+        })
     }
 
     #[staticmethod]
@@ -61,27 +69,6 @@ impl Sequence {
         Ok(Self::from_inner(py, Arc::new(Mutex::new(source.parse()?))))
     }
 
-    #[pyo3(
-        signature = (
-            *,
-            offset=Beat(DawBeat::ZERO),
-            metronome=MaybeMetronome::default(),
-            pitch_standard=MaybePitchStandard::default(),
-        )
-    )]
-    pub fn tones(
-        &self,
-        offset: Beat,
-        metronome: MaybeMetronome,
-        pitch_standard: MaybePitchStandard,
-    ) -> Vec<Tone> {
-        self.inner
-            .lock()
-            .expect("poisoned")
-            .tones(offset.0, &metronome, pitch_standard.deref())
-            .map(Tone)
-            .collect()
-    }
     #[getter]
     pub fn get_state_member(&self) -> Option<StateMember> {
         self.inner
@@ -93,14 +80,6 @@ impl Sequence {
     #[setter]
     pub fn set_state_member(&mut self, value: Option<StateMember>) {
         self.inner.lock().expect("poisoned").state_member = value.map(Into::into);
-    }
-
-    pub fn length(&self) -> Beat {
-        Beat(self.inner.lock().expect("poisoned").length())
-    }
-
-    pub fn duration(&self) -> Beat {
-        Beat(self.inner.lock().expect("poisoned").duration())
     }
 
     pub fn __len__(&self) -> usize {
@@ -117,7 +96,7 @@ impl Sequence {
         &self,
         py: Python<'_>,
         index: IndexOrSlice<'_>,
-    ) -> PyResult<ItemOrSequence<Py<Item>, Self>> {
+    ) -> PyResult<ItemOrSequence<Py<Item>, Py<Self>>> {
         index.get(&self.items)?.map_sequence(move |items| {
             let inner_items = items
                 .iter()
@@ -128,13 +107,19 @@ impl Sequence {
                 state_member: lock.state_member,
                 items: inner_items,
             }));
-            Ok(Self { inner, items })
+            Py::new(
+                py,
+                PyClassInitializer::from(Element {
+                    inner: inner.clone(),
+                })
+                .add_subclass(Self { inner, items }),
+            )
         })
     }
     pub fn __setitem__<'py>(
         &mut self,
         index: IndexOrSlice<'py>,
-        value: ItemOrSequence<ItemOrValue<'py>>,
+        value: ItemOrSequence<ItemOrElement<'py>>,
     ) -> PyResult<()> {
         let len = self.items.len();
         let mut userdata = (self.inner.lock().expect("poisoned"), &mut self.items);
@@ -142,13 +127,13 @@ impl Sequence {
             value,
             &mut userdata,
             move |(lock, items), index, value| {
-                lock.items[index] = value.0.borrow().inner.clone();
-                items[index] = value.0.unbind();
+                lock.items[index] = value.item.borrow().inner.clone();
+                items[index] = value.item.unbind();
                 Ok(())
             },
             move |(lock, items), index, value| {
-                lock.items.insert(index, value.0.borrow().inner.clone());
-                items.insert(index, value.0.unbind());
+                lock.items.insert(index, value.item.borrow().inner.clone());
+                items.insert(index, value.item.unbind());
                 Ok(())
             },
             move |(lock, items), range| {
@@ -172,24 +157,24 @@ impl Sequence {
         SequenceIterator(self.items.clone().into_iter())
     }
 
-    pub fn append(&mut self, value: ItemOrValue<'_>) -> PyResult<()> {
+    pub fn append(&mut self, value: ItemOrElement<'_>) -> PyResult<()> {
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .push(value.0.borrow().inner.clone());
-        self.items.push(value.0.unbind());
+            .push(value.item.borrow().inner.clone());
+        self.items.push(value.item.unbind());
         Ok(())
     }
 
-    pub fn insert(&mut self, index: InsertIndex, value: ItemOrValue<'_>) -> PyResult<()> {
+    pub fn insert(&mut self, index: InsertIndex, value: ItemOrElement<'_>) -> PyResult<()> {
         let index = index.normalize(self.items.len())?;
         self.inner
             .lock()
             .expect("poisoned")
             .items
-            .insert(index, value.0.borrow().inner.clone());
-        self.items.insert(index, value.0.unbind());
+            .insert(index, value.item.borrow().inner.clone());
+        self.items.insert(index, value.item.unbind());
         Ok(())
     }
 

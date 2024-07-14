@@ -1,10 +1,12 @@
-use super::{duration::Duration, NotePitch};
+use super::{duration::Duration, Element, NotePitch};
 use crate::metronome::Beat;
 use libdaw::notation::Set as DawSet;
-use pyo3::{pyclass, pymethods, IntoPy as _, Py, PyTraverseError, PyVisit, Python};
+use pyo3::{
+    pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python,
+};
 use std::sync::{Arc, Mutex};
 
-#[pyclass(module = "libdaw.notation")]
+#[pyclass(extends = Element, module = "libdaw.notation")]
 #[derive(Debug, Clone)]
 pub struct Set {
     pub inner: Arc<Mutex<DawSet>>,
@@ -19,12 +21,15 @@ impl Set {
             .pitch
             .as_ref()
             .map(|pitch| NotePitch::from_inner(py, pitch.clone()));
-        Self { inner, pitch }
-            .into_py(py)
-            .downcast_bound(py)
-            .unwrap()
-            .clone()
-            .unbind()
+
+        Py::new(
+            py,
+            PyClassInitializer::from(Element {
+                inner: inner.clone(),
+            })
+            .add_subclass(Self { inner, pitch }),
+        )
+        .expect("Could not construct Py")
     }
 }
 
@@ -37,15 +42,16 @@ impl Set {
         pitch: Option<NotePitch>,
         length: Option<Beat>,
         duration: Option<Duration>,
-    ) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(DawSet {
-                pitch: pitch.as_ref().map(move |pitch| pitch.as_inner(py)),
-                length: length.map(|beat| beat.0),
-                duration: duration.map(|duration| duration.inner),
-            })),
-            pitch,
-        }
+    ) -> PyClassInitializer<Self> {
+        let inner = Arc::new(Mutex::new(DawSet {
+            pitch: pitch.as_ref().map(move |pitch| pitch.as_inner(py)),
+            length: length.map(|beat| beat.0),
+            duration: duration.map(|duration| duration.inner),
+        }));
+        PyClassInitializer::from(Element {
+            inner: inner.clone(),
+        })
+        .add_subclass(Self { inner, pitch })
     }
     #[staticmethod]
     pub fn loads(py: Python<'_>, source: String) -> crate::Result<Py<Self>> {

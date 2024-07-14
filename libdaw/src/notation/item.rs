@@ -1,8 +1,8 @@
 mod parse;
 
 use super::{
-    tone_generation_state::ToneGenerationState, Chord, Mode, Note, Overlapped, Rest, Scale,
-    Sequence, Set,
+    tone_generation_state::ToneGenerationState, Chord, Element, Mode, Note, Overlapped, Rest,
+    Scale, Sequence, Set,
 };
 use crate::{
     metronome::{Beat, Metronome},
@@ -18,9 +18,12 @@ use std::{
 };
 
 /// A container type for the things inside an Item, allowing in-place
-/// modification of an Item's value.
+/// modification of an Item's value.  We can't use an Arc<Mutex<dyn Element>>
+/// directly, otherwise after parsing an Item, we won't be able to find what the
+/// actual type is (unless we do something like use Any, but then we still can't
+/// get an Arc<Mutex<Note>> from Arc<Mutex<dyn Element>> anyway)).
 #[derive(Clone)]
-pub enum ItemValue {
+pub enum ItemElement {
     Note(Arc<Mutex<Note>>),
     Chord(Arc<Mutex<Chord>>),
     Rest(Arc<Mutex<Rest>>),
@@ -31,142 +34,72 @@ pub enum ItemValue {
     Set(Arc<Mutex<Set>>),
 }
 
-impl fmt::Debug for ItemValue {
+impl fmt::Debug for ItemElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ItemValue::Note(note) => fmt::Debug::fmt(&note.lock().expect("poisoned"), f),
-            ItemValue::Chord(chord) => fmt::Debug::fmt(&chord.lock().expect("poisoned"), f),
-            ItemValue::Rest(rest) => fmt::Debug::fmt(&rest.lock().expect("poisoned"), f),
-            ItemValue::Overlapped(overlapped) => {
+            ItemElement::Note(note) => fmt::Debug::fmt(&note.lock().expect("poisoned"), f),
+            ItemElement::Chord(chord) => fmt::Debug::fmt(&chord.lock().expect("poisoned"), f),
+            ItemElement::Rest(rest) => fmt::Debug::fmt(&rest.lock().expect("poisoned"), f),
+            ItemElement::Overlapped(overlapped) => {
                 fmt::Debug::fmt(&overlapped.lock().expect("poisoned"), f)
             }
-            ItemValue::Sequence(sequence) => {
+            ItemElement::Sequence(sequence) => {
                 fmt::Debug::fmt(&sequence.lock().expect("poisoned"), f)
             }
-            ItemValue::Scale(scale) => fmt::Debug::fmt(&scale.lock().expect("poisoned"), f),
-            ItemValue::Mode(mode) => fmt::Debug::fmt(&mode.lock().expect("poisoned"), f),
-            ItemValue::Set(set) => fmt::Debug::fmt(&set.lock().expect("poisoned"), f),
+            ItemElement::Scale(scale) => fmt::Debug::fmt(&scale.lock().expect("poisoned"), f),
+            ItemElement::Mode(mode) => fmt::Debug::fmt(&mode.lock().expect("poisoned"), f),
+            ItemElement::Set(set) => fmt::Debug::fmt(&set.lock().expect("poisoned"), f),
         }
     }
 }
 
-impl ItemValue {
+impl Element for ItemElement {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
-    pub(super) fn inner_tones<S>(
+    fn tones(
         &self,
         offset: Beat,
         metronome: &Metronome,
-        pitch_standard: &S,
+        pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
-    ) -> Box<dyn Iterator<Item = Tone> + 'static>
-    where
-        S: PitchStandard + ?Sized,
-    {
-        match self {
-            ItemValue::Note(note) => Box::new(std::iter::once(
-                note.lock()
-                    .expect("poisoned")
-                    .inner_tone(offset, metronome, pitch_standard, state),
-            )),
-            ItemValue::Chord(chord) => Box::new(chord.lock().expect("poisoned").inner_tones(
-                offset,
-                metronome,
-                pitch_standard,
-                state,
-            )),
-            ItemValue::Overlapped(overlapped) => {
-                Box::new(overlapped.lock().expect("poisoned").inner_tones(
-                    offset,
-                    metronome,
-                    pitch_standard,
-                    state.clone(),
-                ))
-            }
-            ItemValue::Sequence(sequence) => {
-                Box::new(sequence.lock().expect("poisoned").inner_tones(
-                    offset,
-                    metronome,
-                    pitch_standard,
-                    state.clone(),
-                ))
-            }
-            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Rest(_) | ItemValue::Set(_) => {
-                Box::new(std::iter::empty())
-            }
-        }
-    }
-    pub fn tones<S>(
-        &self,
-        offset: Beat,
-        metronome: &Metronome,
-        pitch_standard: &S,
-    ) -> Box<dyn Iterator<Item = Tone> + 'static>
-    where
-        S: PitchStandard + ?Sized,
-    {
-        self.inner_tones(offset, metronome, pitch_standard, &Default::default())
+    ) -> Box<dyn Iterator<Item = Tone> + 'static> {
+        self.as_dyn()
+            .lock()
+            .expect("poisoned")
+            .tones(offset, metronome, pitch_standard, state)
     }
 
-    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
-        match self {
-            ItemValue::Note(note) => note.lock().expect("poisoned").inner_length(state),
-            ItemValue::Chord(chord) => chord.lock().expect("poisoned").inner_length(state),
-            ItemValue::Rest(rest) => rest.lock().expect("poisoned").inner_length(state),
-            ItemValue::Overlapped(overlapped) => {
-                overlapped.lock().expect("poisoned").inner_length(state)
-            }
-            ItemValue::Sequence(sequence) => sequence
-                .lock()
-                .expect("poisoned")
-                .inner_length(state.clone()),
-            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Set(_) => Beat::ZERO,
-        }
+    fn length(&self, state: &ToneGenerationState) -> Beat {
+        self.as_dyn().lock().expect("poisoned").length(state)
     }
 
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        match self {
-            ItemValue::Note(note) => note.lock().expect("poisoned").update_state(state),
-            ItemValue::Chord(chord) => chord.lock().expect("poisoned").update_state(state),
-            ItemValue::Rest(rest) => rest.lock().expect("poisoned").update_state(state),
-            ItemValue::Scale(scale) => scale.lock().expect("poisoned").update_state(state),
-            ItemValue::Mode(mode) => mode.lock().expect("poisoned").update_state(state),
-            ItemValue::Set(set) => set.lock().expect("poisoned").update_state(state),
-            ItemValue::Sequence(sequence) => sequence.lock().expect("poisoned").update_state(state),
-            ItemValue::Overlapped(overlapped) => {
-                overlapped.lock().expect("poisoned").update_state(state)
-            }
-        }
+    fn update_state(&self, state: &mut ToneGenerationState) {
+        self.as_dyn().lock().expect("poisoned").update_state(state)
     }
 
-    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
-        match self {
-            ItemValue::Note(note) => note.lock().expect("poisoned").inner_duration(state),
-            ItemValue::Chord(chord) => chord.lock().expect("poisoned").inner_duration(state),
-            ItemValue::Rest(rest) => rest.lock().expect("poisoned").duration(),
-            ItemValue::Overlapped(overlapped) => {
-                overlapped.lock().expect("poisoned").inner_duration(state)
-            }
-            ItemValue::Sequence(sequence) => sequence
-                .lock()
-                .expect("poisoned")
-                .inner_duration(state.clone()),
-            ItemValue::Scale(_) | ItemValue::Mode(_) | ItemValue::Set(_) => Beat::ZERO,
-        }
+    fn duration(&self, state: &ToneGenerationState) -> Beat {
+        self.as_dyn().lock().expect("poisoned").duration(state)
     }
-    pub fn length(&self) -> Beat {
-        self.inner_length(&Default::default())
-    }
-    pub fn duration(&self) -> Beat {
-        self.inner_duration(&Default::default())
-    }
-
+}
+impl ItemElement {
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        parse::item_value(input)
+        parse::item_element(input)
+    }
+    pub fn as_dyn(&self) -> Arc<Mutex<dyn Element>> {
+        match self.clone() {
+            ItemElement::Note(note) => return note,
+            ItemElement::Chord(chord) => return chord,
+            ItemElement::Rest(rest) => return rest,
+            ItemElement::Overlapped(overlapped) => return overlapped,
+            ItemElement::Sequence(sequence) => return sequence,
+            ItemElement::Scale(scale) => return scale,
+            ItemElement::Mode(mode) => return mode,
+            ItemElement::Set(set) => return set,
+        };
     }
 }
 
-impl FromStr for ItemValue {
+impl FromStr for ItemElement {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -180,53 +113,31 @@ impl FromStr for ItemValue {
 
 #[derive(Clone, Debug)]
 pub struct Item {
-    pub value: ItemValue,
+    pub element: ItemElement,
 }
 
 impl Item {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
-    pub(super) fn inner_tones<S>(
+    pub fn tones(
         &self,
         offset: Beat,
         metronome: &Metronome,
-        pitch_standard: &S,
+        pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
-    ) -> Box<dyn Iterator<Item = Tone> + 'static>
-    where
-        S: PitchStandard + ?Sized,
-    {
-        self.value
-            .inner_tones(offset, metronome, pitch_standard, state)
+    ) -> Box<dyn Iterator<Item = Tone> + 'static> {
+        self.element.tones(offset, metronome, pitch_standard, state)
     }
-    pub fn tones<S>(
-        &self,
-        offset: Beat,
-        metronome: &Metronome,
-        pitch_standard: &S,
-    ) -> Box<dyn Iterator<Item = Tone> + 'static>
-    where
-        S: PitchStandard + ?Sized,
-    {
-        self.value.tones(offset, metronome, pitch_standard)
+    pub fn length(&self, state: &ToneGenerationState) -> Beat {
+        self.element.length(state)
     }
 
-    pub(super) fn inner_length(&self, state: &ToneGenerationState) -> Beat {
-        self.value.inner_length(state)
+    pub fn update_state(&self, state: &mut ToneGenerationState) {
+        self.element.update_state(state)
     }
 
-    pub(super) fn update_state(&self, state: &mut ToneGenerationState) {
-        self.value.update_state(state)
-    }
-
-    pub(super) fn inner_duration(&self, state: &ToneGenerationState) -> Beat {
-        self.value.inner_duration(state)
-    }
-    pub fn length(&self) -> Beat {
-        self.inner_length(&Default::default())
-    }
-    pub fn duration(&self) -> Beat {
-        self.inner_duration(&Default::default())
+    pub fn duration(&self, state: &ToneGenerationState) -> Beat {
+        self.element.duration(state)
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
