@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 use super::Element;
 use libdaw::notation::Item as DawItem;
@@ -34,10 +37,12 @@ impl Item {
 #[pymethods]
 impl Item {
     #[new]
-    pub fn new(element: &Bound<'_, Element>) -> Self {
+    #[pyo3(signature = (element, tags = Default::default()))]
+    pub fn new(element: &Bound<'_, Element>, tags: HashSet<String>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(DawItem {
                 element: Element::as_inner(element),
+                tags,
             })),
             element: Some(element.clone().unbind()),
         }
@@ -51,6 +56,10 @@ impl Item {
         self.inner.lock().expect("poisoned").element = Element::as_inner(&element);
         self.element = Some(element.unbind());
     }
+    #[getter]
+    pub fn get_tags(&self) -> HashSet<String> {
+        self.inner.lock().expect("poisoned").tags.clone()
+    }
     #[staticmethod]
     pub fn loads<'py>(py: Python<'py>, source: &str) -> crate::Result<Bound<'py, Self>> {
         let item: DawItem = source.parse()?;
@@ -62,8 +71,8 @@ impl Item {
     pub fn __str__(&self) -> String {
         format!("{:#?}", self.inner.lock().expect("poisoned"))
     }
-    pub fn __getnewargs__(&self) -> (Py<Element>,) {
-        (self.element.clone().expect("cleared"),)
+    pub fn __getnewargs__(&self) -> (Py<Element>, HashSet<String>) {
+        (self.element.clone().expect("cleared"), self.get_tags())
     }
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         if let Some(element) = &self.element {
@@ -89,8 +98,8 @@ impl<'py> FromPyObject<'py> for ItemOrElement<'py> {
         Ok(if let Ok(item) = element.downcast::<Item>() {
             Self { item: item.clone() }
         } else if let Ok(element) = element.downcast::<Element>() {
-            let item =
-                Bound::new(py, Item::new(element)).expect("Could not build Item from element");
+            let item = Bound::new(py, Item::new(element, Default::default()))
+                .expect("Could not build Item from element");
             Self { item }
         } else {
             let type_ = element.get_type();

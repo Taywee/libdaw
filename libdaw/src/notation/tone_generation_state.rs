@@ -3,7 +3,10 @@ use crate::{
     metronome::Beat,
     pitch::{Pitch, PitchClass, PitchName},
 };
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 /// A running state that is used to manage context-aware bits of tone
 /// generatian.
@@ -32,6 +35,9 @@ pub struct ToneGenerationState {
 
     /// Previous used scale octave.
     pub scale_octave: i8,
+
+    /// Tags for tagging items, which are carried during processing into the items.
+    pub tags: HashSet<String>,
 }
 
 impl Default for ToneGenerationState {
@@ -68,6 +74,7 @@ impl Default for ToneGenerationState {
             mode: 1,
             normalized_step: 1,
             scale_octave: 0,
+            tags: Default::default(),
         }
     }
 }

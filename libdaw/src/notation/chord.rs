@@ -51,6 +51,7 @@ impl Element for Chord {
                     start,
                     length,
                     frequency,
+                    tags: state.tags.clone(),
                 }
             })
             .collect();

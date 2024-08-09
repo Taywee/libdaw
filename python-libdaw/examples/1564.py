@@ -57,7 +57,7 @@ sequence = Item.loads('''+(
         +(1,0.5 3 5 3 1+ 5 3 5)
         =(1- 3 5),4
     )
-)''').value
+)''').element
 
 assert isinstance(sequence, Sequence)
     

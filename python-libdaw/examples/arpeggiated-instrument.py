@@ -3,32 +3,35 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from libdaw import Node, play
-from libdaw.metronome import Metronome, TempoInstruction, Beat, BeatsPerMinute
 from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
-from libdaw.nodes.oscillators import Square
-from libdaw.notation import Sequence, Item
-from libdaw.pitch import ScientificPitch
+from libdaw.nodes.oscillators import Triangle
+from libdaw.notation import Item, Sequence
 from libdaw.time import Time
+
+#import copy
 
 if TYPE_CHECKING:
     pass
 
 sequence = Item.loads('''+(
-  c d e f g a b c
+1 1 1 1 <arpeggio(1/8)>=(1 3 5),4 1,1 1 1 1 <arpeggio(1/8)>=(1 2),4
 )''').element
+
 assert isinstance(sequence, Sequence)
 
-metronome = Metronome()
-metronome.add_tempo_instruction(TempoInstruction(beat=Beat(0), tempo=BeatsPerMinute(200)))
-metronome.add_tempo_instruction(TempoInstruction(beat=Beat(8), tempo=BeatsPerMinute(100)))
-pitch_standard = ScientificPitch()
+def arpeggio(speed: float) -> float:
+    return speed
 
 def factory(tone: Tone) -> Node:
-    oscillator = Square()
+    arpeggio_speed = None
+    for tag in tone.tags:
+        arpeggio_speed = eval(tag)
+    print(arpeggio_speed)
+    graph = Graph()
     envelope = Envelope(
-        length = tone.length,
+        length=tone.length,
         envelope=(
             # start
             Point(whence=0, volume=0),
@@ -42,20 +45,23 @@ def factory(tone: Tone) -> Node:
             Point(whence=1, volume=0),
         ),
     )
-    graph = Graph()
-    graph.connect(oscillator, envelope)
-    graph.input(oscillator)
+    triangle = Triangle()
+    graph.connect(triangle, envelope)
+    graph.input(triangle)
     graph.output(envelope)
     return graph
-instrument = Instrument(factory)
 
-for tone in sequence.tones(metronome=metronome, pitch_standard=pitch_standard):
+instrument = Instrument(factory)
+for tone in sequence.tones():
   instrument.add_tone(tone)
 
 graph = Graph()
-gain = Gain(0.2)
+gain = Gain(0.25)
 graph.connect(instrument, gain)
 graph.output(gain)
 
-play(graph)
+try:
+    play(graph)
+except KeyboardInterrupt:
+    pass
 

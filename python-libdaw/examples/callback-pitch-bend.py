@@ -26,7 +26,7 @@ e d# e b d c
 a,3 c-,1 e a
 b,3 e-,1 c+ b
 a,6
-)''').value
+)''').element
 
 assert isinstance(sequence, Sequence)
 

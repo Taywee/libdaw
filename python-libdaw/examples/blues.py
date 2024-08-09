@@ -20,7 +20,7 @@ sequence = Item.loads('''+(
 @(c eb f f# g bb)
 1+,2 3 2 4,1 5 4 3 2 3 5
 1 2
-)''').value
+)''').element
 assert isinstance(sequence, Sequence)
 
 metronome = Metronome()

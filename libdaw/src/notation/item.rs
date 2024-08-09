@@ -12,6 +12,7 @@ use crate::{
 };
 use nom::{combinator::all_consuming, error::convert_error, Finish as _};
 use std::{
+    collections::HashSet,
     fmt,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -113,6 +114,7 @@ impl FromStr for ItemElement {
 #[derive(Clone, Debug)]
 pub struct Item {
     pub element: ItemElement,
+    pub tags: HashSet<String>,
 }
 
 impl Element for Item {
@@ -124,7 +126,9 @@ impl Element for Item {
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
-        self.element.tones(metronome, pitch_standard, state)
+        let mut state = state.clone();
+        state.tags.extend(self.tags.iter().cloned());
+        self.element.tones(metronome, pitch_standard, &state)
     }
     fn length(&self, state: &ToneGenerationState) -> Beat {
         self.element.length(state)

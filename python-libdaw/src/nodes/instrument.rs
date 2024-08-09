@@ -9,20 +9,25 @@ use pyo3::{
     types::{PyAny, PyAnyMethods as _, PyModule, PyModuleMethods as _},
     Bound, PyClassInitializer, PyObject, PyResult, PyTraverseError, PyVisit, Python,
 };
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 #[pyclass(module = "libdaw.nodes.instrument")]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Tone(pub instrument::Tone);
 
 #[pymethods]
 impl Tone {
     #[new]
-    pub fn new(start: Timestamp, length: Duration, frequency: f64) -> Self {
+    #[pyo3(signature = (start, length, frequency, tags = Default::default()))]
+    pub fn new(start: Timestamp, length: Duration, frequency: f64, tags: HashSet<String>) -> Self {
         Tone(instrument::Tone {
             start: start.0,
             length: length.0,
             frequency,
+            tags,
         })
     }
 
@@ -41,6 +46,10 @@ impl Tone {
     #[getter]
     fn get_frequency(&self) -> f64 {
         self.0.frequency
+    }
+    #[getter]
+    fn get_tags(&self) -> HashSet<String> {
+        self.0.tags.clone()
     }
 }
 

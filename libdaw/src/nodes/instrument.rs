@@ -5,7 +5,7 @@ use crate::{
 };
 use std::{
     cmp::Reverse,
-    collections::BinaryHeap,
+    collections::{BinaryHeap, HashSet},
     fmt,
     sync::{Arc, Mutex},
 };
@@ -13,14 +13,15 @@ use std::{
 /// A single tone definition.  Defined by frequency, not note name, to not tie
 /// it to any particular tuning or scale.
 /// Detuning and pitch bend should be done to the underlying frequency node.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Tone {
     pub start: Timestamp,
     pub length: Duration,
     pub frequency: f64,
+    pub tags: HashSet<String>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct QueuedTone {
     start_sample: u64,
     end_sample: u64,

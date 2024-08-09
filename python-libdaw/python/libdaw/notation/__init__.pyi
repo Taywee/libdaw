@@ -94,6 +94,9 @@ class Item:
     @element.setter
     def element(self, value: Element) -> None: ...
 
+    @property
+    def tags(self) -> set[str]: ...
+
     @staticmethod
     def loads(source: str) -> Item: ...
 

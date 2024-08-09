@@ -1,6 +1,14 @@
 use super::{Chord, Item, ItemElement, Mode, Note, Overlapped, Rest, Scale, Sequence, Set};
 use crate::parse::IResult;
-use nom::{branch::alt, combinator::map, error::context};
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_until},
+    character::complete::{char, multispace0, multispace1},
+    combinator::{cut, map},
+    error::context,
+    multi::{many0, separated_list0},
+    sequence::preceded,
+};
 use std::sync::{Arc, Mutex};
 
 pub fn item_element(input: &str) -> IResult<&str, ItemElement> {
@@ -33,7 +41,22 @@ pub fn item_element(input: &str) -> IResult<&str, ItemElement> {
     ))(input)
 }
 
+pub fn item_tag(input: &str) -> IResult<&str, String> {
+    let (input, _) = char('<')(input)?;
+    let (input, tag) = cut(take_until(">"))(input)?;
+    let (input, _) = cut(char('>'))(input)?;
+    Ok((input, tag.into()))
+}
+
 pub fn item(input: &str) -> IResult<&str, Item> {
+    let (input, tags) = cut(many0(preceded(multispace0, item_tag)))(input)?;
+    let (input, _) = multispace0(input)?;
     let (input, element) = item_element(input)?;
-    Ok((input, Item { element }))
+    Ok((
+        input,
+        Item {
+            element,
+            tags: tags.into_iter().collect(),
+        },
+    ))
 }

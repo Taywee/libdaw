@@ -40,6 +40,7 @@ impl Element for Note {
             start,
             length,
             frequency,
+            tags: state.tags.clone(),
         }))
     }
 
