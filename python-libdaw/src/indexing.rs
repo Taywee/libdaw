@@ -3,7 +3,7 @@ use pyo3::{
     types::{PyAnyMethods as _, PySlice, PySliceIndices, PySliceMethods as _, PyTypeMethods as _},
     Bound, FromPyObject, IntoPy, Py, PyAny, PyResult, Python,
 };
-use std::{ops::Range};
+use std::ops::Range;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Index {

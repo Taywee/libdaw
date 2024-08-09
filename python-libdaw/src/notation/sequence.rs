@@ -1,15 +1,10 @@
 use super::{Element, Item, ItemOrElement, StateMember};
-use crate::{
-    indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
-};
-use libdaw::{notation::Sequence as DawSequence};
+use crate::indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex};
+use libdaw::notation::Sequence as DawSequence;
 use pyo3::{
-    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit,
-    Python,
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit, Python,
 };
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Element, module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]

@@ -1,16 +1,13 @@
 use super::{duration::Duration, Element, NotePitch, StateMember};
 use crate::{
     indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex},
-    metronome::{Beat},
+    metronome::Beat,
 };
-use libdaw::{notation::Chord as DawChord};
+use libdaw::notation::Chord as DawChord;
 use pyo3::{
-    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError,
-    PyVisit, Python,
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit, Python,
 };
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Element, module = "libdaw.notation", sequence)]
 #[derive(Debug, Clone)]

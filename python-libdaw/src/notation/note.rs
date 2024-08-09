@@ -3,13 +3,9 @@ mod note_pitch;
 pub use note_pitch::NotePitch;
 
 use super::{duration::Duration, Element};
-use crate::{
-    metronome::{Beat},
-};
-use libdaw::{notation::Note as DawNote};
-use pyo3::{
-    pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python,
-};
+use crate::metronome::Beat;
+use libdaw::notation::Note as DawNote;
+use pyo3::{pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},

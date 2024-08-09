@@ -18,9 +18,7 @@ use crate::{
     nodes::instrument::Tone,
     pitch::PitchStandard,
 };
-use std::{
-    fmt,
-};
+use std::fmt;
 
 pub use chord::Chord;
 pub use duration::Duration;

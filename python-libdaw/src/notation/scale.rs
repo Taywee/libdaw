@@ -3,8 +3,7 @@ use crate::indexing::{IndexOrSlice, InsertIndex, ItemOrSequence, PopIndex};
 use super::{Element, NotePitch};
 use libdaw::notation::Scale as DawScale;
 use pyo3::{
-    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError,
-    PyVisit, Python,
+    pyclass, pymethods, Bound, Py, PyClassInitializer, PyResult, PyTraverseError, PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
 

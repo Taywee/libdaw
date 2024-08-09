@@ -1,9 +1,7 @@
 use super::{duration::Duration, Element, NotePitch};
 use crate::metronome::Beat;
 use libdaw::notation::Set as DawSet;
-use pyo3::{
-    pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python,
-};
+use pyo3::{pyclass, pymethods, Py, PyClassInitializer, PyTraverseError, PyVisit, Python};
 use std::sync::{Arc, Mutex};
 
 #[pyclass(extends = Element, module = "libdaw.notation")]
@@ -106,7 +104,7 @@ impl Set {
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        for pitch in &self.pitch {
+        if let Some(pitch) = &self.pitch {
             visit.call(pitch)?
         }
         Ok(())
