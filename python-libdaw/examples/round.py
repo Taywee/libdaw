@@ -26,7 +26,7 @@ sequence = Item.loads('''+(
 6,1 5 6 7 1,2 1
 5,1 5 6 7 1 1 2,2
 5,1 4 3 2 1,2 4 1,4
-)''').value
+)''').element
 
 assert isinstance(sequence, Sequence)
 
@@ -74,5 +74,8 @@ gain = Gain(0.25)
 graph.connect(instrument, gain)
 graph.output(gain)
 
-play(graph)
+try:
+    play(graph)
+except KeyboardInterrupt:
+    pass
 

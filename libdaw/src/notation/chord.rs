@@ -33,14 +33,13 @@ impl Element for Chord {
     /// The offset is the beat offset.
     fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
-        let start = metronome.beat_to_time(offset);
+        let start = metronome.beat_to_time(state.offset);
         let duration = self.duration(state);
-        let end_beat = offset + duration;
+        let end_beat = state.offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
         let pitches: Vec<_> = self
@@ -81,6 +80,7 @@ impl Element for Chord {
         if let Some(duration) = self.duration {
             state.duration = duration;
         }
+        state.offset += state.length;
     }
 }
 impl Chord {

@@ -17,6 +17,7 @@ impl Element for Rest {
     }
     fn update_state(&self, state: &mut ToneGenerationState) {
         state.length = self.length(state);
+        state.offset += state.length;
     }
 }
 

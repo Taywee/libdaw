@@ -35,20 +35,17 @@ impl FromStr for Sequence {
 impl Element for Sequence {
     fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
         let mut state = state.clone();
-        let mut start = offset;
         let tones: Vec<_> = self
             .items
             .iter()
             .flat_map(move |item| {
                 let item = item.lock().expect("poisoned");
-                let resolved = item.tones(start, metronome, pitch_standard, &state);
-                start += item.length(&state);
+                let resolved = item.tones(metronome, pitch_standard, &state);
                 item.update_state(&mut state);
                 resolved
             })
@@ -85,6 +82,7 @@ impl Element for Sequence {
     }
 
     fn update_state(&self, state: &mut ToneGenerationState) {
+        let post_offset = state.offset + self.length(state);
         match self.state_member {
             Some(StateMember::First) => {
                 if let Some(item) = self.items.get(0) {
@@ -98,6 +96,7 @@ impl Element for Sequence {
             }
             None => (),
         }
+        state.offset = post_offset;
     }
 }
 impl Sequence {

@@ -13,12 +13,6 @@ mod set;
 mod state_member;
 mod step;
 mod tone_generation_state;
-use crate::{
-    metronome::{Beat, Metronome},
-    nodes::instrument::Tone,
-    pitch::PitchStandard,
-};
-use std::fmt;
 
 pub use chord::Chord;
 pub use duration::Duration;
@@ -36,11 +30,17 @@ pub use state_member::StateMember;
 pub use step::Step;
 pub use tone_generation_state::ToneGenerationState;
 
+use crate::{
+    metronome::{Beat, Metronome},
+    nodes::instrument::Tone,
+    pitch::PitchStandard,
+};
+use std::fmt;
+
 pub trait Element: fmt::Debug + Send {
     /// Resolve all the section's notes to playable instrument tones.
     fn tones(
         &self,
-        _offset: Beat,
         _metronome: &Metronome,
         _pitch_standard: &dyn PitchStandard,
         _state: &ToneGenerationState,

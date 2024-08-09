@@ -3,10 +3,7 @@ use crate::{
     nodes::instrument::Tone,
     pitch::MaybePitchStandard,
 };
-use libdaw::{
-    metronome::Beat as DawBeat,
-    notation::{Element as Inner, ItemElement as DawItemElement},
-};
+use libdaw::notation::{Element as Inner, ItemElement as DawItemElement};
 use pyo3::{pyclass, pymethods, types::PyAnyMethods as _, Bound, Python};
 use std::{
     ops::Deref,
@@ -71,26 +68,19 @@ impl Element {
     #[pyo3(
         signature = (
             *,
-            offset=Beat(DawBeat::ZERO),
             metronome=MaybeMetronome::default(),
             pitch_standard=MaybePitchStandard::default(),
         )
     )]
     pub fn tones(
         &self,
-        offset: Beat,
         metronome: MaybeMetronome,
         pitch_standard: MaybePitchStandard,
     ) -> Vec<Tone> {
         self.inner
             .lock()
             .expect("poisoned")
-            .tones(
-                offset.0,
-                &metronome,
-                pitch_standard.deref(),
-                &Default::default(),
-            )
+            .tones(&metronome, pitch_standard.deref(), &Default::default())
             .map(Tone)
             .collect()
     }

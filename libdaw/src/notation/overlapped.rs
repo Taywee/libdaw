@@ -22,18 +22,19 @@ pub struct Overlapped {
 impl Element for Overlapped {
     fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
+        let pre_offset = state.offset;
         let mut state = state.clone();
         let pitches: Vec<_> = self
             .items
             .iter()
             .flat_map(move |item| {
+                state.offset = pre_offset;
                 let item = item.lock().expect("poisoned");
-                let resolved = item.tones(offset, metronome, pitch_standard, &state);
+                let resolved = item.tones(metronome, pitch_standard, &state);
                 item.update_state(&mut state);
                 resolved
             })
@@ -56,19 +57,23 @@ impl Element for Overlapped {
             .unwrap_or(Beat::ZERO)
     }
     fn update_state(&self, state: &mut ToneGenerationState) {
+        let pre_offset = state.offset;
+        let post_offset = pre_offset + self.length(state);
         match self.state_member {
             Some(StateMember::First) => {
-                if let Some(item) = self.items.get(0) {
+                if let Some(item) = self.items.first() {
                     item.lock().expect("poisoned").update_state(state);
                 }
             }
             Some(StateMember::Last) => {
                 for item in &self.items {
+                    state.offset = pre_offset;
                     item.lock().expect("poisoned").update_state(state);
                 }
             }
             None => (),
         }
+        state.offset = post_offset;
     }
 }
 impl Overlapped {

@@ -58,7 +58,6 @@ impl Element for ItemElement {
     /// The offset is the beat offset.
     fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
@@ -66,7 +65,7 @@ impl Element for ItemElement {
         self.as_dyn()
             .lock()
             .expect("poisoned")
-            .tones(offset, metronome, pitch_standard, state)
+            .tones(metronome, pitch_standard, state)
     }
 
     fn length(&self, state: &ToneGenerationState) -> Beat {
@@ -116,30 +115,31 @@ pub struct Item {
     pub element: ItemElement,
 }
 
-impl Item {
+impl Element for Item {
     /// Resolve all the section's notes to playable instrument tones.
     /// The offset is the beat offset.
-    pub fn tones(
+    fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
-        self.element.tones(offset, metronome, pitch_standard, state)
+        self.element.tones(metronome, pitch_standard, state)
     }
-    pub fn length(&self, state: &ToneGenerationState) -> Beat {
+    fn length(&self, state: &ToneGenerationState) -> Beat {
         self.element.length(state)
     }
 
-    pub fn update_state(&self, state: &mut ToneGenerationState) {
+    fn update_state(&self, state: &mut ToneGenerationState) {
         self.element.update_state(state)
     }
 
-    pub fn duration(&self, state: &ToneGenerationState) -> Beat {
+    fn duration(&self, state: &ToneGenerationState) -> Beat {
         self.element.duration(state)
     }
+}
 
+impl Item {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         parse::item(input)
     }

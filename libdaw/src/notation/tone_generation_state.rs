@@ -9,6 +9,9 @@ use std::sync::{Arc, Mutex};
 /// generatian.
 #[derive(Debug, Clone)]
 pub struct ToneGenerationState {
+    /// The offset of the playing tones.
+    pub offset: Beat,
+
     /// Previous resolved pitch.
     pub pitch: Pitch,
 
@@ -34,6 +37,7 @@ pub struct ToneGenerationState {
 impl Default for ToneGenerationState {
     fn default() -> Self {
         Self {
+            offset: Beat::ZERO,
             pitch: Pitch {
                 pitch_class: Arc::new(Mutex::new(PitchClass {
                     name: PitchName::C,

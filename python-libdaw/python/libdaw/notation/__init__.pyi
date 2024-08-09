@@ -35,7 +35,6 @@ class Element:
     def tones(
         self,
         *,
-        offset: Beat = Beat(0),
         metronome: Metronome = Metronome(),
         pitch_standard: PitchStandard = A440(),
     ) -> abc.Sequence[Tone]: ...
@@ -108,14 +107,6 @@ class Chord(Element):
     ): ...
     @staticmethod
     def loads(source: str) -> Chord: ...
-
-    def tones(
-        self,
-        *,
-        offset: Beat = Beat(0),
-        metronome: Metronome = Metronome(),
-        pitch_standard: PitchStandard = A440(),
-    ) -> abc.Sequence[Tone]: ...
 
     @property
     def length(self) -> Beat | None: ...

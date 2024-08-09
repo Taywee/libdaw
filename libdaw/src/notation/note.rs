@@ -26,15 +26,14 @@ pub struct Note {
 impl Element for Note {
     fn tones(
         &self,
-        offset: Beat,
         metronome: &Metronome,
         pitch_standard: &dyn PitchStandard,
         state: &ToneGenerationState,
     ) -> Box<dyn Iterator<Item = Tone> + 'static> {
         let frequency = pitch_standard.resolve(&self.pitch.absolute(state));
-        let start = metronome.beat_to_time(offset);
+        let start = metronome.beat_to_time(state.offset);
         let duration = self.duration(state);
-        let end_beat = offset + duration;
+        let end_beat = state.offset + duration;
         let end = metronome.beat_to_time(end_beat);
         let length = end - start;
         Box::new(std::iter::once(Tone {
@@ -61,6 +60,7 @@ impl Element for Note {
         if let Some(duration) = self.duration {
             state.duration = duration;
         }
+        state.offset += state.length;
     }
 }
 

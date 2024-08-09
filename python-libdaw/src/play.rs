@@ -1,6 +1,6 @@
 use crate::{time::Duration, Node};
 use libdaw::Sample;
-use pyo3::{pyfunction, Bound, Python};
+use pyo3::{pyfunction, Bound, PyResult, Python};
 use rodio::{OutputStream, Sink};
 use std::sync::mpsc::{sync_channel, Receiver};
 
@@ -94,16 +94,20 @@ pub fn play(
     channels: u16,
     duration: Option<Duration>,
     grace_sleep: bool,
-) -> crate::Result<()> {
+) -> PyResult<()> {
     let start = std::time::Instant::now();
-    let (_stream, stream_handle) = OutputStream::try_default()?;
-    let sink = Sink::try_new(&stream_handle)?;
+    let (_stream, stream_handle) =
+        OutputStream::try_default().map_err(crate::ErrorWrapper::from)?;
+    let sink = Sink::try_new(&stream_handle).map_err(crate::ErrorWrapper::from)?;
     let (sender, receiver) = sync_channel(sample_rate as usize * 10);
     let duration = duration.map(|duration| duration.0);
     let samples = duration
         .map(|duration| (duration.seconds() * sample_rate as f64) as u64)
         .unwrap_or(u64::MAX);
-    let duration = duration.map(std::time::Duration::try_from).transpose()?;
+    let duration = duration
+        .map(std::time::Duration::try_from)
+        .transpose()
+        .map_err(crate::ErrorWrapper::from)?;
     sink.append(Source {
         sample_rate,
         channels,
@@ -117,7 +121,8 @@ pub fn play(
     for _ in 0..samples {
         py.check_signals()?;
         outputs.clear();
-        node.process(&[], &mut outputs)?;
+        node.process(&[], &mut outputs)
+            .map_err(crate::ErrorWrapper::from)?;
         let mut sample = outputs
             .iter()
             .fold(None, move |acc, stream| match acc {
@@ -127,9 +132,13 @@ pub fn play(
             .unwrap_or_else(move || Sample::default());
         sample.channels.resize(channels as usize, 0.0);
 
-        sender.send(Message::Sample(sample))?;
+        sender
+            .send(Message::Sample(sample))
+            .map_err(crate::ErrorWrapper::from)?;
     }
-    sender.send(Message::Done)?;
+    sender
+        .send(Message::Done)
+        .map_err(crate::ErrorWrapper::from)?;
     while let Some(duration) = duration.and_then(|duration| duration.checked_sub(start.elapsed())) {
         // Still have some time left, sleep in hundredths of seconds so we
         // can check for ctrl-c still.
