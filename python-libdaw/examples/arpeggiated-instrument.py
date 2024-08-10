@@ -7,7 +7,7 @@ from libdaw.nodes.envelope import Point
 from libdaw.nodes import Envelope, Instrument, Graph, Gain
 from libdaw.nodes.instrument import Tone
 from libdaw.nodes.oscillators import Triangle
-from libdaw.notation import Item, Sequence
+from libdaw.notation import Chord, Item, Sequence, Pitch
 from libdaw.time import Time
 
 #import copy
@@ -24,11 +24,7 @@ assert isinstance(sequence, Sequence)
 def arpeggio(speed: float) -> float:
     return speed
 
-def factory(tone: Tone) -> Node:
-    arpeggio_speed = None
-    for tag in tone.tags:
-        arpeggio_speed = eval(tag)
-    print(arpeggio_speed)
+def note_factory(tone: Tone) -> Node:
     graph = Graph()
     envelope = Envelope(
         length=tone.length,
@@ -51,7 +47,19 @@ def factory(tone: Tone) -> Node:
     graph.output(envelope)
     return graph
 
-instrument = Instrument(factory)
+note_instrument = Instrument(note_factory)
+
+def process(item: Item, state):
+    arpeggio_speed: float | None = None
+    match item.element:
+        case Chord():
+    for tag in item.tags:
+        arpeggio_speed = eval(tag)
+    if arpeggio_speed is not None:
+        element = item.element
+        assert isinstance(element, Chord)
+        pitch = element[0]
+
 for tone in sequence.tones():
   instrument.add_tone(tone)
 

@@ -38,6 +38,15 @@ use crate::{
 use std::fmt;
 
 pub trait Element: fmt::Debug + Send {
+    /// Run some processing on the Item itself, and recursively to the sub-items, if applicable.
+    fn process(
+        &mut self,
+        _state: &ToneGenerationState,
+        _callback: &mut FnMut(&mut Self, &ToneGenerationState),
+    ) -> crate::Error<()> {
+        Ok(())
+    }
+
     /// Resolve all the section's notes to playable instrument tones.
     fn tones(
         &self,
