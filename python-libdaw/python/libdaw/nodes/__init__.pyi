@@ -21,7 +21,26 @@ class ConstantValue(Node):
     def __new__(cls: type, value: float): ...
 
 class Custom(Node):
+    '''A custom Node.
+
+    You can either pass a processing callable into this, assign it to its
+    `callable` property, or subclass this with a callable.  If you subclass
+    this, you **must** call super().__init__()
+
+    A subclass may also set the callable, but this is probably pointless.
+    '''
     def __new__(cls: type, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
+    def __init__(self, callable: Callable[[Sequence[Sample]], Sequence[Sample]] | None = None): ...
+
+    @property
+    def callable(self) -> Callable[[Sequence[Sample]], Sequence[Sample]]:
+        '''Returns the callable.
+
+        Will return self if the callable is self, such as for a subclass.
+        '''
+
+    @callable.setter
+    def callable(self, value: Callable[[Sequence[Sample]], Sequence[Sample]]): ...
 
 class Delay(Node):
     def __new__(cls: type, delay: Duration, sample_rate: int = 48000): ...

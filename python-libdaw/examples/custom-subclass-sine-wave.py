@@ -8,13 +8,8 @@ from libdaw.nodes import Custom, Graph, Gain, ConstantValue
 from math import tau, sin
 
 class CustomSine(Custom):
-    def __new__(cls: type[CustomSine], *args, **kwargs):
-        def _callable(_):
-            raise RuntimeError('This will never be called')
-        return Custom.__new__(cls, _callable)
-
     def __init__(self, frequency: float = 256, channels: int = 1, sample_rate: int = 48000):
-        self.callable = self
+        super().__init__()
         self.__channels = channels
         self.__frequency = frequency
         self.__sample_rate = sample_rate

@@ -1,8 +1,8 @@
 use crate::{Node, Sample};
 use libdaw::Node as DawNode;
 use pyo3::{
-    pyclass, pymethods, types::PyAnyMethods as _, Py, PyAny, PyClassInitializer, PyResult,
-    PyTraverseError, PyVisit, Python,
+    exceptions::PyRuntimeError, pyclass, pymethods, types::PyAnyMethods as _, Bound, IntoPy, Py,
+    PyAny, PyClassInitializer, PyResult, PyTraverseError, PyVisit, Python,
 };
 use std::sync::{Arc, Mutex};
 
@@ -37,6 +37,11 @@ impl DawNode for Inner {
     }
 }
 
+/// A custom Node.
+///
+/// You can either pass a processing callable into this, assign it to its
+/// `callable` property, or subclass this with a callable.  If you subclass
+/// this, you **must** call super().__init__()
 #[pyclass(extends = Node, subclass, module = "libdaw.nodes")]
 #[derive(Debug, Clone)]
 pub struct Custom(Arc<Mutex<Inner>>);
@@ -44,26 +49,55 @@ pub struct Custom(Arc<Mutex<Inner>>);
 #[pymethods]
 impl Custom {
     #[new]
-    pub fn new(callable: Py<PyAny>) -> PyClassInitializer<Self> {
-        let inner = Arc::new(Mutex::new(Inner {
-            callable: Some(callable),
-        }));
-        PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
+    #[pyo3(signature = (callable = None))]
+    pub fn new(callable: Option<Py<PyAny>>) -> PyClassInitializer<Self> {
+        match callable {
+            Some(callable) => {
+                let inner = Arc::new(Mutex::new(Inner {
+                    callable: Some(callable),
+                }));
+                PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner))
+            }
+            None => {
+                // Need to construct as None first so it can refer to us.
+                // A non-existant callable only works for the case where a
+                // subclass is being used.  In this case, it should be set up in
+                // the __init__ method.
+                let inner = Arc::new(Mutex::new(Inner { callable: None }));
+                PyClassInitializer::from(Node(inner.clone())).add_subclass(Self(inner.clone()))
+            }
+        }
+    }
+
+    #[pyo3(signature = (callable = None))]
+    pub fn __init__<'py>(self_: &Bound<'py, Self>, py: Python<'py>, callable: Option<Py<PyAny>>) {
+        let inner = self_.borrow_mut().0.clone();
+        let mut lock = inner.lock().expect("poisoned");
+        match callable {
+            Some(callable) => {
+                lock.callable = Some(callable);
+            }
+            None => {
+                lock.callable = Some(self_.clone().unbind().into_py(py));
+            }
+        }
     }
 
     #[getter]
-    fn get_callable(&self) -> Py<PyAny> {
-        self.0
-            .lock()
-            .expect("poisoned")
-            .callable
-            .clone()
-            .expect("cleared")
+    fn get_callable(&self) -> PyResult<Py<PyAny>> {
+        let lock = self.0.lock().expect("poisoned");
+        if let Some(callable) = &lock.callable {
+            Ok(callable.clone())
+        } else {
+            Err(PyRuntimeError::new_err("Callable was None.  This probably means you forgot to set it or you forgot to call super().__init__() in your constructor.  Alternately, it could mean a bug in libdaw."))
+        }
     }
+
     #[setter]
     fn set_callable(&self, callable: Py<PyAny>) {
         self.0.lock().expect("poisoned").callable = Some(callable);
     }
+
     fn __traverse__(&self, visit: PyVisit<'_>) -> std::result::Result<(), PyTraverseError> {
         self.0
             .lock()
